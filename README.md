@@ -5,5 +5,5 @@ This project requires Python version >=3.11. You can manage Python versions usin
 ```sh
 pip install pytest
 pip install -e .
-pytest --grug-lib=../grug-tests/tests.so -s
+pytest --grug-tests-path=../grug-tests -s
 ```

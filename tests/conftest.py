@@ -2,10 +2,7 @@ import ctypes
 from pathlib import Path
 import pytest
 
-# --------------------------------------------------------------------------
-# C callback type definitions
-# --------------------------------------------------------------------------
-
+# Callback type definitions
 compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
 init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
 on_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t) # TODO: Change this ctypes.c_void_p to `struct grug_value values[]`
@@ -13,32 +10,44 @@ dump_file_to_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_
 generate_file_from_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
 game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
 
-# --------------------------------------------------------------------------
-# Pytest CLI option
-# --------------------------------------------------------------------------
-
 def pytest_addoption(parser):
     parser.addoption(
-        "--grug-lib",
+        "--grug-tests-path",
         action="store",
         default=None,
-        help="Path to the shared library (tests.so) containing grug_tests_run()",
+        help="Path to the grug-tests repository",
     )
 
 @pytest.fixture(scope="session")
-def grug_lib(request):
-    lib_path = request.config.getoption("--grug-lib")
-    if not lib_path:
-        pytest.exit("Error: You must specify --grug-lib=path/to/tests.so")
+def grug_tests_path(request):
+    """
+    Returns the path to the grug-tests repository.
+    """
+    path = request.config.getoption("--grug-tests-path")
+    if not path:
+        pytest.exit("Error: You must specify --grug-tests-path=path/to/grug-tests")
 
-    lib_path = Path(lib_path)
+    path = Path(path)
+    if not path.is_dir():
+        pytest.exit(f"Error: Directory not found: {path}")
+
+    return path
+
+
+@pytest.fixture(scope="session")
+def grug_lib(grug_tests_path):
+    """
+    Loads tests.so and sets argument signatures.
+    """
+    lib_path = grug_tests_path / "tests.so"
     if not lib_path.is_file():
         pytest.exit(f"Error: Shared library not found: {lib_path}")
 
     lib = ctypes.CDLL(str(lib_path))
 
-    # grug_tests_run signature
+    # Correct signature of grug_tests_run
     lib.grug_tests_run.argtypes = [
+        ctypes.c_char_p,
         compile_grug_file_t,
         init_globals_fn_dispatcher_t,
         on_fn_dispatcher_t,
