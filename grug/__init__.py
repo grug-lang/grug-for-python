@@ -1,6 +1,6 @@
 from . import backend as default_backend
-from . import frontend as default_frontend
 from . import bindings as default_bindings
+from . import frontend as default_frontend
 from .loader import load_component
 
 

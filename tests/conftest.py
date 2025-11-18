@@ -1,14 +1,20 @@
 import ctypes
 from pathlib import Path
+
 import pytest
 
 # Callback type definitions
 compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
 init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
-on_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t) # TODO: Change this ctypes.c_void_p to `struct grug_value values[]`
+on_fn_dispatcher_t = ctypes.CFUNCTYPE(
+    None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
+)  # TODO: Change this ctypes.c_void_p to `struct grug_value values[]`
 dump_file_to_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
-generate_file_from_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
+generate_file_from_json_t = ctypes.CFUNCTYPE(
+    ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p
+)
 game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -17,6 +23,7 @@ def pytest_addoption(parser):
         default=None,
         help="Path to the grug-tests repository",
     )
+
 
 @pytest.fixture(scope="session")
 def grug_tests_path(request):

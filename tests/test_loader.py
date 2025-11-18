@@ -25,8 +25,7 @@ def test_override_via_grug_toml(tmp_path, monkeypatch):
     # 1. Create a fake module acting as override
     override_mod = tmp_path / "fake_override.py"
     override_mod.write_text(
-        "class CustomBackend:\n"
-        "    def run(self): return 'override'\n"
+        "class CustomBackend:\n" "    def run(self): return 'override'\n"
     )
 
     # 2. Prepend temp dir to sys.path BEFORE changing cwd
@@ -35,9 +34,7 @@ def test_override_via_grug_toml(tmp_path, monkeypatch):
 
     # 3. Create a grug.toml pointing to our fake module
     toml_file = tmp_path / "grug.toml"
-    toml_file.write_text(
-        "[grug]\nbackend = \"fake_override:CustomBackend\"\n"
-    )
+    toml_file.write_text('[grug]\nbackend = "fake_override:CustomBackend"\n')
 
     # 4. Access Backend triggers lazy loading
     backend_instance = grug.Backend()
@@ -63,6 +60,7 @@ def test_override_via_entrypoints(monkeypatch):
         class Wrapper:
             def select(self, group):
                 return ep_groups.get(group, [])
+
         return Wrapper()
 
     monkeypatch.setattr("grug.loader.entry_points", mock_entry_points)
