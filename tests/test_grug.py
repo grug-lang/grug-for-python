@@ -1,5 +1,7 @@
 import ctypes
 
+import pytest
+
 from grug import Bindings
 
 
@@ -52,3 +54,10 @@ def test_grug(grug_lib, grug_tests_path):
         game_fn_error,
         None,
     )
+
+
+# Enables stepping through code with VS Code its Python debugger.
+# Click the dropdown button next to the play button at the top-right of the file,
+# and then click `Python Debugger: Debug Python File`.
+if __name__ == "__main__":
+    pytest.main(["--grug-tests-path=../grug-tests", "-s", "-v", __file__])
