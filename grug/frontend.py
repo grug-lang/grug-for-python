@@ -1,8 +1,9 @@
 from enum import Enum, auto
 
 SPACES_PER_INDENT = 4
-
-# -------------------- Tokenizer --------------------
+MAX_VARIABLES_PER_FUNCTION = 1000
+MAX_GLOBAL_VARIABLES = 1000
+MAX_FILE_ENTITY_TYPE_LENGTH = 420
 
 
 class TokenType(Enum):
@@ -54,7 +55,6 @@ class Token:
         self.value = value
 
     def __repr__(self):
-        # Use repr() to escape special characters
         return f"{self.type.name}({repr(self.value)})"
 
 
@@ -222,23 +222,23 @@ class Tokenizer:
         )
 
 
-# -------------------- Parser --------------------
-
-
 class ParserError(Exception):
     pass
 
 
 class Expr:
     def __init__(self, expr_type, value=None, operands=None):
-        self.type = expr_type  # e.g., 'call', 'variable', 'literal'
+        self.type = expr_type
         self.value = value
         self.operands = operands or []
+        # Type propagation fields
+        self.result_type = None
+        self.result_type_name = None
 
 
 class Statement:
     def __init__(self, stmt_type, **kwargs):
-        self.type = stmt_type  # e.g., 'call', 'variable', 'return', 'if', 'while'
+        self.type = stmt_type
         self.__dict__.update(kwargs)
 
 
@@ -257,6 +257,8 @@ class HelperFn:
         self.return_type = "void"
         self.return_type_name = None
         self.body_statements = []
+        self.calls_helper_fn = False
+        self.contains_while_loop = False
 
 
 class OnFn:
@@ -265,6 +267,16 @@ class OnFn:
         self.arguments = []
         self.argument_count = 0
         self.body_statements = []
+        self.calls_helper_fn = False
+        self.contains_while_loop = False
+
+
+class Variable:
+    def __init__(self, name, var_type, type_name, offset=0):
+        self.name = name
+        self.type = var_type
+        self.type_name = type_name
+        self.offset = offset
 
 
 class Parser:
@@ -272,14 +284,22 @@ class Parser:
         self.tokens = tokens
         self.global_statements = []
         self.helper_fns = []
+        self.on_fns = []
         self.statements = []
         self.arguments = []
         self.parsing_depth = 0
+        self.called_helper_fn_names = set()
 
     def reset_parsing(self):
         self.global_statements = []
         self.parsing_depth = 0
         self.indentation = 0
+
+    def seen_called_helper_fn_name(self, name):
+        return name in self.called_helper_fn_names
+
+    def add_called_helper_fn_name(self, name):
+        self.called_helper_fn_names.add(name)
 
     def parse(self):
         self.reset_parsing()
@@ -290,16 +310,15 @@ class Parser:
         newline_required = False
         just_seen_global = False
 
-        i = 0
-        while i < len(self.tokens):
-            token = self.tokens[i]
+        i = [0]  # Use a list to allow modification by called functions
+        while i[0] < len(self.tokens):
+            token = self.tokens[i[0]]
             tname = token.type.name
 
-            # Global variable
             if (
                 tname == "WORD_TOKEN"
-                and i + 1 < len(self.tokens)
-                and self.tokens[i + 1].type.name == "COLON_TOKEN"
+                and i[0] + 1 < len(self.tokens)
+                and self.tokens[i[0] + 1].type.name == "COLON_TOKEN"
             ):
                 if seen_on_fn:
                     raise ParserError(
@@ -307,30 +326,30 @@ class Parser:
                     )
                 if newline_required and not just_seen_global:
                     raise ParserError(
-                        f"Expected an empty line, on line {self.get_token_line_number(i)}"
+                        f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
                     )
 
-                # Parse global variable
-                var_stmt = self.parse_local_variable([i])
                 self.global_statements.append(
-                    {"type": "global_variable", "variable": var_stmt}
+                    {
+                        "type": "global_variable",
+                        "variable": self.parse_global_variable(i),
+                    }
                 )
 
-                i += 1  # consume newline
-                if i < len(self.tokens) and self.tokens[i].type.name == "NEWLINE_TOKEN":
-                    i += 1
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
 
                 newline_allowed = True
                 newline_required = True
+
                 just_seen_global = True
+
                 continue
 
-            # on_ function
             elif (
                 tname == "WORD_TOKEN"
                 and token.value.startswith("on_")
-                and i + 1 < len(self.tokens)
-                and self.tokens[i + 1].type.name == "OPEN_PARENTHESIS_TOKEN"
+                and i[0] + 1 < len(self.tokens)
+                and self.tokens[i[0] + 1].type.name == "OPEN_PARENTHESIS_TOKEN"
             ):
                 if self.helper_fns:
                     raise ParserError(
@@ -338,67 +357,75 @@ class Parser:
                     )
                 if newline_required:
                     raise ParserError(
-                        f"Expected an empty line, on line {self.get_token_line_number(i)}"
+                        f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
                     )
 
-                fn = self.parse_on_fn([i])
+                fn = self.parse_on_fn(i)
+                self.on_fns.append(fn)
+
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
+
                 seen_on_fn = True
+
                 newline_allowed = True
                 newline_required = True
+
                 just_seen_global = False
 
-                # Already added to global_statements inside parse_on_fn()
                 continue
 
-            # helper_ function
             elif (
                 tname == "WORD_TOKEN"
                 and token.value.startswith("helper_")
-                and i + 1 < len(self.tokens)
-                and self.tokens[i + 1].type.name == "OPEN_PARENTHESIS_TOKEN"
+                and i[0] + 1 < len(self.tokens)
+                and self.tokens[i[0] + 1].type.name == "OPEN_PARENTHESIS_TOKEN"
             ):
                 if newline_required:
                     raise ParserError(
-                        f"Expected an empty line, on line {self.get_token_line_number(i)}"
+                        f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
                     )
 
-                fn = self.parse_helper_fn([i])
+                fn = self.parse_helper_fn(i)
+                self.helper_fns.append(fn)
+
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
+
                 newline_allowed = True
                 newline_required = True
+
                 just_seen_global = False
 
-                # Already added to helper_fns and global_statements inside parse_helper_fn()
                 continue
 
-            # Empty line
             elif tname == "NEWLINE_TOKEN":
                 if not newline_allowed:
                     raise ParserError(
-                        f"Unexpected empty line, on line {self.get_token_line_number(i)}"
+                        f"Unexpected empty line, on line {self.get_token_line_number(i[0])}"
                     )
+
                 seen_newline = True
+
                 newline_allowed = False
                 newline_required = False
+
                 just_seen_global = False
 
                 self.global_statements.append({"type": "empty_line"})
-                i += 1
+                i[0] += 1
                 continue
 
-            # Comment
             elif tname == "COMMENT_TOKEN":
                 newline_allowed = True
                 self.global_statements.append(
                     {"type": "comment", "comment": token.value}
                 )
-                i += 1
-                if i < len(self.tokens) and self.tokens[i].type.name == "NEWLINE_TOKEN":
-                    i += 1
+                i[0] += 1
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
                 continue
 
             else:
                 raise ParserError(
-                    f"Unexpected token '{token.value}' on line {self.get_token_line_number(i)}"
+                    f"Unexpected token '{token.value}' on line {self.get_token_line_number(i[0])}"
                 )
 
         if seen_newline and not newline_allowed:
@@ -406,7 +433,6 @@ class Parser:
                 f"Unexpected empty line, on line {self.get_token_line_number(len(self.tokens)-1)}"
             )
 
-    # Token helpers
     def peek_token(self, token_index):
         if token_index >= len(self.tokens):
             raise ParserError(
@@ -416,9 +442,7 @@ class Parser:
 
     def consume_token(self, i):
         token_index = i[0]
-        token = self.peek_token(
-            token_index
-        )  # uses the new peek_token with bounds check
+        token = self.peek_token(token_index)
         i[0] += 1
         return token
 
@@ -453,7 +477,6 @@ class Parser:
             i[0] += 1
             return Expr("literal", float(token.value))
         elif token.type == TokenType.WORD_TOKEN:
-            # Variable or function call
             next_tok = self.peek_token(i[0] + 1)
             if next_tok and next_tok.type == TokenType.OPEN_PARENTHESIS_TOKEN:
                 return self.parse_call(i)
@@ -476,7 +499,6 @@ class Parser:
                 next_tok.type == TokenType.COLON_TOKEN
                 or next_tok.type == TokenType.SPACE_TOKEN
             ):
-                # local variable
                 return self.parse_local_variable(i)
             else:
                 raise ParserError(
@@ -492,7 +514,7 @@ class Parser:
                 i[0] += 1
                 return Statement("return", has_value=False)
             else:
-                expr = self.parse_expression(i)
+                expr = self.parse_full_expression(i)
                 return Statement("return", has_value=True, value=expr)
         elif token.type == TokenType.WHILE_TOKEN:
             i[0] += 1
@@ -542,13 +564,11 @@ class Parser:
         fn_token = self.consume_token(i)
         fn = HelperFn(fn_token.value)
 
-        # Ensure the helper was called before defining it
         if not self.seen_called_helper_fn_name(fn.fn_name):
             raise ParserError(
                 f"{fn.fn_name}() is defined before the first time it gets called"
             )
 
-        # Arguments
         self.consume_token_type(i, TokenType.OPEN_PARENTHESIS_TOKEN)
         next_tok = self.peek_token(i[0])
         if next_tok.type == TokenType.WORD_TOKEN:
@@ -556,7 +576,6 @@ class Parser:
             fn.argument_count = len(fn.arguments)
         self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
 
-        # Optional return type
         tok_space = self.peek_token(i[0])
         fn.return_type = "void"
         if tok_space and tok_space.type == TokenType.SPACE_TOKEN:
@@ -567,12 +586,10 @@ class Parser:
                 fn.return_type = type_token.value
                 fn.return_type_name = type_token.value
 
-        # Body statements
         fn.body_statements = self.parse_statements(i)
         if all(s.type in ("empty_line", "comment") for s in fn.body_statements):
             raise ParserError(f"{fn.fn_name}() can't be empty")
 
-        # Store function
         self.helper_fns.append(fn)
         self.global_statements.append({"type": "helper_fn", "helper_fn": fn})
         return fn
@@ -581,7 +598,6 @@ class Parser:
         fn_token = self.consume_token(i)
         fn = OnFn(fn_token.value)
 
-        # Arguments
         self.consume_token_type(i, TokenType.OPEN_PARENTHESIS_TOKEN)
         next_tok = self.peek_token(i[0])
         if next_tok.type == TokenType.WORD_TOKEN:
@@ -589,12 +605,10 @@ class Parser:
             fn.argument_count = len(fn.arguments)
         self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
 
-        # Body statements
         fn.body_statements = self.parse_statements(i)
         if all(s.type in ("empty_line", "comment") for s in fn.body_statements):
             raise ParserError(f"{fn.fn_name}() can't be empty")
 
-        # Store function
         self.global_statements.append({"type": "on_fn", "on_fn": fn})
         return fn
 
@@ -605,7 +619,6 @@ class Parser:
         self.consume_space(i)
         self.consume_token_type(i, TokenType.OPEN_BRACE_TOKEN)
 
-        # Consume first newline after opening brace
         if self.peek_token(i[0]).type == TokenType.NEWLINE_TOKEN:
             i[0] += 1
 
@@ -633,15 +646,12 @@ class Parser:
             else:
                 newline_allowed = True
 
-                # Consume indentation
                 self.consume_indentation(i)
 
-                # Parse statement
                 stmt = self.parse_statement(i)
                 stmts.append(stmt)
                 body_statement_count += 1
 
-                # Consume newline after statement
                 if self.peek_token(i[0]).type == TokenType.NEWLINE_TOKEN:
                     i[0] += 1
 
@@ -652,8 +662,11 @@ class Parser:
 
         self.indentation -= 1
 
-        # Consume closing brace
+        if self.indentation > 0:
+            self.consume_indentation(i)
+
         self.consume_token_type(i, TokenType.CLOSE_BRACE_TOKEN)
+
         self.decrease_parsing_depth()
 
         return stmts
@@ -706,10 +719,6 @@ class Parser:
         self.parsing_depth -= 1
 
     def parse_local_variable(self, i):
-        """
-        Parse a local variable declaration with optional type and required assignment.
-        Example: x: i32 = 42
-        """
         name_token_index = i[0]
         var_token = self.consume_token(i)
         var_name = var_token.value
@@ -718,7 +727,6 @@ class Parser:
         var_type = None
         var_type_name = None
 
-        # Optional type after colon
         if self.peek_token(i[0]).type == TokenType.COLON_TOKEN:
             i[0] += 1
 
@@ -735,9 +743,7 @@ class Parser:
                 )
 
             has_type = True
-            var_type = (
-                type_token.value
-            )  # You could convert this via parse_type if needed
+            var_type = type_token.value
             var_type_name = type_token.value
 
             if var_type in ("resource", "entity"):
@@ -745,7 +751,6 @@ class Parser:
                     f"The variable '{var_name}' can't have '{var_type}' as its type"
                 )
 
-        # Ensure a space exists before assignment
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
             raise ParserError(
                 f"The variable '{var_name}' was not assigned a value on line {self.get_token_line_number(name_token_index)}"
@@ -753,7 +758,6 @@ class Parser:
 
         self.consume_space(i)
 
-        # Expect assignment token
         self.consume_token_type(i, TokenType.ASSIGNMENT_TOKEN)
 
         if var_name == "me":
@@ -763,8 +767,7 @@ class Parser:
 
         self.consume_space(i)
 
-        # Parse assignment expression
-        assignment_expr = self.parse_expression(i)
+        assignment_expr = self.parse_full_expression(i)
 
         return Statement(
             "variable",
@@ -800,7 +803,6 @@ class Parser:
             self.decrease_parsing_depth()
             return expr
 
-        # Must be an identifier to call
         if expr.type != "identifier":
             raise ParserError(
                 f"Unexpected '(' after non-identifier at line {self.get_token_line_number(i[0])}"
@@ -810,7 +812,7 @@ class Parser:
         if fn_name.startswith("helper_"):
             self.add_called_helper_fn_name(fn_name)
 
-        i[0] += 1  # consume '('
+        i[0] += 1
         args = []
 
         while True:
@@ -818,11 +820,11 @@ class Parser:
             if token.type == TokenType.CLOSE_PARENTHESIS_TOKEN:
                 i[0] += 1
                 break
-            arg = self.parse_expression(i)
+            arg = self.parse_full_expression(i)
             args.append(arg)
             token = self.peek_token(i[0])
             if token.type == TokenType.COMMA_TOKEN:
-                i[0] += 1  # consume comma
+                i[0] += 1
                 self.consume_space(i)
             elif token.type != TokenType.CLOSE_PARENTHESIS_TOKEN:
                 raise ParserError(
@@ -847,7 +849,7 @@ class Parser:
         tname = token.type.name
         if tname == "OPEN_PARENTHESIS_TOKEN":
             i[0] += 1
-            inner = self.parse_expression(i)
+            inner = self.parse_full_expression(i)
             self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
             expr.type = "paren"
             expr.operands = [inner]
@@ -897,7 +899,7 @@ class Parser:
                     TokenType.REMAINDER_TOKEN,
                 )
             ):
-                i[0] += 1  # skip space
+                i[0] += 1
                 op_token = self.consume_token(i)
                 self.consume_space(i)
                 right = self.parse_unary(i)
@@ -1021,18 +1023,12 @@ class Parser:
         return expr
 
     def parse_full_expression(self, i):
-        """
-        Entry point for parsing an expression, mirrors C parse_expression().
-        """
         self.increase_parsing_depth()
         expr = self.parse_or(i)
         self.decrease_parsing_depth()
         return expr
 
     def parse_if_statement(self, i):
-        """
-        Parse an if statement, including optional else and else-if chains.
-        """
         self.increase_parsing_depth()
         self.consume_space(i)
         condition = self.parse_full_expression(i)
@@ -1050,7 +1046,7 @@ class Parser:
                     tok_next.type == TokenType.SPACE_TOKEN
                     and self.peek_token(i[0] + 1).type == TokenType.IF_TOKEN
                 ):
-                    i[0] += 2  # skip SPACE + IF
+                    i[0] += 2
                     else_body = [self.parse_if_statement(i)]
                 else:
                     self.consume_space(i)
@@ -1062,9 +1058,6 @@ class Parser:
         )
 
     def parse_while_statement(self, i):
-        """
-        Parse a while statement, respecting spaces before the condition.
-        """
         self.increase_parsing_depth()
         self.consume_space(i)
         condition = self.parse_full_expression(i)
@@ -1073,8 +1066,634 @@ class Parser:
         return Statement("while", condition=condition, body=body)
 
 
+class TypePropagationError(Exception):
+    pass
+
+
+class TypePropagator:
+    def __init__(self, parser, mod_name="default", entity_type="entity"):
+        self.parser = parser
+        self.mod = mod_name
+        self.file_entity_type = entity_type
+
+        # Variable storage
+        self.variables = []
+        self.variables_size = 0
+        self.buckets_variables = {}
+
+        self.global_variables = []
+        self.global_variables_size = 0
+        self.globals_bytes = 0
+        self.buckets_global_variables = {}
+
+        # Function context
+        self.fn_return_type = None
+        self.fn_return_type_name = None
+        self.filled_fn_name = None
+
+        # Flags for current function being analyzed
+        self.parsed_fn_calls_helper_fn = False
+        self.parsed_fn_contains_while_loop = False
+
+        # Type sizes mapping
+        self.type_sizes = {
+            "bool": 1,
+            "i32": 4,
+            "f32": 4,
+            "string": 8,
+            "id": 8,
+            "resource": 8,
+            "entity": 8,
+        }
+
+        # Mock game functions and entity data (would come from mod_api.json)
+        self.game_functions = {}
+        self.helper_functions = {}
+        self.entity_on_functions = {}
+
+    def reset_filling(self):
+        self.global_variables = []
+        self.global_variables_size = 0
+        self.globals_bytes = 0
+        self.buckets_global_variables = {}
+
+    def elf_hash(self, s):
+        """Simple hash function for variable lookup"""
+        h = 0
+        for c in s:
+            h = (h << 4) + ord(c)
+            g = h & 0xF0000000
+            if g:
+                h ^= g >> 24
+            h &= ~g
+        return h
+
+    def get_global_variable(self, name):
+        bucket = self.elf_hash(name) % MAX_GLOBAL_VARIABLES
+        if bucket not in self.buckets_global_variables:
+            return None
+
+        for var in self.buckets_global_variables[bucket]:
+            if var.name == name:
+                return var
+        return None
+
+    def add_global_variable(self, name, var_type, type_name):
+        if self.global_variables_size >= MAX_GLOBAL_VARIABLES:
+            raise TypePropagationError(
+                f"There are more than {MAX_GLOBAL_VARIABLES} global variables in a grug file"
+            )
+
+        if self.get_global_variable(name):
+            raise TypePropagationError(
+                f"The global variable '{name}' shadows an earlier global variable"
+            )
+
+        var = Variable(name, var_type, type_name, self.globals_bytes)
+        self.global_variables.append(var)
+
+        self.globals_bytes += self.type_sizes.get(var_type, 8)
+
+        bucket = self.elf_hash(name) % MAX_GLOBAL_VARIABLES
+        if bucket not in self.buckets_global_variables:
+            self.buckets_global_variables[bucket] = []
+        self.buckets_global_variables[bucket].append(var)
+
+        self.global_variables_size += 1
+
+    def get_local_variable(self, name):
+        if self.variables_size == 0:
+            return None
+
+        bucket = self.elf_hash(name) % MAX_VARIABLES_PER_FUNCTION
+        if bucket not in self.buckets_variables:
+            return None
+
+        for var in self.buckets_variables[bucket]:
+            if var.name == name and var.offset != float("inf"):
+                return var
+        return None
+
+    def get_variable(self, name):
+        var = self.get_local_variable(name)
+        if not var:
+            var = self.get_global_variable(name)
+        return var
+
+    def add_local_variable(self, name, var_type, type_name):
+        if self.variables_size >= MAX_VARIABLES_PER_FUNCTION:
+            raise TypePropagationError(
+                f"There are more than {MAX_VARIABLES_PER_FUNCTION} variables in a function"
+            )
+
+        if self.get_local_variable(name):
+            raise TypePropagationError(
+                f"The local variable '{name}' shadows an earlier local variable"
+            )
+
+        if self.get_global_variable(name):
+            raise TypePropagationError(
+                f"The local variable '{name}' shadows an earlier global variable"
+            )
+
+        var = Variable(name, var_type, type_name, 0)
+        self.variables.append(var)
+
+        bucket = self.elf_hash(name) % MAX_VARIABLES_PER_FUNCTION
+        if bucket not in self.buckets_variables:
+            self.buckets_variables[bucket] = []
+        self.buckets_variables[bucket].append(var)
+
+        self.variables_size += 1
+
+    def is_wrong_type(self, a, b, a_name, b_name):
+        if a != b:
+            return True
+        if a != "id":
+            return False
+        return a_name != b_name
+
+    def validate_entity_string(self, string):
+        if not string:
+            raise TypePropagationError("Entities can't be empty strings")
+
+        # Basic validation - in real implementation would check mod names, etc.
+        for c in string:
+            if not (c.islower() or c.isdigit() or c in ("_", "-", ":")):
+                raise TypePropagationError(
+                    f"Entity '{string}' contains invalid character '{c}'"
+                )
+
+    def validate_resource_string(self, string, resource_extension):
+        if not string:
+            raise TypePropagationError("Resources can't be empty strings")
+
+        if string.startswith("/"):
+            raise TypePropagationError(
+                f'Remove the leading slash from resource "{string}"'
+            )
+
+        if string.endswith("/"):
+            raise TypePropagationError(
+                f'Remove the trailing slash from resource "{string}"'
+            )
+
+        if "\\" in string:
+            raise TypePropagationError(
+                f"Replace '\\' with '/' in resource \"{string}\""
+            )
+
+        if "//" in string:
+            raise TypePropagationError(
+                f"Replace '//' with '/' in resource \"{string}\""
+            )
+
+        if not string.endswith(resource_extension):
+            raise TypePropagationError(
+                f"The resource '{string}' was supposed to have extension '{resource_extension}'"
+            )
+
+    def check_arguments(self, params, call_expr):
+        fn_name = call_expr.value
+        args = call_expr.operands
+
+        if len(args) < len(params):
+            raise TypePropagationError(
+                f"Function call '{fn_name}' expected argument '{params[len(args)].name}'"
+            )
+
+        if len(args) > len(params):
+            raise TypePropagationError(
+                f"Function call '{fn_name}' got unexpected extra argument"
+            )
+
+        for i, (arg, param) in enumerate(zip(args, params)):
+            # Handle resource/entity string conversions
+            if arg.type == "string" and param.type == "resource":
+                arg.result_type = "resource"
+                arg.result_type_name = "resource"
+                arg.type = "resource"
+                self.validate_resource_string(
+                    arg.value,
+                    (
+                        param.resource_extension
+                        if hasattr(param, "resource_extension")
+                        else ".png"
+                    ),
+                )
+            elif arg.type == "string" and param.type == "entity":
+                arg.result_type = "entity"
+                arg.result_type_name = "entity"
+                arg.type = "entity"
+                self.validate_entity_string(arg.value)
+
+            if arg.result_type == "void":
+                raise TypePropagationError(
+                    f"Function call '{fn_name}' expected type {param.type_name} for argument '{param.name}'"
+                )
+
+            if param.type_name != "id" and self.is_wrong_type(
+                arg.result_type, param.type, arg.result_type_name, param.type_name
+            ):
+                raise TypePropagationError(
+                    f"Function call '{fn_name}' expected type {param.type_name} for argument '{param.name}', but got {arg.result_type_name}"
+                )
+
+    def fill_call_expr(self, expr):
+        # Fill argument expressions first
+        for arg in expr.operands:
+            self.fill_expr(arg)
+
+        fn_name = expr.value
+
+        if fn_name.startswith("helper_"):
+            self.parsed_fn_calls_helper_fn = True
+
+        # Check if it's a helper function
+        if fn_name in self.helper_functions:
+            helper_fn = self.helper_functions[fn_name]
+            expr.result_type = helper_fn.return_type
+            expr.result_type_name = helper_fn.return_type_name
+            self.check_arguments(helper_fn.arguments, expr)
+            return
+
+        # Check if it's a game function
+        if fn_name in self.game_functions:
+            game_fn = self.game_functions[fn_name]
+            expr.result_type = game_fn["return_type"]
+            expr.result_type_name = game_fn["return_type_name"]
+            # Would check arguments here
+            return
+
+        if fn_name.startswith("on_"):
+            raise TypePropagationError(
+                f"Mods aren't allowed to call their own on_ functions, but '{fn_name}' was called"
+            )
+        else:
+            raise TypePropagationError(f"The function '{fn_name}' does not exist")
+
+    def fill_binary_expr(self, expr):
+        left = expr.operands[0]
+        right = expr.operands[1]
+
+        self.fill_expr(left)
+        self.fill_expr(right)
+
+        op_name = expr.value
+
+        # Map token type names to operators for error messages
+        op_str = op_name.replace("_TOKEN", "").replace("_", " ").lower()
+
+        if left.result_type == "string":
+            if op_name not in ("EQUALS_TOKEN", "NOT_EQUALS_TOKEN"):
+                raise TypePropagationError(
+                    f"You can't use the {op_str} operator on a string"
+                )
+
+        is_id = left.result_type_name == "id" or right.result_type_name == "id"
+        if not is_id and self.is_wrong_type(
+            left.result_type,
+            right.result_type,
+            left.result_type_name,
+            right.result_type_name,
+        ):
+            raise TypePropagationError(
+                f"Left and right operands of binary expression must have same type, got {left.result_type_name} and {right.result_type_name}"
+            )
+
+        if op_name in ("EQUALS_TOKEN", "NOT_EQUALS_TOKEN"):
+            expr.result_type = "bool"
+            expr.result_type_name = "bool"
+        elif op_name in (
+            "GREATER_OR_EQUAL_TOKEN",
+            "GREATER_TOKEN",
+            "LESS_OR_EQUAL_TOKEN",
+            "LESS_TOKEN",
+        ):
+            if left.result_type not in ("i32", "f32"):
+                raise TypePropagationError(f"'{op_str}' operator expects i32 or f32")
+            expr.result_type = "bool"
+            expr.result_type_name = "bool"
+        elif op_name in ("AND_TOKEN", "OR_TOKEN"):
+            if left.result_type != "bool":
+                raise TypePropagationError(f"'{op_str}' operator expects bool")
+            expr.result_type = "bool"
+            expr.result_type_name = "bool"
+        elif op_name in (
+            "PLUS_TOKEN",
+            "MINUS_TOKEN",
+            "MULTIPLICATION_TOKEN",
+            "DIVISION_TOKEN",
+        ):
+            if left.result_type not in ("i32", "f32"):
+                raise TypePropagationError(f"'{op_str}' operator expects i32 or f32")
+            expr.result_type = left.result_type
+            expr.result_type_name = left.result_type_name
+        elif op_name == "REMAINDER_TOKEN":
+            if left.result_type != "i32":
+                raise TypePropagationError("'%' operator expects i32")
+            expr.result_type = "i32"
+            expr.result_type_name = "i32"
+
+    def fill_expr(self, expr):
+        if expr.type in ("true", "false"):
+            expr.result_type = "bool"
+            expr.result_type_name = "bool"
+        elif expr.type == "string":
+            expr.result_type = "string"
+            expr.result_type_name = "string"
+        elif expr.type in ("resource", "entity"):
+            raise TypePropagationError(f"Unexpected {expr.type} expression")
+        elif expr.type == "identifier":
+            var = self.get_variable(expr.value)
+            if not var:
+                raise TypePropagationError(
+                    f"The variable '{expr.value}' does not exist"
+                )
+            expr.result_type = var.type
+            expr.result_type_name = var.type_name
+        elif expr.type == "i32":
+            expr.result_type = "i32"
+            expr.result_type_name = "i32"
+        elif expr.type == "f32":
+            expr.result_type = "f32"
+            expr.result_type_name = "f32"
+        elif expr.type == "unary":
+            op = expr.value
+            inner = expr.operands[0]
+
+            # Check for double unary
+            if inner.type == "unary" and inner.value == op:
+                raise TypePropagationError(
+                    f"Found '{op}' directly next to another '{op}', which can be simplified"
+                )
+
+            self.fill_expr(inner)
+            expr.result_type = inner.result_type
+            expr.result_type_name = inner.result_type_name
+
+            if op == "NOT_TOKEN":
+                if expr.result_type != "bool":
+                    raise TypePropagationError(
+                        f"Found 'not' before {expr.result_type_name}, but it can only be put before a bool"
+                    )
+            elif op == "MINUS_TOKEN":
+                if expr.result_type not in ("i32", "f32"):
+                    raise TypePropagationError(
+                        f"Found '-' before {expr.result_type_name}, but it can only be put before i32 or f32"
+                    )
+        elif expr.type in ("binary", "logical"):
+            self.fill_binary_expr(expr)
+        elif expr.type == "call":
+            self.fill_call_expr(expr)
+        elif expr.type == "paren":
+            self.fill_expr(expr.operands[0])
+            expr.result_type = expr.operands[0].result_type
+            expr.result_type_name = expr.operands[0].result_type_name
+
+    def fill_variable_statement(self, stmt):
+        # Fill the assignment expression first
+        self.fill_expr(stmt.assignment_expr)
+
+        var = self.get_variable(stmt.name)
+
+        if stmt.has_type:
+            if var:
+                raise TypePropagationError(f"The variable '{stmt.name}' already exists")
+
+            if stmt.var_type_name != "id" and self.is_wrong_type(
+                stmt.var_type,
+                stmt.assignment_expr.result_type,
+                stmt.var_type_name,
+                stmt.assignment_expr.result_type_name,
+            ):
+                raise TypePropagationError(
+                    f"Can't assign {stmt.assignment_expr.result_type_name} to '{stmt.name}', which has type {stmt.var_type_name}"
+                )
+
+            self.add_local_variable(stmt.name, stmt.var_type, stmt.var_type_name)
+        else:
+            if not var:
+                raise TypePropagationError(
+                    f"Can't assign to variable '{stmt.name}', since it does not exist"
+                )
+
+            if var.type_name != "id" and self.is_wrong_type(
+                var.type,
+                stmt.assignment_expr.result_type,
+                var.type_name,
+                stmt.assignment_expr.result_type_name,
+            ):
+                raise TypePropagationError(
+                    f"Can't assign {stmt.assignment_expr.result_type_name} to '{var.name}', which has type {var.type_name}"
+                )
+
+    def mark_local_variables_unreachable(self, statements):
+        for stmt in statements:
+            if stmt.type == "variable" and stmt.has_type:
+                var = self.get_local_variable(stmt.name)
+                if var:
+                    var.offset = float("inf")
+
+    def fill_statements(self, statements):
+        for stmt in statements:
+            if stmt.type == "variable":
+                self.fill_variable_statement(stmt)
+            elif stmt.type == "call":
+                self.fill_call_expr(stmt.expr)
+            elif stmt.type == "if":
+                self.fill_expr(stmt.condition)
+                self.fill_statements(stmt.if_body)
+                if stmt.else_body:
+                    self.fill_statements(stmt.else_body)
+            elif stmt.type == "return":
+                if stmt.has_value:
+                    self.fill_expr(stmt.value)
+
+                    if self.fn_return_type == "void":
+                        raise TypePropagationError(
+                            f"Function '{self.filled_fn_name}' wasn't supposed to return any value"
+                        )
+
+                    if self.fn_return_type_name != "id" and self.is_wrong_type(
+                        stmt.value.result_type,
+                        self.fn_return_type,
+                        stmt.value.result_type_name,
+                        self.fn_return_type_name,
+                    ):
+                        raise TypePropagationError(
+                            f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name}, not {stmt.value.result_type_name}"
+                        )
+                else:
+                    if self.fn_return_type != "void":
+                        raise TypePropagationError(
+                            f"Function '{self.filled_fn_name}' is supposed to return a value of type {self.fn_return_type_name}"
+                        )
+            elif stmt.type == "while":
+                self.fill_expr(stmt.condition)
+                self.fill_statements(stmt.body)
+                self.parsed_fn_contains_while_loop = True
+
+        self.mark_local_variables_unreachable(statements)
+
+    def add_argument_variables(self, arguments):
+        self.variables = []
+        self.variables_size = 0
+        self.buckets_variables = {}
+
+        for arg in arguments:
+            self.add_local_variable(arg.name, arg.type, arg.type_name)
+
+    def fill_helper_fns(self):
+        for fn in self.parser.helper_fns:
+            self.fn_return_type = fn.return_type
+            self.fn_return_type_name = fn.return_type_name
+            self.filled_fn_name = fn.fn_name
+
+            self.add_argument_variables(fn.arguments)
+
+            self.parsed_fn_calls_helper_fn = False
+            self.parsed_fn_contains_while_loop = False
+
+            self.fill_statements(fn.body_statements)
+
+            fn.calls_helper_fn = self.parsed_fn_calls_helper_fn
+            fn.contains_while_loop = self.parsed_fn_contains_while_loop
+
+            if fn.return_type != "void":
+                if not fn.body_statements:
+                    raise TypePropagationError(
+                        f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name} as its last line"
+                    )
+
+                last_stmt = fn.body_statements[-1]
+                if last_stmt.type != "return":
+                    raise TypePropagationError(
+                        f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name} as its last line"
+                    )
+
+    def fill_on_fns(self):
+        for fn in self.parser.on_fns:
+            self.fn_return_type = "void"
+            self.filled_fn_name = fn.fn_name
+
+            # Check if this on_fn is declared by the entity
+            if fn.fn_name not in self.entity_on_functions:
+                raise TypePropagationError(
+                    f"The function '{fn.fn_name}' was not declared by entity '{self.file_entity_type}'"
+                )
+
+            entity_on_fn = self.entity_on_functions[fn.fn_name]
+            params = entity_on_fn["arguments"]
+
+            if len(fn.arguments) < len(params):
+                raise TypePropagationError(
+                    f"Function '{fn.fn_name}' expected parameter '{params[len(fn.arguments)].name}'"
+                )
+
+            if len(fn.arguments) > len(params):
+                raise TypePropagationError(
+                    f"Function '{fn.fn_name}' got unexpected extra parameter '{fn.arguments[len(params)].name}'"
+                )
+
+            for arg, param in zip(fn.arguments, params):
+                if arg.name != param.name:
+                    raise TypePropagationError(
+                        f"Function '{fn.fn_name}' its '{arg.name}' parameter was supposed to be named '{param.name}'"
+                    )
+
+                if self.is_wrong_type(
+                    arg.type, param.type, arg.type_name, param.type_name
+                ):
+                    raise TypePropagationError(
+                        f"Function '{fn.fn_name}' its '{param.name}' parameter was supposed to have type {param.type_name}, but got {arg.type_name}"
+                    )
+
+            self.add_argument_variables(fn.arguments)
+
+            self.parsed_fn_calls_helper_fn = False
+            self.parsed_fn_contains_while_loop = False
+
+            self.fill_statements(fn.body_statements)
+
+            fn.calls_helper_fn = self.parsed_fn_calls_helper_fn
+            fn.contains_while_loop = self.parsed_fn_contains_while_loop
+
+    def check_global_expr(self, expr, name):
+        """Check that global variable expressions don't contain certain calls"""
+        if expr.type in ("true", "false", "string", "i32", "f32", "identifier"):
+            pass
+        elif expr.type in ("resource", "entity"):
+            raise TypePropagationError(f"Unexpected {expr.type} in global expression")
+        elif expr.type == "unary":
+            self.check_global_expr(expr.operands[0], name)
+        elif expr.type in ("binary", "logical"):
+            self.check_global_expr(expr.operands[0], name)
+            self.check_global_expr(expr.operands[1], name)
+        elif expr.type == "call":
+            if expr.value.startswith("helper_"):
+                raise TypePropagationError(
+                    f"The global variable '{name}' isn't allowed to call helper functions"
+                )
+            for arg in expr.operands:
+                self.check_global_expr(arg, name)
+        elif expr.type == "paren":
+            self.check_global_expr(expr.operands[0], name)
+
+    def fill_global_variables(self):
+        # Add the implicit 'me' variable
+        self.add_global_variable("me", "id", self.file_entity_type)
+
+        # Process global variable statements
+        for item in self.parser.global_statements:
+            if item["type"] == "global_variable":
+                stmt = item["variable"]
+
+                self.check_global_expr(stmt.assignment_expr, stmt.name)
+                self.fill_expr(stmt.assignment_expr)
+
+                # Check for assignment to 'me'
+                if stmt.assignment_expr.type == "identifier":
+                    if stmt.assignment_expr.value == "me":
+                        raise TypePropagationError(
+                            "Global variables can't be assigned 'me'"
+                        )
+
+                if stmt.var_type_name != "id" and self.is_wrong_type(
+                    stmt.var_type,
+                    stmt.assignment_expr.result_type,
+                    stmt.var_type_name,
+                    stmt.assignment_expr.result_type_name,
+                ):
+                    raise TypePropagationError(
+                        f"Can't assign {stmt.assignment_expr.result_type_name} to '{stmt.name}', which has type {stmt.var_type_name}"
+                    )
+
+                self.add_global_variable(stmt.name, stmt.var_type, stmt.var_type_name)
+
+    def build_helper_fn_map(self):
+        """Build a lookup map for helper functions"""
+        self.helper_functions = {}
+        for fn in self.parser.helper_fns:
+            self.helper_functions[fn.fn_name] = fn
+
+    def fill_result_types(self):
+        """Main entry point for type propagation"""
+        self.reset_filling()
+
+        # Build helper function map for lookups
+        self.build_helper_fn_map()
+
+        # In a real implementation, would load entity data from mod_api.json
+        # For now, we'll just do basic type checking with what we have
+
+        self.fill_global_variables()
+        self.fill_on_fns()
+        self.fill_helper_fns()
+
+
 class Frontend:
-    def compile_grug_fn(self, source: str):
+    def compile_grug_fn(self, source: str, mod_name="default", entity_type="entity"):
         """
         Compile source text and return an error message string,
         or None if compilation succeeded.
@@ -1086,7 +1705,11 @@ class Frontend:
             parser = Parser(tokens)
             parser.parse()
 
-        except (TokenizerError, ParserError) as e:
+            # Type propagation phase
+            type_propagator = TypePropagator(parser, mod_name, entity_type)
+            type_propagator.fill_result_types()
+
+        except (TokenizerError, ParserError, TypePropagationError) as e:
             return str(e)
 
         return None

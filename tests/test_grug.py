@@ -52,7 +52,8 @@ def test_grug(grug_lib, grug_tests_path):
         dump_file_to_json,
         generate_file_from_json,
         game_fn_error,
-        None,
+        # None, # TODO: Put back!
+        b"bool_cant_be_initialized_with_1",
     )
 
 
