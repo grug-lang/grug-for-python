@@ -283,7 +283,7 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.global_statements = []
-        self.helper_fns = []
+        self.helper_fns = {}
         self.on_fns = []
         self.statements = []
         self.arguments = []
@@ -386,7 +386,7 @@ class Parser:
                     )
 
                 fn = self.parse_helper_fn(i)
-                self.helper_fns.append(fn)
+                self.helper_fns[fn.fn_name] = fn
 
                 self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
 
@@ -590,7 +590,6 @@ class Parser:
         if all(s.type in ("empty_line", "comment") for s in fn.body_statements):
             raise ParserError(f"{fn.fn_name}() can't be empty")
 
-        self.helper_fns.append(fn)
         self.global_statements.append({"type": "helper_fn", "helper_fn": fn})
         return fn
 
@@ -1071,10 +1070,11 @@ class TypePropagationError(Exception):
 
 
 class TypePropagator:
-    def __init__(self, parser, mod_name="default", entity_type="entity"):
+    def __init__(self, parser, mod_name, entity_type, mod_api):
         self.parser = parser
         self.mod = mod_name
         self.file_entity_type = entity_type
+        self.mod_api = mod_api
 
         # Variable storage
         self.variables = []
@@ -1107,9 +1107,8 @@ class TypePropagator:
         }
 
         # Mock game functions and entity data (would come from mod_api.json)
-        self.game_functions = {}
-        self.helper_functions = {}
-        self.entity_on_functions = {}
+        self.game_functions = mod_api["game_functions"]
+        self.entity_on_functions = mod_api["entities"][entity_type]["on_functions"]
 
     def reset_filling(self):
         self.global_variables = []
@@ -1117,6 +1116,7 @@ class TypePropagator:
         self.globals_bytes = 0
         self.buckets_global_variables = {}
 
+    # TODO: We don't need this
     def elf_hash(self, s):
         """Simple hash function for variable lookup"""
         h = 0
@@ -1128,6 +1128,7 @@ class TypePropagator:
             h &= ~g
         return h
 
+    # TODO: This fn can be massively simplified
     def get_global_variable(self, name):
         bucket = self.elf_hash(name) % MAX_GLOBAL_VARIABLES
         if bucket not in self.buckets_global_variables:
@@ -1138,6 +1139,7 @@ class TypePropagator:
                 return var
         return None
 
+    # TODO: This fn can be massively simplified
     def add_global_variable(self, name, var_type, type_name):
         if self.global_variables_size >= MAX_GLOBAL_VARIABLES:
             raise TypePropagationError(
@@ -1161,6 +1163,7 @@ class TypePropagator:
 
         self.global_variables_size += 1
 
+    # TODO: This fn can be massively simplified
     def get_local_variable(self, name):
         if self.variables_size == 0:
             return None
@@ -1180,6 +1183,7 @@ class TypePropagator:
             var = self.get_global_variable(name)
         return var
 
+    # TODO: This fn can be massively simplified
     def add_local_variable(self, name, var_type, type_name):
         if self.variables_size >= MAX_VARIABLES_PER_FUNCTION:
             raise TypePropagationError(
@@ -1310,8 +1314,8 @@ class TypePropagator:
             self.parsed_fn_calls_helper_fn = True
 
         # Check if it's a helper function
-        if fn_name in self.helper_functions:
-            helper_fn = self.helper_functions[fn_name]
+        if fn_name in self.parser.helper_fns:
+            helper_fn = self.parser.helper_fns[fn_name]
             expr.result_type = helper_fn.return_type
             expr.result_type_name = helper_fn.return_type_name
             self.check_arguments(helper_fn.arguments, expr)
@@ -1341,13 +1345,10 @@ class TypePropagator:
 
         op_name = expr.value
 
-        # Map token type names to operators for error messages
-        op_str = op_name.replace("_TOKEN", "").replace("_", " ").lower()
-
         if left.result_type == "string":
             if op_name not in ("EQUALS_TOKEN", "NOT_EQUALS_TOKEN"):
                 raise TypePropagationError(
-                    f"You can't use the {op_str} operator on a string"
+                    f"You can't use the {op_name} operator on a string"
                 )
 
         is_id = left.result_type_name == "id" or right.result_type_name == "id"
@@ -1371,12 +1372,12 @@ class TypePropagator:
             "LESS_TOKEN",
         ):
             if left.result_type not in ("i32", "f32"):
-                raise TypePropagationError(f"'{op_str}' operator expects i32 or f32")
+                raise TypePropagationError(f"'{op_name}' operator expects i32 or f32")
             expr.result_type = "bool"
             expr.result_type_name = "bool"
         elif op_name in ("AND_TOKEN", "OR_TOKEN"):
             if left.result_type != "bool":
-                raise TypePropagationError(f"'{op_str}' operator expects bool")
+                raise TypePropagationError(f"'{op_name}' operator expects bool")
             expr.result_type = "bool"
             expr.result_type_name = "bool"
         elif op_name in (
@@ -1386,7 +1387,7 @@ class TypePropagator:
             "DIVISION_TOKEN",
         ):
             if left.result_type not in ("i32", "f32"):
-                raise TypePropagationError(f"'{op_str}' operator expects i32 or f32")
+                raise TypePropagationError(f"'{op_name}' operator expects i32 or f32")
             expr.result_type = left.result_type
             expr.result_type_name = left.result_type_name
         elif op_name == "REMAINDER_TOKEN":
@@ -1440,7 +1441,7 @@ class TypePropagator:
             elif op == "MINUS_TOKEN":
                 if expr.result_type not in ("i32", "f32"):
                     raise TypePropagationError(
-                        f"Found '-' before {expr.result_type_name}, but it can only be put before i32 or f32"
+                        f"Found '-' before {expr.result_type_name}, but it can only be put before an i32 or f32"
                     )
         elif expr.type in ("binary", "logical"):
             self.fill_binary_expr(expr)
@@ -1545,10 +1546,10 @@ class TypePropagator:
             self.add_local_variable(arg.name, arg.type, arg.type_name)
 
     def fill_helper_fns(self):
-        for fn in self.parser.helper_fns:
+        for fn_name, fn in self.parser.helper_fns.items():
             self.fn_return_type = fn.return_type
             self.fn_return_type_name = fn.return_type_name
-            self.filled_fn_name = fn.fn_name
+            self.filled_fn_name = fn_name
 
             self.add_argument_variables(fn.arguments)
 
@@ -1584,7 +1585,7 @@ class TypePropagator:
                 )
 
             entity_on_fn = self.entity_on_functions[fn.fn_name]
-            params = entity_on_fn["arguments"]
+            params = entity_on_fn.get("arguments", [])
 
             if len(fn.arguments) < len(params):
                 raise TypePropagationError(
@@ -1671,21 +1672,9 @@ class TypePropagator:
 
                 self.add_global_variable(stmt.name, stmt.var_type, stmt.var_type_name)
 
-    def build_helper_fn_map(self):
-        """Build a lookup map for helper functions"""
-        self.helper_functions = {}
-        for fn in self.parser.helper_fns:
-            self.helper_functions[fn.fn_name] = fn
-
     def fill_result_types(self):
         """Main entry point for type propagation"""
         self.reset_filling()
-
-        # Build helper function map for lookups
-        self.build_helper_fn_map()
-
-        # In a real implementation, would load entity data from mod_api.json
-        # For now, we'll just do basic type checking with what we have
 
         self.fill_global_variables()
         self.fill_on_fns()
@@ -1693,7 +1682,10 @@ class TypePropagator:
 
 
 class Frontend:
-    def compile_grug_fn(self, source: str, mod_name="default", entity_type="entity"):
+    def __init__(self, mod_api):
+        self.mod_api = mod_api
+
+    def compile_grug_fn(self, source: str, mod_name: str, entity_type: str):
         """
         Compile source text and return an error message string,
         or None if compilation succeeded.
@@ -1705,8 +1697,9 @@ class Frontend:
             parser = Parser(tokens)
             parser.parse()
 
-            # Type propagation phase
-            type_propagator = TypePropagator(parser, mod_name, entity_type)
+            type_propagator = TypePropagator(
+                parser, mod_name, entity_type, self.mod_api
+            )
             type_propagator.fill_result_types()
 
         except (TokenizerError, ParserError, TypePropagationError) as e:

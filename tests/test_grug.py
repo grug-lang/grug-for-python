@@ -6,10 +6,11 @@ from grug import Bindings
 
 
 def test_grug(grug_lib, grug_tests_path):
+    bindings = Bindings(grug_tests_path / "mod_api.json")
 
     @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
     def compile_grug_file(path):
-        msg = Bindings().compile_grug_fn(path.decode())
+        msg = bindings.compile_grug_fn(path.decode(), "err")
         return msg.encode() if msg else None
 
     @ctypes.CFUNCTYPE(None, ctypes.c_char_p)
@@ -44,6 +45,8 @@ def test_grug(grug_lib, grug_tests_path):
     def game_fn_error(msg):
         print(f"game_fn_error called with {msg.decode()}")
 
+    print("\n")
+
     grug_lib.grug_tests_run(
         str(grug_tests_path / "tests").encode(),
         compile_grug_file,
@@ -52,8 +55,8 @@ def test_grug(grug_lib, grug_tests_path):
         dump_file_to_json,
         generate_file_from_json,
         game_fn_error,
-        # None, # TODO: Put back!
-        b"bool_cant_be_initialized_with_1",
+        None,  # TODO: Put back!
+        # b"bool_ge",
     )
 
 
