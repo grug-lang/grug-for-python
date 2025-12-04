@@ -1,9 +1,12 @@
+import sys
 from enum import Enum, auto
 
 SPACES_PER_INDENT = 4
 MAX_VARIABLES_PER_FUNCTION = 1000
 MAX_GLOBAL_VARIABLES = 1000
 MAX_FILE_ENTITY_TYPE_LENGTH = 420
+MAX_ENTITY_DEPENDENCY_NAME_LENGTH = 420
+MAX_PARSING_DEPTH = 100
 
 
 class TokenType(Enum):
@@ -68,6 +71,29 @@ class Tokenizer:
         self.tokens = []
         self.pos = 0
 
+    def get_character_line_number(self, character_index: int) -> int:
+        """
+        Calculate the line number for a given character index.
+        Examples:
+        "" => 1
+        "<a>" => 1
+        "a<b>" => 1
+        "<\\n>" => 1
+        "\\n<a>" => 2
+        "\\n<\\n>" => 2
+        """
+        line_number = 1
+
+        for i in range(character_index):
+            if self.source[i] == "\n" or (
+                self.source[i] == "\r"
+                and i + 1 < len(self.source)
+                and self.source[i + 1] == "\n"
+            ):
+                line_number += 1
+
+        return line_number
+
     def tokenize(self):
         src = self.source
         i = 0
@@ -130,56 +156,66 @@ class Tokenizer:
             elif c == "<":
                 self.tokens.append(Token(TokenType.LESS_TOKEN, "<"))
                 i += 1
-            elif src.startswith("and", i) and not self.is_alnum_underscore(i + 3):
+            elif src.startswith("and", i) and self.is_end_of_word(i + 3):
                 self.tokens.append(Token(TokenType.AND_TOKEN, "and"))
                 i += 3
-            elif src.startswith("or", i) and not self.is_alnum_underscore(i + 2):
+            elif src.startswith("or", i) and self.is_end_of_word(i + 2):
                 self.tokens.append(Token(TokenType.OR_TOKEN, "or"))
                 i += 2
-            elif src.startswith("not", i) and not self.is_alnum_underscore(i + 3):
+            elif src.startswith("not", i) and self.is_end_of_word(i + 3):
                 self.tokens.append(Token(TokenType.NOT_TOKEN, "not"))
                 i += 3
-            elif src.startswith("true", i) and not self.is_alnum_underscore(i + 4):
+            elif src.startswith("true", i) and self.is_end_of_word(i + 4):
                 self.tokens.append(Token(TokenType.TRUE_TOKEN, "true"))
                 i += 4
-            elif src.startswith("false", i) and not self.is_alnum_underscore(i + 5):
+            elif src.startswith("false", i) and self.is_end_of_word(i + 5):
                 self.tokens.append(Token(TokenType.FALSE_TOKEN, "false"))
                 i += 5
-            elif src.startswith("if", i) and not self.is_alnum_underscore(i + 2):
+            elif src.startswith("if", i) and self.is_end_of_word(i + 2):
                 self.tokens.append(Token(TokenType.IF_TOKEN, "if"))
                 i += 2
-            elif src.startswith("else", i) and not self.is_alnum_underscore(i + 4):
+            elif src.startswith("else", i) and self.is_end_of_word(i + 4):
                 self.tokens.append(Token(TokenType.ELSE_TOKEN, "else"))
                 i += 4
-            elif src.startswith("while", i) and not self.is_alnum_underscore(i + 5):
+            elif src.startswith("while", i) and self.is_end_of_word(i + 5):
                 self.tokens.append(Token(TokenType.WHILE_TOKEN, "while"))
                 i += 5
-            elif src.startswith("break", i) and not self.is_alnum_underscore(i + 5):
+            elif src.startswith("break", i) and self.is_end_of_word(i + 5):
                 self.tokens.append(Token(TokenType.BREAK_TOKEN, "break"))
                 i += 5
-            elif src.startswith("return", i) and not self.is_alnum_underscore(i + 6):
+            elif src.startswith("return", i) and self.is_end_of_word(i + 6):
                 self.tokens.append(Token(TokenType.RETURN_TOKEN, "return"))
                 i += 6
-            elif src.startswith("continue", i) and not self.is_alnum_underscore(i + 8):
+            elif src.startswith("continue", i) and self.is_end_of_word(i + 8):
                 self.tokens.append(Token(TokenType.CONTINUE_TOKEN, "continue"))
                 i += 8
             elif c == " ":
-                spaces = 1
-                while i + spaces < len(src) and src[i + spaces] == " ":
-                    spaces += 1
-                if spaces % SPACES_PER_INDENT == 0 and spaces > 1:
-                    self.tokens.append(Token(TokenType.INDENTATION_TOKEN, " " * spaces))
-                else:
+                if i + 1 >= len(src) or src[i + 1] != " ":
                     self.tokens.append(Token(TokenType.SPACE_TOKEN, " "))
-                i += spaces
+                    i += 1
+                    continue
+
+                old_i = i
+                while i < len(src) and src[i] == " ":
+                    i += 1
+
+                spaces = i - old_i
+
+                if spaces % SPACES_PER_INDENT != 0:
+                    raise TokenizerError(
+                        f"Encountered {spaces} spaces, while indentation expects multiples of {SPACES_PER_INDENT} spaces, on line {self.get_character_line_number(i)}"
+                    )
+
+                self.tokens.append(Token(TokenType.INDENTATION_TOKEN, " " * spaces))
             elif c == '"':
+                open_quote_index = i
                 i += 1
                 start = i
                 while i < len(src) and src[i] != '"':
                     i += 1
                 if i >= len(src):
                     raise TokenizerError(
-                        f"Unclosed string starting at position {start}"
+                        f'Unclosed " on line {self.get_character_line_number(open_quote_index + 1)}'
                     )
                 self.tokens.append(Token(TokenType.STRING_TOKEN, src[start:i]))
                 i += 1
@@ -190,34 +226,61 @@ class Tokenizer:
                 self.tokens.append(Token(TokenType.WORD_TOKEN, src[start:i]))
             elif c.isdigit():
                 start = i
-                seen_dot = False
+                seen_period = False
+                i += 1
                 while i < len(src) and (src[i].isdigit() or src[i] == "."):
                     if src[i] == ".":
-                        if seen_dot:
+                        if seen_period:
                             raise TokenizerError(
-                                f"Invalid number with multiple '.' at {i}"
+                                f"Encountered two '.' periods in a number on line {self.get_character_line_number(i)}"
                             )
-                        seen_dot = True
+                        seen_period = True
                     i += 1
-                if seen_dot:
+
+                if seen_period:
+                    if src[i - 1] == ".":
+                        raise TokenizerError(
+                            f"Missing digit after decimal point in '{src[start:i]}'"
+                        )
                     self.tokens.append(Token(TokenType.F32_TOKEN, src[start:i]))
                 else:
                     self.tokens.append(Token(TokenType.I32_TOKEN, src[start:i]))
             elif c == "#":
                 i += 1
                 if i >= len(src) or src[i] != " ":
-                    raise TokenizerError(f"Expected a space after # at {i}")
+                    raise TokenizerError(
+                        f"Expected a single space after the '#' on line {self.get_character_line_number(i)}"
+                    )
                 i += 1
                 start = i
                 while i < len(src) and src[i] not in "\r\n":
+                    if not src[i].isprintable():
+                        raise TokenizerError(
+                            f"Unexpected unprintable character in comment on line {self.get_character_line_number(i + 1)}"
+                        )
                     i += 1
+
+                comment_len = i - start
+                if comment_len == 0:
+                    raise TokenizerError(
+                        f"Expected the comment to contain some text on line {self.get_character_line_number(i)}"
+                    )
+
+                if src[i - 1].isspace():
+                    raise TokenizerError(
+                        f"A comment has trailing whitespace on line {self.get_character_line_number(i)}"
+                    )
+
                 self.tokens.append(Token(TokenType.COMMENT_TOKEN, src[start:i]))
             else:
-                raise TokenizerError(f"Unrecognized character '{c}' at {i}")
+                raise TokenizerError(
+                    f"Unrecognized character '{c}' on line {self.get_character_line_number(i + 1)}"
+                )
         return self.tokens
 
-    def is_alnum_underscore(self, idx):
-        return idx < len(self.source) and (
+    def is_end_of_word(self, idx):
+        """Check if position is at end of word (not alphanumeric or underscore)"""
+        return idx >= len(self.source) or not (
             self.source[idx].isalnum() or self.source[idx] == "_"
         )
 
@@ -288,12 +351,11 @@ class Parser:
         self.statements = []
         self.arguments = []
         self.parsing_depth = 0
-        self.called_helper_fn_names = set()
-
-    def reset_parsing(self):
-        self.global_statements = []
+        self.loop_depth = 0
         self.parsing_depth = 0
         self.indentation = 0
+        self.called_helper_fn_names = set()
+        self.global_statements = []
 
     def seen_called_helper_fn_name(self, name):
         return name in self.called_helper_fn_names
@@ -302,8 +364,6 @@ class Parser:
         self.called_helper_fn_names.add(name)
 
     def parse(self):
-        self.reset_parsing()
-
         seen_on_fn = False
         seen_newline = False
         newline_allowed = False
@@ -446,16 +506,17 @@ class Parser:
         i[0] += 1
         return token
 
-    def consume_token_type(self, i, expected_type):
-        token_index = i[0]
+    def assert_token_type(self, token_index, expected_type):
         token = self.peek_token(token_index)
         if token.type != expected_type:
             raise ParserError(
                 f"Expected token type {expected_type.name}, "
                 f"but got {token.type.name} on line {self.get_token_line_number(token_index)}"
             )
+
+    def consume_token_type(self, i, expected_type):
+        self.assert_token_type(i[0], expected_type)
         i[0] += 1
-        return token
 
     def get_token_line_number(self, token_index):
         if token_index >= len(self.tokens):
@@ -520,9 +581,17 @@ class Parser:
             i[0] += 1
             return self.parse_while_statement(i)
         elif token.type == TokenType.BREAK_TOKEN:
+            if self.loop_depth == 0:
+                raise ParserError(
+                    f"There is a break statement that isn't inside of a while loop"
+                )
             i[0] += 1
             return Statement("break")
         elif token.type == TokenType.CONTINUE_TOKEN:
+            if self.loop_depth == 0:
+                raise ParserError(
+                    f"There is a continue statement that isn't inside of a while loop"
+                )
             i[0] += 1
             return Statement("continue")
         elif token.type == TokenType.NEWLINE_TOKEN:
@@ -540,25 +609,82 @@ class Parser:
         self.arguments.append(argument)
         return argument
 
-    def parse_arguments(self, i):
-        args = []
-        arg_token = self.consume_token(i)
-        self.consume_token_type(i, TokenType.COLON_TOKEN)
-        type_token = self.consume_token(i)
-        arg = Argument(arg_token.value, type_token.value, type_token.value)
-        args.append(self.push_argument(arg))
+    def parse_type(self, type_str):
+        if type_str == "bool":
+            return "bool"
+        if type_str == "i32":
+            return "i32"
+        if type_str == "f32":
+            return "f32"
+        if type_str == "string":
+            return "string"
+        if type_str == "resource":
+            return "resource"
+        if type_str == "entity":
+            return "entity"
+        return "id"
 
+    def parse_arguments(self, i):
+        arguments = []
+
+        # First argument
+        name_token = self.consume_token(i)
+        arg_name = name_token.value
+
+        self.consume_token_type(i, TokenType.COLON_TOKEN)
+
+        self.consume_space(i)
+        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
+
+        type_token = self.consume_token(i)
+        type_name = type_token.value
+        arg_type = self.parse_type(type_name)
+
+        if arg_type == "resource":
+            raise ParserError(
+                f"The argument '{arg_name}' can't have 'resource' as its type"
+            )
+        if arg_type == "entity":
+            raise ParserError(
+                f"The argument '{arg_name}' can't have 'entity' as its type"
+            )
+
+        arguments.append({"name": arg_name, "type": arg_type, "type_name": type_name})
+
+        # Every argument after the first one starts with a comma
         while True:
-            tok = self.peek_token(i[0])
-            if tok.type != TokenType.COMMA_TOKEN:
+            token = self.peek_token(i[0])
+            if token.type != TokenType.COMMA_TOKEN:
                 break
             i[0] += 1
-            arg_token = self.consume_token(i)
+
+            self.consume_space(i)
+            self.assert_token_type(i[0], TokenType.WORD_TOKEN)
+            name_token = self.consume_token(i)
+            arg_name = name_token.value
+
             self.consume_token_type(i, TokenType.COLON_TOKEN)
+
+            self.consume_space(i)
+            self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             type_token = self.consume_token(i)
-            arg = Argument(arg_token.value, type_token.value, type_token.value)
-            args.append(self.push_argument(arg))
-        return args
+            type_name = type_token.value
+            arg_type = self.parse_type(type_name)
+
+            if arg_type == "resource":
+                raise ParserError(
+                    f"The argument '{arg_name}' can't have 'resource' as its type"
+                )
+            if arg_type == "entity":
+                raise ParserError(
+                    f"The argument '{arg_name}' can't have 'entity' as its type"
+                )
+
+            arguments.append(
+                {"name": arg_name, "type": arg_type, "type_name": type_name}
+            )
+
+        return arguments
 
     def parse_helper_fn(self, i):
         fn_token = self.consume_token(i)
@@ -570,23 +696,34 @@ class Parser:
             )
 
         self.consume_token_type(i, TokenType.OPEN_PARENTHESIS_TOKEN)
-        next_tok = self.peek_token(i[0])
-        if next_tok.type == TokenType.WORD_TOKEN:
+
+        token = self.peek_token(i[0])
+        if token.type == TokenType.WORD_TOKEN:
             fn.arguments = self.parse_arguments(i)
             fn.argument_count = len(fn.arguments)
+
         self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
 
-        tok_space = self.peek_token(i[0])
+        self.assert_token_type(i[0], TokenType.SPACE_TOKEN)
+        token = self.peek_token(i[0])
         fn.return_type = "void"
-        if tok_space and tok_space.type == TokenType.SPACE_TOKEN:
-            i[0] += 1
-            tok_ret = self.peek_token(i[0])
-            if tok_ret.type == TokenType.WORD_TOKEN:
-                type_token = self.consume_token(i)
-                fn.return_type = type_token.value
-                fn.return_type_name = type_token.value
+        if token.type == TokenType.WORD_TOKEN:
+            type_token = self.consume_token(i)
+            fn.return_type = self.parse_type(type_token.value)
+            fn.return_type_name = type_token.value
 
+            if fn.return_type == "resource":
+                raise ParserError(
+                    f"The function '{fn.fn_name}' can't have 'resource' as its return type"
+                )
+            if fn.return_type == "entity":
+                raise ParserError(
+                    f"The function '{fn.fn_name}' can't have 'entity' as its return type"
+                )
+
+        self.indentation = 0
         fn.body_statements = self.parse_statements(i)
+
         if all(s.type in ("empty_line", "comment") for s in fn.body_statements):
             raise ParserError(f"{fn.fn_name}() can't be empty")
 
@@ -621,7 +758,6 @@ class Parser:
         if self.peek_token(i[0]).type == TokenType.NEWLINE_TOKEN:
             i[0] += 1
 
-        body_statement_count = 0
         self.indentation += 1
 
         seen_newline = False
@@ -641,7 +777,6 @@ class Parser:
                 seen_newline = True
                 newline_allowed = False
                 stmts.append(Statement("empty_line"))
-                body_statement_count += 1
             else:
                 newline_allowed = True
 
@@ -649,10 +784,8 @@ class Parser:
 
                 stmt = self.parse_statement(i)
                 stmts.append(stmt)
-                body_statement_count += 1
 
-                if self.peek_token(i[0]).type == TokenType.NEWLINE_TOKEN:
-                    i[0] += 1
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
 
         if seen_newline and not newline_allowed:
             raise ParserError(
@@ -708,7 +841,6 @@ class Parser:
 
     def increase_parsing_depth(self):
         self.parsing_depth += 1
-        MAX_PARSING_DEPTH = 100
         if self.parsing_depth >= MAX_PARSING_DEPTH:
             raise ParserError(f"Exceeded maximum parsing depth of {MAX_PARSING_DEPTH}")
 
@@ -731,7 +863,7 @@ class Parser:
 
             if var_name == "me":
                 raise ParserError(
-                    "The local variable 'me' has to be renamed, since it is already declared"
+                    "The local variable 'me' has to have its name changed to something else, since grug already declares that variable"
                 )
 
             self.consume_space(i)
@@ -742,7 +874,7 @@ class Parser:
                 )
 
             has_type = True
-            var_type = type_token.value
+            var_type = self.parse_type(type_token.value)
             var_type_name = type_token.value
 
             if var_type in ("resource", "entity"):
@@ -774,6 +906,56 @@ class Parser:
             has_type=has_type,
             var_type=var_type,
             var_type_name=var_type_name,
+            assignment_expr=assignment_expr,
+        )
+
+    def parse_global_variable(self, i):
+        name_token_index = i[0]
+        name_token = self.consume_token(i)
+        global_name = name_token.value
+
+        if global_name == "me":
+            raise ParserError(
+                "The global variable 'me' has to have its name changed to something else, since grug already declares that variable"
+            )
+
+        self.consume_token_type(i, TokenType.COLON_TOKEN)
+
+        self.consume_space(i)
+        type_token = self.consume_token(i)
+        if type_token.type != TokenType.WORD_TOKEN:
+            raise ParserError(
+                f"Expected a word token after the colon on line {self.get_token_line_number(name_token_index)}"
+            )
+
+        global_type = self.parse_type(type_token.value)
+        global_type_name = type_token.value
+
+        if global_type == "resource":
+            raise ParserError(
+                f"The global variable '{global_name}' can't have 'resource' as its type"
+            )
+        if global_type == "entity":
+            raise ParserError(
+                f"The global variable '{global_name}' can't have 'entity' as its type"
+            )
+
+        if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
+            raise ParserError(
+                f"The global variable '{global_name}' was not assigned a value on line {self.get_token_line_number(name_token_index)}"
+            )
+
+        self.consume_space(i)
+        self.consume_token_type(i, TokenType.ASSIGNMENT_TOKEN)
+
+        self.consume_space(i)
+        assignment_expr = self.parse_full_expression(i)
+
+        return Statement(
+            "global_variable",
+            name=global_name,
+            var_type=global_type,
+            var_type_name=global_type_name,
             assignment_expr=assignment_expr,
         )
 
@@ -812,23 +994,28 @@ class Parser:
             self.add_called_helper_fn_name(fn_name)
 
         i[0] += 1
+
+        token = self.peek_token(i[0])
+        if token.type == TokenType.CLOSE_PARENTHESIS_TOKEN:
+            i[0] += 1
+            expr.type = "call"
+            expr.value = fn_name
+            expr.operands = []
+            self.decrease_parsing_depth()
+            return expr
+
         args = []
 
         while True:
-            token = self.peek_token(i[0])
-            if token.type == TokenType.CLOSE_PARENTHESIS_TOKEN:
-                i[0] += 1
-                break
             arg = self.parse_full_expression(i)
             args.append(arg)
+
             token = self.peek_token(i[0])
-            if token.type == TokenType.COMMA_TOKEN:
-                i[0] += 1
-                self.consume_space(i)
-            elif token.type != TokenType.CLOSE_PARENTHESIS_TOKEN:
-                raise ParserError(
-                    f"Expected ',' or ')' in argument list at line {self.get_token_line_number(i[0])}"
-                )
+            if token.type != TokenType.COMMA_TOKEN:
+                self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
+                break
+            i[0] += 1
+            self.consume_space(i)
 
         expr.type = "call"
         expr.value = fn_name
@@ -1060,7 +1247,11 @@ class Parser:
         self.increase_parsing_depth()
         self.consume_space(i)
         condition = self.parse_full_expression(i)
+
+        self.loop_depth += 1
         body = self.parse_statements(i)
+        self.loop_depth -= 1
+
         self.decrease_parsing_depth()
         return Statement("while", condition=condition, body=body)
 
@@ -1148,7 +1339,7 @@ class TypePropagator:
 
         if self.get_global_variable(name):
             raise TypePropagationError(
-                f"The global variable '{name}' shadows an earlier global variable"
+                f"The global variable '{name}' shadows an earlier global variable with the same name, so change the name of one of them"
             )
 
         var = Variable(name, var_type, type_name, self.globals_bytes)
@@ -1221,11 +1412,44 @@ class TypePropagator:
         if not string:
             raise TypePropagationError("Entities can't be empty strings")
 
-        # Basic validation - in real implementation would check mod names, etc.
-        for c in string:
-            if not (c.islower() or c.isdigit() or c in ("_", "-", ":")):
+        mod_name = self.mod
+        entity_name = string
+
+        colon_pos = string.find(":")
+        if colon_pos != -1:
+            if colon_pos == 0:
+                raise TypePropagationError(f"Entity '{string}' is missing a mod name")
+
+            temp_mod_name = string[:colon_pos]
+
+            if len(temp_mod_name) >= MAX_ENTITY_DEPENDENCY_NAME_LENGTH:
                 raise TypePropagationError(
-                    f"Entity '{string}' contains invalid character '{c}'"
+                    f"There are more than {MAX_ENTITY_DEPENDENCY_NAME_LENGTH} characters in the entity '{string}', exceeding MAX_ENTITY_DEPENDENCY_NAME_LENGTH"
+                )
+
+            mod_name = temp_mod_name
+            entity_name = string[colon_pos + 1 :]
+
+            if not entity_name:
+                raise TypePropagationError(
+                    f"Entity '{string}' specifies the mod name '{mod_name}', but it is missing an entity name after the ':'"
+                )
+
+            if mod_name == self.mod:
+                raise TypePropagationError(
+                    f"Entity '{string}' its mod name '{mod_name}' is invalid, since the file it is in refers to its own mod; just change it to '{entity_name}'"
+                )
+
+        for c in mod_name:
+            if not (c.islower() or c.isdigit() or c in ("_", "-")):
+                raise TypePropagationError(
+                    f"Entity '{string}' its mod name contains the invalid character '{c}'"
+                )
+
+        for c in entity_name:
+            if not (c.islower() or c.isdigit() or c in ("_", "-")):
+                raise TypePropagationError(
+                    f"Entity '{string}' its entity name contains the invalid character '{c}'"
                 )
 
     def validate_resource_string(self, string, resource_extension):
@@ -1273,7 +1497,7 @@ class TypePropagator:
 
         for i, (arg, param) in enumerate(zip(args, params)):
             # Handle resource/entity string conversions
-            if arg.type == "string" and param.type == "resource":
+            if arg.type == "string" and param["type"] == "resource":
                 arg.result_type = "resource"
                 arg.result_type_name = "resource"
                 arg.type = "resource"
@@ -1285,7 +1509,7 @@ class TypePropagator:
                         else ".png"
                     ),
                 )
-            elif arg.type == "string" and param.type == "entity":
+            elif arg.type == "string" and param["type"] == "entity":
                 arg.result_type = "entity"
                 arg.result_type_name = "entity"
                 arg.type = "entity"
@@ -1293,14 +1517,14 @@ class TypePropagator:
 
             if arg.result_type == "void":
                 raise TypePropagationError(
-                    f"Function call '{fn_name}' expected type {param.type_name} for argument '{param.name}'"
+                    f"Function call '{fn_name}' expected type {param["type"]} for argument '{param.name}'"
                 )
 
-            if param.type_name != "id" and self.is_wrong_type(
-                arg.result_type, param.type, arg.result_type_name, param.type_name
+            if param["type"] != "id" and self.is_wrong_type(
+                arg.result_type, param["type"], arg.result_type_name, param["type"]
             ):
                 raise TypePropagationError(
-                    f"Function call '{fn_name}' expected type {param.type_name} for argument '{param.name}', but got {arg.result_type_name}"
+                    f"Function call '{fn_name}' expected type {param["type"]} for argument '{param.name}', but got {arg.result_type_name}"
                 )
 
     def fill_call_expr(self, expr):
@@ -1318,15 +1542,17 @@ class TypePropagator:
             helper_fn = self.parser.helper_fns[fn_name]
             expr.result_type = helper_fn.return_type
             expr.result_type_name = helper_fn.return_type_name
-            self.check_arguments(helper_fn.arguments, expr)
+            self.check_arguments(helper_fn["arguments"], expr)
             return
 
         # Check if it's a game function
         if fn_name in self.game_functions:
             game_fn = self.game_functions[fn_name]
-            expr.result_type = game_fn["return_type"]
-            expr.result_type_name = game_fn["return_type_name"]
-            # Would check arguments here
+            expr.result_type = self.parser.parse_type(
+                game_fn.get("return_type", "void")
+            )
+            expr.result_type_name = game_fn.get("return_type", "void")
+            self.check_arguments(game_fn["arguments"], expr)
             return
 
         if fn_name.startswith("on_"):
@@ -1426,7 +1652,7 @@ class TypePropagator:
             # Check for double unary
             if inner.type == "unary" and inner.value == op:
                 raise TypePropagationError(
-                    f"Found '{op}' directly next to another '{op}', which can be simplified"
+                    f"Found '{op}' directly next to another '{op}', which can be simplified by just removing both of them"
                 )
 
             self.fill_expr(inner)
@@ -1704,5 +1930,8 @@ class Frontend:
 
         except (TokenizerError, ParserError, TypePropagationError) as e:
             return str(e)
+        except Exception as e:
+            print(f"\n\n\nUNHANDLED ERROR: {e}\n\n", file=sys.stderr)
+            return "Unhandled error"
 
         return None
