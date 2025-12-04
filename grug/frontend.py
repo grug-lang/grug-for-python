@@ -1,5 +1,6 @@
 import struct
 import sys
+import traceback
 from enum import Enum, auto
 
 SPACES_PER_INDENT = 4
@@ -694,12 +695,12 @@ class Parser:
         self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
 
         self.assert_token_type(i[0], TokenType.SPACE_TOKEN)
-        token = self.peek_token(i[0])
+        token = self.peek_token(i[0] + 1)
         fn.return_type = "void"
         if token.type == TokenType.WORD_TOKEN:
-            type_token = self.consume_token(i)
-            fn.return_type = self.parse_type(type_token.value)
-            fn.return_type_name = type_token.value
+            i[0] += 2
+            fn.return_type = self.parse_type(token.value)
+            fn.return_type_name = token.value
 
             if fn.return_type == "resource":
                 raise ParserError(
@@ -1095,12 +1096,10 @@ class Parser:
         expr = self.parse_unary(i)
         while True:
             tok1 = self.peek_token(i[0])
-            tok2 = self.peek_token(i[0] + 1)
             if (
                 tok1
                 and tok1.type == TokenType.SPACE_TOKEN
-                and tok2
-                and tok2.type
+                and self.peek_token(i[0] + 1).type
                 in (
                     TokenType.MULTIPLICATION_TOKEN,
                     TokenType.DIVISION_TOKEN,
@@ -1120,12 +1119,10 @@ class Parser:
         expr = self.parse_factor(i)
         while True:
             tok1 = self.peek_token(i[0])
-            tok2 = self.peek_token(i[0] + 1)
             if (
                 tok1
                 and tok1.type == TokenType.SPACE_TOKEN
-                and tok2
-                and tok2.type
+                and self.peek_token(i[0] + 1).type
                 in (
                     TokenType.PLUS_TOKEN,
                     TokenType.MINUS_TOKEN,
@@ -1144,12 +1141,10 @@ class Parser:
         expr = self.parse_term(i)
         while True:
             tok1 = self.peek_token(i[0])
-            tok2 = self.peek_token(i[0] + 1)
             if (
                 tok1
                 and tok1.type == TokenType.SPACE_TOKEN
-                and tok2
-                and tok2.type
+                and self.peek_token(i[0] + 1).type
                 in (
                     TokenType.GREATER_OR_EQUAL_TOKEN,
                     TokenType.GREATER_TOKEN,
@@ -1170,12 +1165,10 @@ class Parser:
         expr = self.parse_comparison(i)
         while True:
             tok1 = self.peek_token(i[0])
-            tok2 = self.peek_token(i[0] + 1)
             if (
                 tok1
                 and tok1.type == TokenType.SPACE_TOKEN
-                and tok2
-                and tok2.type
+                and self.peek_token(i[0] + 1).type
                 in (
                     TokenType.EQUALS_TOKEN,
                     TokenType.NOT_EQUALS_TOKEN,
@@ -1194,12 +1187,10 @@ class Parser:
         expr = self.parse_equality(i)
         while True:
             tok1 = self.peek_token(i[0])
-            tok2 = self.peek_token(i[0] + 1)
             if (
                 tok1
                 and tok1.type == TokenType.SPACE_TOKEN
-                and tok2
-                and tok2.type == TokenType.AND_TOKEN
+                and self.peek_token(i[0] + 1).type == TokenType.AND_TOKEN
             ):
                 i[0] += 1
                 op_token = self.consume_token(i)
@@ -1214,12 +1205,10 @@ class Parser:
         expr = self.parse_and(i)
         while True:
             tok1 = self.peek_token(i[0])
-            tok2 = self.peek_token(i[0] + 1)
             if (
                 tok1
                 and tok1.type == TokenType.SPACE_TOKEN
-                and tok2
-                and tok2.type == TokenType.OR_TOKEN
+                and self.peek_token(i[0] + 1).type == TokenType.OR_TOKEN
             ):
                 i[0] += 1
                 op_token = self.consume_token(i)
@@ -1319,9 +1308,10 @@ class TypePropagator:
             "entity": 8,
         }
 
-        # Mock game functions and entity data (would come from mod_api.json)
         self.game_functions = mod_api["game_functions"]
-        self.entity_on_functions = mod_api["entities"][entity_type]["on_functions"]
+        self.entity_on_functions = mod_api["entities"][entity_type].get(
+            "on_functions", []
+        )
 
     def reset_filling(self):
         self.global_variables = []
@@ -1953,7 +1943,7 @@ class Frontend:
         except (TokenizerError, ParserError, TypePropagationError) as e:
             return str(e)
         except Exception as e:
-            print(f"\n\n\nUNHANDLED ERROR: {e}\n\n", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
             return "Unhandled error"
 
         return None
