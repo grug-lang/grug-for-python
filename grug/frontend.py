@@ -1,3 +1,4 @@
+import struct
 import sys
 from enum import Enum, auto
 
@@ -7,6 +8,8 @@ MAX_GLOBAL_VARIABLES = 1000
 MAX_FILE_ENTITY_TYPE_LENGTH = 420
 MAX_ENTITY_DEPENDENCY_NAME_LENGTH = 420
 MAX_PARSING_DEPTH = 100
+
+MAX_F32 = struct.unpack("!f", struct.pack("!I", 0x7F7FFFFF))[0]
 
 
 class TokenType(Enum):
@@ -529,81 +532,67 @@ class Parser:
                 line_number += 1
         return line_number
 
-    def parse_expression(self, i):
-        token = self.peek_token(i[0])
-        if token.type == TokenType.I32_TOKEN:
-            i[0] += 1
-            return Expr("literal", int(token.value))
-        elif token.type == TokenType.F32_TOKEN:
-            i[0] += 1
-            return Expr("literal", float(token.value))
-        elif token.type == TokenType.WORD_TOKEN:
-            next_tok = self.peek_token(i[0] + 1)
-            if next_tok and next_tok.type == TokenType.OPEN_PARENTHESIS_TOKEN:
-                return self.parse_call(i)
-            else:
-                i[0] += 1
-                return Expr("variable", token.value)
-        else:
-            raise ParserError(
-                f"Unexpected token in expression '{token.value}' at line {self.get_token_line_number(i[0])}"
-            )
-
     def parse_statement(self, i):
-        token = self.peek_token(i[0])
-        if token.type == TokenType.WORD_TOKEN:
-            next_tok = self.peek_token(i[0] + 1)
-            if next_tok.type == TokenType.OPEN_PARENTHESIS_TOKEN:
+        self.increase_parsing_depth()
+        switch_token = self.peek_token(i[0])
+
+        statement = None
+        if switch_token.type == TokenType.WORD_TOKEN:
+            token = self.peek_token(i[0] + 1)
+            if token.type == TokenType.OPEN_PARENTHESIS_TOKEN:
                 expr = self.parse_call(i)
-                return Statement("call", expr=expr)
+                statement = Statement("call", expr=expr)
             elif (
-                next_tok.type == TokenType.COLON_TOKEN
-                or next_tok.type == TokenType.SPACE_TOKEN
+                token.type == TokenType.COLON_TOKEN
+                or token.type == TokenType.SPACE_TOKEN
             ):
-                return self.parse_local_variable(i)
+                statement = self.parse_local_variable(i)
             else:
                 raise ParserError(
-                    f"Expected '(', ':' or '=' after word '{token.value}' at line {self.get_token_line_number(i[0])}"
+                    f"Expected '(', or ':', or ' =' after the word '{switch_token.value}' on line {self.get_token_line_number(i[0])}"
                 )
-        elif token.type == TokenType.IF_TOKEN:
+        elif switch_token.type == TokenType.IF_TOKEN:
             i[0] += 1
-            return self.parse_if_statement(i)
-        elif token.type == TokenType.RETURN_TOKEN:
+            statement = self.parse_if_statement(i)
+        elif switch_token.type == TokenType.RETURN_TOKEN:
             i[0] += 1
-            tok_next = self.peek_token(i[0])
-            if tok_next.type == TokenType.NEWLINE_TOKEN:
-                i[0] += 1
-                return Statement("return", has_value=False)
+            token = self.peek_token(i[0])
+            if token.type == TokenType.NEWLINE_TOKEN:
+                statement = Statement("return", has_value=False)
             else:
-                expr = self.parse_full_expression(i)
-                return Statement("return", has_value=True, value=expr)
-        elif token.type == TokenType.WHILE_TOKEN:
+                self.consume_space(i)
+                expr = self.parse_expression(i)
+                statement = Statement("return", has_value=True, value=expr)
+        elif switch_token.type == TokenType.WHILE_TOKEN:
             i[0] += 1
-            return self.parse_while_statement(i)
-        elif token.type == TokenType.BREAK_TOKEN:
+            statement = self.parse_while_statement(i)
+        elif switch_token.type == TokenType.BREAK_TOKEN:
             if self.loop_depth == 0:
                 raise ParserError(
                     f"There is a break statement that isn't inside of a while loop"
                 )
             i[0] += 1
-            return Statement("break")
-        elif token.type == TokenType.CONTINUE_TOKEN:
+            statement = Statement("break")
+        elif switch_token.type == TokenType.CONTINUE_TOKEN:
             if self.loop_depth == 0:
                 raise ParserError(
                     f"There is a continue statement that isn't inside of a while loop"
                 )
             i[0] += 1
-            return Statement("continue")
-        elif token.type == TokenType.NEWLINE_TOKEN:
+            statement = Statement("continue")
+        elif switch_token.type == TokenType.NEWLINE_TOKEN:
             i[0] += 1
-            return Statement("empty_line")
-        elif token.type == TokenType.COMMENT_TOKEN:
+            statement = Statement("empty_line")
+        elif switch_token.type == TokenType.COMMENT_TOKEN:
             i[0] += 1
-            return Statement("comment", comment=token.value)
+            statement = Statement("comment", comment=switch_token.value)
         else:
             raise ParserError(
-                f"Unexpected token '{token.value}' at line {self.get_token_line_number(i[0])}"
+                f"Expected a statement token, but got token type {switch_token.type.name} on line {self.get_token_line_number(i[0])}"
             )
+
+        self.decrease_parsing_depth()
+        return statement
 
     def push_argument(self, argument):
         self.arguments.append(argument)
@@ -898,7 +887,7 @@ class Parser:
 
         self.consume_space(i)
 
-        assignment_expr = self.parse_full_expression(i)
+        assignment_expr = self.parse_expression(i)
 
         return Statement(
             "variable",
@@ -949,7 +938,7 @@ class Parser:
         self.consume_token_type(i, TokenType.ASSIGNMENT_TOKEN)
 
         self.consume_space(i)
-        assignment_expr = self.parse_full_expression(i)
+        assignment_expr = self.parse_expression(i)
 
         return Statement(
             "global_variable",
@@ -1007,7 +996,7 @@ class Parser:
         args = []
 
         while True:
-            arg = self.parse_full_expression(i)
+            arg = self.parse_expression(i)
             args.append(arg)
 
             token = self.peek_token(i[0])
@@ -1024,6 +1013,39 @@ class Parser:
         self.decrease_parsing_depth()
         return expr
 
+    def str_to_f32(self, s):
+        f = float(s)
+
+        # Check if the value exceeds the maximum 32-bit float
+        if f > MAX_F32:
+            raise ParserError(f"The f32 {s} is too big")
+
+        # Check for underflow: non-zero value that's too small for 32-bit float
+        # Minimum positive normal f32 is approximately 1.175494e-38
+        MIN_F32 = 1.175494e-38
+        if f != 0.0 and f < MIN_F32:
+            raise ParserError(f"The f32 {s} is too close to zero")
+
+        # Check if conversion resulted in zero due to underflow
+        if f == 0.0:
+            # Check if the string actually represents zero or if it underflowed
+            if any(c in s for c in "123456789"):
+                raise ParserError(f"The f32 {s} is too close to zero")
+
+        return f
+
+    def str_to_i32(self, s):
+        try:
+            n = int(s)
+            if n > 2147483647:  # INT32_MAX
+                raise ParserError(
+                    f"The i32 {s} is too big, which has a maximum value of 2147483647"
+                )
+            assert n >= 0, "i32 should be non-negative at this point"
+            return n
+        except ValueError:
+            raise ParserError(f"Invalid i32 value: {s}")
+
     def parse_primary(self, i):
         self.increase_parsing_depth()
         if self.parsing_depth > 100:
@@ -1035,10 +1057,9 @@ class Parser:
         tname = token.type.name
         if tname == "OPEN_PARENTHESIS_TOKEN":
             i[0] += 1
-            inner = self.parse_full_expression(i)
-            self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
             expr.type = "paren"
-            expr.operands = [inner]
+            expr.operands = [self.parse_expression(i)]
+            self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
         elif tname == "TRUE_TOKEN":
             i[0] += 1
             expr.type = "true"
@@ -1056,14 +1077,15 @@ class Parser:
         elif tname == "I32_TOKEN":
             i[0] += 1
             expr.type = "i32"
-            expr.value = int(token.value)
+            expr.value = self.str_to_i32(token.value)
         elif tname == "F32_TOKEN":
             i[0] += 1
             expr.type = "f32"
-            expr.value = float(token.value)
+            expr.value = self.str_to_f32(token.value)
+            expr.string = token.value  # Store the original string representation
         else:
             raise ParserError(
-                f"Expected a primary expression token, but got {tname} at line {self.get_token_line_number(i[0])}"
+                f"Expected a primary expression token, but got token type {tname} on line {self.get_token_line_number(i[0])}"
             )
 
         self.decrease_parsing_depth()
@@ -1208,7 +1230,7 @@ class Parser:
                 break
         return expr
 
-    def parse_full_expression(self, i):
+    def parse_expression(self, i):
         self.increase_parsing_depth()
         expr = self.parse_or(i)
         self.decrease_parsing_depth()
@@ -1217,7 +1239,7 @@ class Parser:
     def parse_if_statement(self, i):
         self.increase_parsing_depth()
         self.consume_space(i)
-        condition = self.parse_full_expression(i)
+        condition = self.parse_expression(i)
         if_body = self.parse_statements(i)
 
         else_body = []
@@ -1246,7 +1268,7 @@ class Parser:
     def parse_while_statement(self, i):
         self.increase_parsing_depth()
         self.consume_space(i)
-        condition = self.parse_full_expression(i)
+        condition = self.parse_expression(i)
 
         self.loop_depth += 1
         body = self.parse_statements(i)
@@ -1487,12 +1509,12 @@ class TypePropagator:
 
         if len(args) < len(params):
             raise TypePropagationError(
-                f"Function call '{fn_name}' expected argument '{params[len(args)].name}'"
+                f"Function call '{fn_name}' expected the argument '{params[len(args)]["name"]}' with type {params[len(args)]["type"]}"
             )
 
         if len(args) > len(params):
             raise TypePropagationError(
-                f"Function call '{fn_name}' got unexpected extra argument"
+                f"Function call '{fn_name}' got an unexpected extra argument with type {call_expr.operands[len(params)].result_type_name}"
             )
 
         for i, (arg, param) in enumerate(zip(args, params)):
@@ -1517,14 +1539,14 @@ class TypePropagator:
 
             if arg.result_type == "void":
                 raise TypePropagationError(
-                    f"Function call '{fn_name}' expected type {param["type"]} for argument '{param.name}'"
+                    f"Function call '{fn_name}' expected the type {param["type"]} for argument '{param["name"]}', but got a function call that doesn't return anything"
                 )
 
             if param["type"] != "id" and self.is_wrong_type(
                 arg.result_type, param["type"], arg.result_type_name, param["type"]
             ):
                 raise TypePropagationError(
-                    f"Function call '{fn_name}' expected type {param["type"]} for argument '{param.name}', but got {arg.result_type_name}"
+                    f"Function call '{fn_name}' expected the type {param["type"]} for argument '{param["name"]}', but got {arg.result_type_name}"
                 )
 
     def fill_call_expr(self, expr):
@@ -1542,7 +1564,7 @@ class TypePropagator:
             helper_fn = self.parser.helper_fns[fn_name]
             expr.result_type = helper_fn.return_type
             expr.result_type_name = helper_fn.return_type_name
-            self.check_arguments(helper_fn["arguments"], expr)
+            self.check_arguments(helper_fn.arguments, expr)
             return
 
         # Check if it's a game function
@@ -1552,7 +1574,7 @@ class TypePropagator:
                 game_fn.get("return_type", "void")
             )
             expr.result_type_name = game_fn.get("return_type", "void")
-            self.check_arguments(game_fn["arguments"], expr)
+            self.check_arguments(game_fn.get("arguments", []), expr)
             return
 
         if fn_name.startswith("on_"):
