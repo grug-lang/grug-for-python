@@ -23,4 +23,4 @@ pytest --grug-tests-path=../grug-tests -s
 
 You can additionally pass `--whitelisted-test=f32_too_big` if you only want to run the test called `f32_too_big`.
 
-Alternatively you can *walk* through the tests by installing the [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) VS Code extension, and hitting `F5` to launch all tests. You can edit `.vscode/launch.json` if you want to pass `--whitelisted-test=f32_too_big`.
+Alternatively, you can *walk* through the tests and set breakpoints by installing the [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) VS Code extension. Hit `F5` to run all tests. You can edit `.vscode/launch.json` if you want to pass `--whitelisted-test=f32_too_big`.
