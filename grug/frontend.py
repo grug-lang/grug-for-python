@@ -339,11 +339,10 @@ class OnFn:
 
 
 class Variable:
-    def __init__(self, name, var_type, type_name, offset=0):
+    def __init__(self, name, var_type, type_name):
         self.name = name
         self.type = var_type
         self.type_name = type_name
-        self.offset = offset
 
 
 class Parser:
@@ -351,7 +350,7 @@ class Parser:
         self.tokens = tokens
         self.global_statements = []
         self.helper_fns = {}
-        self.on_fns = []
+        self.on_fns = {}
         self.statements = []
         self.arguments = []
         self.parsing_depth = 0
@@ -360,12 +359,6 @@ class Parser:
         self.indentation = 0
         self.called_helper_fn_names = set()
         self.global_statements = []
-
-    def seen_called_helper_fn_name(self, name):
-        return name in self.called_helper_fn_names
-
-    def add_called_helper_fn_name(self, name):
-        self.called_helper_fn_names.add(name)
 
     def parse(self):
         seen_on_fn = False
@@ -425,7 +418,11 @@ class Parser:
                     )
 
                 fn = self.parse_on_fn(i)
-                self.on_fns.append(fn)
+                if fn.fn_name in self.on_fns:
+                    raise ParserError(
+                        f"The function '{fn.fn_name}' was defined several times in the same file"
+                    )
+                self.on_fns[fn.fn_name] = fn
 
                 self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
 
@@ -632,7 +629,7 @@ class Parser:
 
         type_token = self.consume_token(i)
         type_name = type_token.value
-        arg_type = self.parse_type(type_name)
+        arg_type = type_name
 
         if arg_type == "resource":
             raise ParserError(
@@ -684,7 +681,7 @@ class Parser:
         fn_token = self.consume_token(i)
         fn = HelperFn(fn_token.value)
 
-        if not self.seen_called_helper_fn_name(fn.fn_name):
+        if fn.fn_name not in self.called_helper_fn_names:
             raise ParserError(
                 f"{fn.fn_name}() is defined before the first time it gets called"
             )
@@ -981,7 +978,7 @@ class Parser:
 
         fn_name = expr.value
         if fn_name.startswith("helper_"):
-            self.add_called_helper_fn_name(fn_name)
+            self.called_helper_fn_names.add(fn_name)
 
         i[0] += 1
 
@@ -1291,7 +1288,7 @@ class TypePropagator:
 
         self.game_functions = mod_api["game_functions"]
         self.entity_on_functions = mod_api["entities"][entity_type].get(
-            "on_functions", []
+            "on_functions", {}
         )
 
     def add_global_variable(self, name, var_type, type_name):
@@ -1331,7 +1328,7 @@ class TypePropagator:
                 f"The local variable '{name}' shadows an earlier global variable"
             )
 
-        var = Variable(name, var_type, type_name, 0)
+        var = Variable(name, var_type, type_name)
         self.local_variables[name] = var
 
     def is_wrong_type(self, a, b, a_name, b_name):
@@ -1391,23 +1388,59 @@ class TypePropagator:
 
         if string.startswith("/"):
             raise TypePropagationError(
-                f'Remove the leading slash from resource "{string}"'
+                f'Remove the leading slash from the resource "{string}"'
             )
 
         if string.endswith("/"):
             raise TypePropagationError(
-                f'Remove the trailing slash from resource "{string}"'
+                f'Remove the trailing slash from the resource "{string}"'
             )
 
         if "\\" in string:
             raise TypePropagationError(
-                f"Replace '\\' with '/' in resource \"{string}\""
+                f"Replace the '\\' with '/' in the resource \"{string}\""
             )
 
         if "//" in string:
             raise TypePropagationError(
-                f"Replace '//' with '/' in resource \"{string}\""
+                f"Replace the '//' with '/' in the resource \"{string}\""
             )
+
+        # Dot '.' check
+        dot_index = string.find(".")
+        if dot_index != -1:
+            # Case 1: String starts with "."
+            if dot_index == 0:
+                if len(string) == 1 or string[1] == "/":
+                    raise TypePropagationError(
+                        f"Remove the '.' from the resource \"{string}\""
+                    )
+
+            # Case 2: A path segment begins with "./"
+            elif string[dot_index - 1] == "/":
+                # Next must not be "/" or end-of-string
+                if dot_index + 1 == len(string) or string[dot_index + 1] == "/":
+                    raise TypePropagationError(
+                        f"Remove the '.' from the resource \"{string}\""
+                    )
+
+        # Dot dot '..' check
+        dotdot_index = string.find("..")
+        if dotdot_index != -1:
+            # Case 1: String starts with ".."
+            if dotdot_index == 0:
+                if len(string) == 2 or string[2] == "/":
+                    raise TypePropagationError(
+                        f"Remove the '..' from the resource \"{string}\""
+                    )
+
+            # Case 2: Path segment begins with "../"
+            elif string[dotdot_index - 1] == "/":
+                # Next must not be "/" or end-of-string
+                if dotdot_index + 2 == len(string) or string[dotdot_index + 2] == "/":
+                    raise TypePropagationError(
+                        f"Remove the '..' from the resource \"{string}\""
+                    )
 
         if not string.endswith(resource_extension):
             raise TypePropagationError(
@@ -1657,9 +1690,8 @@ class TypePropagator:
     def mark_local_variables_unreachable(self, statements):
         for stmt in statements:
             if stmt.type == "variable" and stmt.has_type:
-                var = self.local_variables[stmt.name]
-                if var:
-                    var.offset = float("inf")
+                if stmt.name in self.local_variables:
+                    del self.local_variables[stmt.name]
 
     def fill_statements(self, statements):
         for stmt in statements:
@@ -1706,7 +1738,7 @@ class TypePropagator:
         self.local_variables = {}
 
         for arg in arguments:
-            self.add_local_variable(arg.name, arg.type, arg.type_name)
+            self.add_local_variable(arg["name"], arg["type"], arg["type_name"])
 
     def fill_helper_fns(self):
         for fn_name, fn in self.parser.helper_fns.items():
@@ -1737,47 +1769,66 @@ class TypePropagator:
                     )
 
     def fill_on_fns(self):
-        for fn in self.parser.on_fns:
+        # Check for on_fns that aren't declared in the entity
+        for fn_name in self.parser.on_fns.keys():
+            if fn_name not in self.entity_on_functions:
+                raise TypePropagationError(
+                    f"The function '{fn_name}' was not declared by entity '{self.file_entity_type}' in mod_api.json"
+                )
+
+        # Create a list of parser on_fn names for index lookup
+        parser_on_fn_names = list(self.parser.on_fns.keys())
+
+        # Check ordering and validate signatures by iterating through expected order
+        previous_on_fn_index = 0
+        for expected_fn_name in self.entity_on_functions.keys():
+            if expected_fn_name not in self.parser.on_fns:
+                continue
+
+            fn = self.parser.on_fns[expected_fn_name]
+
+            # Check ordering
+            current_parser_index = parser_on_fn_names.index(expected_fn_name)
+            if previous_on_fn_index > current_parser_index:
+                raise TypePropagationError(
+                    f"The function '{expected_fn_name}' needs to be moved before/after a different on_ function, according to the entity '{self.file_entity_type}' in mod_api.json"
+                )
+            previous_on_fn_index = current_parser_index
+
+            # Validate signature
             self.fn_return_type = "void"
-            self.filled_fn_name = fn.fn_name
+            self.filled_fn_name = expected_fn_name
+            params = self.entity_on_functions[expected_fn_name].get("arguments", [])
 
-            # Check if this on_fn is declared by the entity
-            if fn.fn_name not in self.entity_on_functions:
-                raise TypePropagationError(
-                    f"The function '{fn.fn_name}' was not declared by entity '{self.file_entity_type}'"
-                )
-
-            entity_on_fn = self.entity_on_functions[fn.fn_name]
-            params = entity_on_fn.get("arguments", [])
-
-            if len(fn.arguments) < len(params):
-                raise TypePropagationError(
-                    f"Function '{fn.fn_name}' expected parameter '{params[len(fn.arguments)].name}'"
-                )
-
-            if len(fn.arguments) > len(params):
-                raise TypePropagationError(
-                    f"Function '{fn.fn_name}' got unexpected extra parameter '{fn.arguments[len(params)].name}'"
-                )
+            if len(fn.arguments) != len(params):
+                if len(fn.arguments) < len(params):
+                    raise TypePropagationError(
+                        f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.arguments)]["name"]}' with type {params[len(fn.arguments)]["type"]}"
+                    )
+                else:
+                    raise TypePropagationError(
+                        f"Function '{expected_fn_name}' got an unexpected extra parameter '{fn.arguments[len(params)]["name"]}' with type {fn.arguments[len(params)]["type_name"]}"
+                    )
 
             for arg, param in zip(fn.arguments, params):
-                if arg.name != param.name:
+                if arg["name"] != param["name"]:
                     raise TypePropagationError(
-                        f"Function '{fn.fn_name}' its '{arg.name}' parameter was supposed to be named '{param.name}'"
+                        f"Function '{expected_fn_name}' its '{arg["name"]}' parameter was supposed to be named '{param["name"]}'"
                     )
 
                 if self.is_wrong_type(
-                    arg.type, param.type, arg.type_name, param.type_name
+                    arg["type"],
+                    self.parser.parse_type(param["type"]),
+                    arg["type_name"],
+                    param["type"],
                 ):
                     raise TypePropagationError(
-                        f"Function '{fn.fn_name}' its '{param.name}' parameter was supposed to have type {param.type_name}, but got {arg.type_name}"
+                        f"Function '{expected_fn_name}' its '{param["name"]}' parameter was supposed to have the type {param["type"]}, but got {arg["type_name"]}"
                     )
 
             self.add_argument_variables(fn.arguments)
-
             self.parsed_fn_calls_helper_fn = False
             self.parsed_fn_contains_while_loop = False
-
             self.fill_statements(fn.body_statements)
 
             fn.calls_helper_fn = self.parsed_fn_calls_helper_fn
