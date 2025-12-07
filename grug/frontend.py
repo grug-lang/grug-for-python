@@ -450,6 +450,10 @@ class Parser:
                     )
 
                 fn = self.parse_helper_fn(i)
+                if fn.fn_name in self.helper_fns:
+                    raise ParserError(
+                        f"The function '{fn.fn_name}' was defined several times in the same file"
+                    )
                 self.helper_fns[fn.fn_name] = fn
 
                 self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
@@ -802,12 +806,8 @@ class Parser:
         i[0] += 1
 
     def consume_indentation(self, i):
-        tok = self.peek_token(i[0])
-        if tok.type != TokenType.INDENTATION_TOKEN:
-            raise ParserError(
-                f"Expected indentation on line {self.get_token_line_number(i[0])}, got '{tok.value}'"
-            )
-        spaces = len(tok.value)
+        self.assert_token_type(i[0], TokenType.INDENTATION_TOKEN)
+        spaces = len(self.peek_token(i[0]).value)
         expected = self.indentation * SPACES_PER_INDENT
         if spaces != expected:
             raise ParserError(
@@ -832,7 +832,9 @@ class Parser:
     def increase_parsing_depth(self):
         self.parsing_depth += 1
         if self.parsing_depth >= MAX_PARSING_DEPTH:
-            raise ParserError(f"Exceeded maximum parsing depth of {MAX_PARSING_DEPTH}")
+            raise ParserError(
+                f"There is a function that contains more than {MAX_PARSING_DEPTH} levels of nested expressions"
+            )
 
     def decrease_parsing_depth(self):
         if self.parsing_depth <= 0:
@@ -964,8 +966,6 @@ class Parser:
 
     def parse_call(self, i):
         self.increase_parsing_depth()
-        if self.parsing_depth > 100:
-            raise ParserError("Exceeded maximum parsing depth of 100")
 
         expr = self.parse_primary(i)
 
@@ -1049,8 +1049,6 @@ class Parser:
 
     def parse_primary(self, i):
         self.increase_parsing_depth()
-        if self.parsing_depth > 100:
-            raise ParserError("Exceeded maximum parsing depth of 100")
 
         token = self.peek_token(i[0])
         expr = Expr(None)
@@ -1507,7 +1505,7 @@ class TypePropagator:
                 f"Function call '{fn_name}' got an unexpected extra argument with type {call_expr.operands[len(params)].result_type_name}"
             )
 
-        for i, (arg, param) in enumerate(zip(args, params)):
+        for arg, param in zip(args, params):
             # Handle resource/entity string conversions
             if arg.type == "string" and param["type"] == "resource":
                 arg.result_type = "resource"
@@ -1533,7 +1531,10 @@ class TypePropagator:
                 )
 
             if param["type"] != "id" and self.is_wrong_type(
-                arg.result_type, param["type"], arg.result_type_name, param["type"]
+                arg.result_type,
+                self.parser.parse_type(param["type"]),
+                arg.result_type_name,
+                param["type"],
             ):
                 raise TypePropagationError(
                     f"Function call '{fn_name}' expected the type {param["type"]} for argument '{param["name"]}', but got {arg.result_type_name}"
@@ -1597,7 +1598,7 @@ class TypePropagator:
             right.result_type_name,
         ):
             raise TypePropagationError(
-                f"Left and right operands of binary expression must have same type, got {left.result_type_name} and {right.result_type_name}"
+                f"The left and right operand of a binary expression ('{op_name}') must have the same type, but got {left.result_type_name} and {right.result_type_name}"
             )
 
         if op_name in ("EQUALS_TOKEN", "NOT_EQUALS_TOKEN"):
@@ -1714,8 +1715,11 @@ class TypePropagator:
         else:
             if not var:
                 raise TypePropagationError(
-                    f"Can't assign to variable '{stmt.name}', since it does not exist"
+                    f"Can't assign to the variable '{stmt.name}', since it does not exist"
                 )
+
+            if self.get_global_variable(stmt.name) and var.type == "id":
+                raise TypePropagationError("Global id variables can't be reassigned")
 
             if var.type_name != "id" and self.is_wrong_type(
                 var.type,
