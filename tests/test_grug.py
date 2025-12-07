@@ -29,18 +29,18 @@ def test_grug(grug_tests_path, whitelisted_test, grug_lib):
         try:
             with open(input_path, "rb") as fsrc, open(output_path, "wb") as fdst:
                 fdst.write(fsrc.read())
-            return True
-        except:
             return False
+        except:
+            return True
 
     @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
     def generate_file_from_json(input_path, output_path):
         try:
             with open(input_path, "rb") as fsrc, open(output_path, "wb") as fdst:
                 fdst.write(fsrc.read())
-            return True
-        except:
             return False
+        except:
+            return True
 
     @ctypes.CFUNCTYPE(None, ctypes.c_char_p)
     def game_fn_error(msg):
