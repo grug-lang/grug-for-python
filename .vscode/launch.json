@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceRoot}/tests/test_grug.py",
+            "args": [
+                "--grug-tests-path=../grug-tests",
+                "-s", // Prevents pytest from hiding printed output of tests
+                "-v", // Increases verbosity
+                // "--whitelisted-test=f32_too_big" // Use to debug a specific test
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}

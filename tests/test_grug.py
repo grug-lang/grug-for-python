@@ -1,11 +1,12 @@
 import ctypes
+import sys
 
 import pytest
 
 from grug import Bindings
 
 
-def test_grug(grug_lib, grug_tests_path):
+def test_grug(grug_tests_path, whitelisted_test, grug_lib):
     bindings = Bindings(grug_tests_path / "mod_api.json")
 
     @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
@@ -55,13 +56,10 @@ def test_grug(grug_lib, grug_tests_path):
         dump_file_to_json,
         generate_file_from_json,
         game_fn_error,
-        None,  # TODO: Put back!
-        # b"bool_ge",
+        whitelisted_test.encode() if whitelisted_test else None,
     )
 
 
 # Enables stepping through code with VS Code its Python debugger.
-# Click the dropdown button next to the play button at the top-right of the file,
-# and then click `Python Debugger: Debug Python File`.
 if __name__ == "__main__":
-    pytest.main(["--grug-tests-path=../grug-tests", "-s", "-v", __file__])
+    pytest.main(sys.argv)

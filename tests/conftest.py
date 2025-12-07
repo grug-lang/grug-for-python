@@ -21,7 +21,15 @@ def pytest_addoption(parser):
         "--grug-tests-path",
         action="store",
         default=None,
+        required=True,
         help="Path to the grug-tests repository",
+    )
+    parser.addoption(
+        "--whitelisted-test",
+        action="store",
+        default=None,
+        required=False,
+        help="A specific test name to run",
     )
 
 
@@ -39,6 +47,14 @@ def grug_tests_path(request):
         pytest.exit(f"Error: Directory not found: {path}")
 
     return path
+
+
+@pytest.fixture(scope="session")
+def whitelisted_test(request):
+    """
+    Returns the name of a whitelisted test.
+    """
+    return request.config.getoption("--whitelisted-test")
 
 
 @pytest.fixture(scope="session")
