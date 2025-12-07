@@ -1277,14 +1277,8 @@ class TypePropagator:
         self.mod_api = mod_api
 
         # Variable storage
-        self.variables = []
-        self.variables_size = 0
-        self.buckets_variables = {}
-
-        self.global_variables = []
-        self.global_variables_size = 0
-        self.globals_bytes = 0
-        self.buckets_global_variables = {}
+        self.local_variables = {}
+        self.global_variables = {}
 
         # Function context
         self.fn_return_type = None
@@ -1295,121 +1289,50 @@ class TypePropagator:
         self.parsed_fn_calls_helper_fn = False
         self.parsed_fn_contains_while_loop = False
 
-        # Type sizes mapping
-        self.type_sizes = {
-            "bool": 1,
-            "i32": 4,
-            "f32": 4,
-            "string": 8,
-            "id": 8,
-            "resource": 8,
-            "entity": 8,
-        }
-
         self.game_functions = mod_api["game_functions"]
         self.entity_on_functions = mod_api["entities"][entity_type].get(
             "on_functions", []
         )
 
-    def reset_filling(self):
-        self.global_variables = []
-        self.global_variables_size = 0
-        self.globals_bytes = 0
-        self.buckets_global_variables = {}
-
-    # TODO: We don't need this
-    def elf_hash(self, s):
-        """Simple hash function for variable lookup"""
-        h = 0
-        for c in s:
-            h = (h << 4) + ord(c)
-            g = h & 0xF0000000
-            if g:
-                h ^= g >> 24
-            h &= ~g
-        return h
-
-    # TODO: This fn can be massively simplified
-    def get_global_variable(self, name):
-        bucket = self.elf_hash(name) % MAX_GLOBAL_VARIABLES
-        if bucket not in self.buckets_global_variables:
-            return None
-
-        for var in self.buckets_global_variables[bucket]:
-            if var.name == name:
-                return var
-        return None
-
-    # TODO: This fn can be massively simplified
     def add_global_variable(self, name, var_type, type_name):
-        if self.global_variables_size >= MAX_GLOBAL_VARIABLES:
+        if len(self.global_variables) >= MAX_GLOBAL_VARIABLES:
             raise TypePropagationError(
                 f"There are more than {MAX_GLOBAL_VARIABLES} global variables in a grug file"
             )
 
-        if self.get_global_variable(name):
+        if name in self.global_variables:
             raise TypePropagationError(
                 f"The global variable '{name}' shadows an earlier global variable with the same name, so change the name of one of them"
             )
 
-        var = Variable(name, var_type, type_name, self.globals_bytes)
-        self.global_variables.append(var)
-
-        self.globals_bytes += self.type_sizes.get(var_type, 8)
-
-        bucket = self.elf_hash(name) % MAX_GLOBAL_VARIABLES
-        if bucket not in self.buckets_global_variables:
-            self.buckets_global_variables[bucket] = []
-        self.buckets_global_variables[bucket].append(var)
-
-        self.global_variables_size += 1
-
-    # TODO: This fn can be massively simplified
-    def get_local_variable(self, name):
-        if self.variables_size == 0:
-            return None
-
-        bucket = self.elf_hash(name) % MAX_VARIABLES_PER_FUNCTION
-        if bucket not in self.buckets_variables:
-            return None
-
-        for var in self.buckets_variables[bucket]:
-            if var.name == name and var.offset != float("inf"):
-                return var
-        return None
+        var = Variable(name, var_type, type_name)
+        self.global_variables[name] = var
 
     def get_variable(self, name):
-        var = self.get_local_variable(name)
-        if not var:
-            var = self.get_global_variable(name)
-        return var
+        if name in self.local_variables:
+            return self.local_variables[name]
+        if name in self.global_variables:
+            return self.global_variables[name]
+        return None
 
-    # TODO: This fn can be massively simplified
     def add_local_variable(self, name, var_type, type_name):
-        if self.variables_size >= MAX_VARIABLES_PER_FUNCTION:
+        if len(self.local_variables) >= MAX_VARIABLES_PER_FUNCTION:
             raise TypePropagationError(
                 f"There are more than {MAX_VARIABLES_PER_FUNCTION} variables in a function"
             )
 
-        if self.get_local_variable(name):
+        if name in self.local_variables:
             raise TypePropagationError(
                 f"The local variable '{name}' shadows an earlier local variable"
             )
 
-        if self.get_global_variable(name):
+        if name in self.global_variables:
             raise TypePropagationError(
                 f"The local variable '{name}' shadows an earlier global variable"
             )
 
         var = Variable(name, var_type, type_name, 0)
-        self.variables.append(var)
-
-        bucket = self.elf_hash(name) % MAX_VARIABLES_PER_FUNCTION
-        if bucket not in self.buckets_variables:
-            self.buckets_variables[bucket] = []
-        self.buckets_variables[bucket].append(var)
-
-        self.variables_size += 1
+        self.local_variables[name] = var
 
     def is_wrong_type(self, a, b, a_name, b_name):
         if a != b:
@@ -1718,7 +1641,7 @@ class TypePropagator:
                     f"Can't assign to the variable '{stmt.name}', since it does not exist"
                 )
 
-            if self.get_global_variable(stmt.name) and var.type == "id":
+            if stmt.name in self.global_variables and var.type == "id":
                 raise TypePropagationError("Global id variables can't be reassigned")
 
             if var.type_name != "id" and self.is_wrong_type(
@@ -1734,7 +1657,7 @@ class TypePropagator:
     def mark_local_variables_unreachable(self, statements):
         for stmt in statements:
             if stmt.type == "variable" and stmt.has_type:
-                var = self.get_local_variable(stmt.name)
+                var = self.local_variables[stmt.name]
                 if var:
                     var.offset = float("inf")
 
@@ -1780,9 +1703,7 @@ class TypePropagator:
         self.mark_local_variables_unreachable(statements)
 
     def add_argument_variables(self, arguments):
-        self.variables = []
-        self.variables_size = 0
-        self.buckets_variables = {}
+        self.local_variables = {}
 
         for arg in arguments:
             self.add_local_variable(arg.name, arg.type, arg.type_name)
@@ -1916,8 +1837,6 @@ class TypePropagator:
 
     def fill_result_types(self):
         """Main entry point for type propagation"""
-        self.reset_filling()
-
         self.fill_global_variables()
         self.fill_on_fns()
         self.fill_helper_fns()
