@@ -1,6 +1,4 @@
 import struct
-import sys
-import traceback
 from enum import Enum, auto
 
 SPACES_PER_INDENT = 4
@@ -1893,6 +1891,10 @@ class TypePropagator:
         self.fill_helper_fns()
 
 
+class FrontendError(Exception):
+    pass
+
+
 class Frontend:
     def __init__(self, mod_api):
         self.mod_api = mod_api
@@ -1913,11 +1915,8 @@ class Frontend:
                 parser, mod_name, entity_type, self.mod_api
             )
             type_propagator.fill_result_types()
-
         except (TokenizerError, ParserError, TypePropagationError) as e:
-            return str(e)
-        except Exception as e:
-            traceback.print_exc(file=sys.stderr)
-            return "Unhandled error"
+            raise FrontendError(str(e)) from e
 
-        return None
+        ast = parser.global_statements
+        return ast

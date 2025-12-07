@@ -1,7 +1,9 @@
 import json
+import sys
+import traceback
 from pathlib import Path
 
-from .frontend import Frontend
+from .frontend import Frontend, FrontendError
 
 MAX_FILE_ENTITY_TYPE_LENGTH = 420
 
@@ -33,7 +35,15 @@ class Bindings:
         except ValueError as e:
             return str(e)
 
-        return self.frontend.compile_grug_fn(text, mod_name, entity_type)
+        try:
+            self.ast = self.frontend.compile_grug_fn(text, mod_name, entity_type)
+        except FrontendError as e:
+            return str(e)
+        except Exception as e:
+            traceback.print_exc(file=sys.stderr)
+            return "Unhandled error"
+
+        return None
 
     def get_file_entity_type(self, grug_filename: str) -> str:
         """
