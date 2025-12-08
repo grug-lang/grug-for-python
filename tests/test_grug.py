@@ -9,9 +9,9 @@ from grug import Bindings
 def test_grug(grug_tests_path, whitelisted_test, grug_lib):
     bindings = Bindings(grug_tests_path / "mod_api.json")
 
-    @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
-    def compile_grug_file(path):
-        msg = bindings.compile_grug_fn(path.decode(), "err")
+    @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p)
+    def compile_grug_file(path, mod_name):
+        msg = bindings.compile_grug_fn(path.decode(), mod_name.decode())
         return msg.encode() if msg else None
 
     @ctypes.CFUNCTYPE(None, ctypes.c_char_p)
@@ -25,22 +25,16 @@ def test_grug(grug_tests_path, whitelisted_test, grug_lib):
         print(f"on_fn_dispatcher: {fn_name.decode()} {grug_file_path.decode()}")
 
     @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
-    def dump_file_to_json(input_path, output_path):
-        try:
-            with open(input_path, "rb") as fsrc, open(output_path, "wb") as fdst:
-                fdst.write(fsrc.read())
-            return False
-        except:
-            return True
+    def dump_file_to_json(input_grug_path, output_json_path):
+        return bindings.dump_file_to_json(
+            input_grug_path.decode(), output_json_path.decode()
+        )
 
     @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
-    def generate_file_from_json(input_path, output_path):
-        try:
-            with open(input_path, "rb") as fsrc, open(output_path, "wb") as fdst:
-                fdst.write(fsrc.read())
-            return False
-        except:
-            return True
+    def generate_file_from_json(input_json_path, output_grug_path):
+        return bindings.generate_file_from_json(
+            input_json_path.decode(), output_grug_path.decode()
+        )
 
     @ctypes.CFUNCTYPE(None, ctypes.c_char_p)
     def game_fn_error(msg):

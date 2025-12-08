@@ -3,7 +3,8 @@ import sys
 import traceback
 from pathlib import Path
 
-from .frontend import Frontend, FrontendError
+from .frontend import Frontend, FrontendError, Parser, Tokenizer
+from .serializer import Serializer
 
 MAX_FILE_ENTITY_TYPE_LENGTH = 420
 
@@ -11,8 +12,7 @@ MAX_FILE_ENTITY_TYPE_LENGTH = 420
 class Bindings:
     def __init__(self, mod_api_path):
         with open(mod_api_path) as f:
-            mod_api = json.load(f)
-            self.frontend = Frontend(mod_api)
+            self.frontend = Frontend(json.load(f))
 
     def compile_grug_fn(self, grug_path: str, mod_name: str):
         """Read a file and pass its contents to the frontend."""
@@ -21,17 +21,13 @@ class Bindings:
         except Exception as e:
             return f"Error reading file {grug_path}: {e}"
 
-        path = Path(grug_path)
-
         if "/" not in grug_path:
             raise ValueError(
                 f"The grug file path '{grug_path}' does not contain a '/' character"
             )
 
-        grug_filename = path.name
-
         try:
-            entity_type = self.get_file_entity_type(grug_filename)
+            entity_type = self.get_file_entity_type(Path(grug_path).name)
         except ValueError as e:
             return str(e)
 
@@ -44,6 +40,30 @@ class Bindings:
             return "Unhandled error"
 
         return None
+
+    def dump_file_to_json(self, input_grug_path, output_json_path):
+        grug_text = Path(input_grug_path).read_text()
+
+        tokens = Tokenizer(grug_text).tokenize()
+
+        ast = Parser(tokens).parse()
+
+        json_text = Serializer.ast_to_json(ast)
+
+        Path(output_json_path).write_text(json_text)
+
+        return False
+
+    def generate_file_from_json(self, input_json_path, output_grug_path):
+        json_text = Path(input_json_path).read_text()
+
+        ast = json.loads(json_text)
+
+        grug_text = Serializer.ast_to_grug(ast)
+
+        Path(output_grug_path).write_text(grug_text)
+
+        return False
 
     def get_file_entity_type(self, grug_filename: str) -> str:
         """

@@ -496,6 +496,8 @@ class Parser:
                 f"Unexpected empty line, on line {self.get_token_line_number(len(self.tokens)-1)}"
             )
 
+        return self.global_statements
+
     def peek_token(self, token_index):
         if token_index >= len(self.tokens):
             raise ParserError(
@@ -598,7 +600,7 @@ class Parser:
         self.arguments.append(argument)
         return argument
 
-    def parse_type(self, type_str):
+    def parse_type(type_str):
         if type_str == "bool":
             return "bool"
         if type_str == "i32":
@@ -658,7 +660,7 @@ class Parser:
             self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             type_token = self.consume_token(i)
             type_name = type_token.value
-            arg_type = self.parse_type(type_name)
+            arg_type = Parser.parse_type(type_name)
 
             if arg_type == "resource":
                 raise ParserError(
@@ -698,7 +700,7 @@ class Parser:
         fn.return_type = "void"
         if token.type == TokenType.WORD_TOKEN:
             i[0] += 2
-            fn.return_type = self.parse_type(token.value)
+            fn.return_type = Parser.parse_type(token.value)
             fn.return_type_name = token.value
 
             if fn.return_type == "resource":
@@ -861,7 +863,7 @@ class Parser:
                 )
 
             has_type = True
-            var_type = self.parse_type(type_token.value)
+            var_type = Parser.parse_type(type_token.value)
             var_type_name = type_token.value
 
             if var_type in ("resource", "entity"):
@@ -915,7 +917,7 @@ class Parser:
                 f"Expected a word token after the colon on line {self.get_token_line_number(name_token_index)}"
             )
 
-        global_type = self.parse_type(type_token.value)
+        global_type = Parser.parse_type(type_token.value)
         global_type_name = type_token.value
 
         if global_type == "resource":
@@ -1265,11 +1267,20 @@ class TypePropagationError(Exception):
 
 
 class TypePropagator:
-    def __init__(self, parser, mod_name, entity_type, mod_api):
-        self.parser = parser
+    def __init__(self, ast, mod_name, entity_type, mod_api):
+        self.ast = ast
         self.mod = mod_name
         self.file_entity_type = entity_type
         self.mod_api = mod_api
+
+        self.on_fns = {
+            s["on_fn"].fn_name: s["on_fn"] for s in ast if s["type"] == "on_fn"
+        }
+        self.helper_fns = {
+            s["helper_fn"].fn_name: s["helper_fn"]
+            for s in ast
+            if s["type"] == "helper_fn"
+        }
 
         # Variable storage
         self.local_variables = {}
@@ -1486,7 +1497,7 @@ class TypePropagator:
 
             if param["type"] != "id" and self.is_wrong_type(
                 arg.result_type,
-                self.parser.parse_type(param["type"]),
+                Parser.parse_type(param["type"]),
                 arg.result_type_name,
                 param["type"],
             ):
@@ -1505,8 +1516,8 @@ class TypePropagator:
             self.parsed_fn_calls_helper_fn = True
 
         # Check if it's a helper function
-        if fn_name in self.parser.helper_fns:
-            helper_fn = self.parser.helper_fns[fn_name]
+        if fn_name in self.helper_fns:
+            helper_fn = self.helper_fns[fn_name]
             expr.result_type = helper_fn.return_type
             expr.result_type_name = helper_fn.return_type_name
             self.check_arguments(helper_fn.arguments, expr)
@@ -1515,9 +1526,7 @@ class TypePropagator:
         # Check if it's a game function
         if fn_name in self.game_functions:
             game_fn = self.game_functions[fn_name]
-            expr.result_type = self.parser.parse_type(
-                game_fn.get("return_type", "void")
-            )
+            expr.result_type = Parser.parse_type(game_fn.get("return_type", "void"))
             expr.result_type_name = game_fn.get("return_type", "void")
             self.check_arguments(game_fn.get("arguments", []), expr)
             return
@@ -1739,7 +1748,7 @@ class TypePropagator:
             self.add_local_variable(arg["name"], arg["type"], arg["type_name"])
 
     def fill_helper_fns(self):
-        for fn_name, fn in self.parser.helper_fns.items():
+        for fn_name, fn in self.helper_fns.items():
             self.fn_return_type = fn.return_type
             self.fn_return_type_name = fn.return_type_name
             self.filled_fn_name = fn_name
@@ -1768,22 +1777,22 @@ class TypePropagator:
 
     def fill_on_fns(self):
         # Check for on_fns that aren't declared in the entity
-        for fn_name in self.parser.on_fns.keys():
+        for fn_name in self.on_fns.keys():
             if fn_name not in self.entity_on_functions:
                 raise TypePropagationError(
                     f"The function '{fn_name}' was not declared by entity '{self.file_entity_type}' in mod_api.json"
                 )
 
         # Create a list of parser on_fn names for index lookup
-        parser_on_fn_names = list(self.parser.on_fns.keys())
+        parser_on_fn_names = list(self.on_fns.keys())
 
         # Check ordering and validate signatures by iterating through expected order
         previous_on_fn_index = 0
         for expected_fn_name in self.entity_on_functions.keys():
-            if expected_fn_name not in self.parser.on_fns:
+            if expected_fn_name not in self.on_fns:
                 continue
 
-            fn = self.parser.on_fns[expected_fn_name]
+            fn = self.on_fns[expected_fn_name]
 
             # Check ordering
             current_parser_index = parser_on_fn_names.index(expected_fn_name)
@@ -1816,7 +1825,7 @@ class TypePropagator:
 
                 if self.is_wrong_type(
                     arg["type"],
-                    self.parser.parse_type(param["type"]),
+                    Parser.parse_type(param["type"]),
                     arg["type_name"],
                     param["type"],
                 ):
@@ -1858,9 +1867,9 @@ class TypePropagator:
         self.add_global_variable("me", "id", self.file_entity_type)
 
         # Process global variable statements
-        for item in self.parser.global_statements:
-            if item["type"] == "global_variable":
-                stmt = item["variable"]
+        for s in self.ast:
+            if s["type"] == "global_variable":
+                stmt = s["variable"]
 
                 self.check_global_expr(stmt.assignment_expr, stmt.name)
                 self.fill_expr(stmt.assignment_expr)
@@ -1884,7 +1893,7 @@ class TypePropagator:
 
                 self.add_global_variable(stmt.name, stmt.var_type, stmt.var_type_name)
 
-    def fill_result_types(self):
+    def fill(self):
         """Main entry point for type propagation"""
         self.fill_global_variables()
         self.fill_on_fns()
@@ -1905,18 +1914,12 @@ class Frontend:
         or None if compilation succeeded.
         """
         try:
-            tokenizer = Tokenizer(source)
-            tokens = tokenizer.tokenize()
+            tokens = Tokenizer(source).tokenize()
 
-            parser = Parser(tokens)
-            parser.parse()
+            ast = Parser(tokens).parse()
 
-            type_propagator = TypePropagator(
-                parser, mod_name, entity_type, self.mod_api
-            )
-            type_propagator.fill_result_types()
+            TypePropagator(ast, mod_name, entity_type, self.mod_api).fill()
         except (TokenizerError, ParserError, TypePropagationError) as e:
             raise FrontendError(str(e)) from e
 
-        ast = parser.global_statements
         return ast

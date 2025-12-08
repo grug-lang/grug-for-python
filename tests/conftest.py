@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 # Callback type definitions
-compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
+compile_grug_file_t = ctypes.CFUNCTYPE(
+    ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p
+)
 init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
 on_fn_dispatcher_t = ctypes.CFUNCTYPE(
     None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
