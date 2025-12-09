@@ -1619,6 +1619,9 @@ class TypePropagator:
                         f"Remove the '..' from the resource \"{string}\""
                     )
 
+        if string.endswith("."):
+            raise TypePropagationError(f'resource name "{string}" cannot end with .')
+
         if not resource_extension or not string.endswith(resource_extension):
             raise TypePropagationError(
                 f"The resource '{string}' was supposed to have extension '{resource_extension}'"
