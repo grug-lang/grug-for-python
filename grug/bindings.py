@@ -10,9 +10,10 @@ MAX_FILE_ENTITY_TYPE_LENGTH = 420
 
 
 class Bindings:
-    def __init__(self, mod_api_path):
+    def __init__(self, mod_api_path: str):
         with open(mod_api_path) as f:
-            self.frontend = Frontend(json.load(f))
+            mod_api = json.load(f)
+        self.frontend = Frontend(mod_api)
 
     def compile_grug_fn(self, grug_path: str, mod_name: str):
         """Read a file and pass its contents to the frontend."""
@@ -41,20 +42,20 @@ class Bindings:
 
         return None
 
-    def dump_file_to_json(self, input_grug_path, output_json_path):
+    def dump_file_to_json(self, input_grug_path: str, output_json_path: str):
         grug_text = Path(input_grug_path).read_text()
 
         tokens = Tokenizer(grug_text).tokenize()
 
         ast = Parser(tokens).parse()
 
-        json_text = Serializer.ast_to_json(ast)
+        json_text = Serializer.ast_to_json_text(ast)
 
         Path(output_json_path).write_text(json_text)
 
         return False
 
-    def generate_file_from_json(self, input_json_path, output_grug_path):
+    def generate_file_from_json(self, input_json_path: str, output_grug_path: str):
         json_text = Path(input_json_path).read_text()
 
         ast = json.loads(json_text)

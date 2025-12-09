@@ -4,7 +4,9 @@ This repository provides Python bindings, a frontend, and a backend for [grug](h
 
 ## Dependencies
 
-This project requires Python version >=3.11. You can manage Python versions using [pyenv](https://github.com/pyenv/pyenv).
+This project requires Python version 3.7 or newer. You can manage your Python versions using [pyenv](https://github.com/pyenv/pyenv).
+
+If you want to run the tests, you'll need to install pytest:
 
 ```sh
 pip install pytest
