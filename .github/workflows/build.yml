@@ -7,16 +7,12 @@ on:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.7.17, 3.11.9]
 
     steps:
       - uses: actions/checkout@v4
 
-      # Install pyenv and build dependencies (run only once)
+      # Install pyenv and build dependencies
       - name: Install pyenv and build dependencies
-        if: matrix.python-version == '3.7.17'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -40,9 +36,8 @@ jobs:
           echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> $GITHUB_ENV
           echo 'eval "$(pyenv init -)"' >> $GITHUB_ENV
 
-      # Install all required Python versions (run only once)
+      # Install Python versions
       - name: Install Python versions
-        if: matrix.python-version == '3.7.17'
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PATH"
@@ -50,23 +45,32 @@ jobs:
           pyenv install -s 3.7.17
           pyenv install -s 3.11.9
 
-      # Install Pyright once using Python 3.7
+      # Install Pyright
       - name: Install Pyright
-        if: matrix.python-version == '3.7.17'
         run: |
-          export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init -)"
-          pyenv global 3.7.17
-          python -m pip install --upgrade pip
+          python3 -m pip install --upgrade pip
           pip install pyright
 
-      # Run Pyright for this matrix Python version
-      - name: Run Pyright
+      # Save the reusable pyright runner script
+      - name: Create pyright runner script
         run: |
+          cat <<'EOF' > run_pyright.sh
+          #!/bin/bash
+          set -e
+          PYTHON_VERSION="$1"
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PATH"
           eval "$(pyenv init -)"
-          pyenv global ${{ matrix.python-version }}
+          pyenv global "$PYTHON_VERSION"
           echo "Using Python $(python --version)"
-          pyright --pythonversion ${{ matrix.python-version }}
+          pyright --pythonversion "$PYTHON_VERSION"
+          EOF
+          chmod +x run_pyright.sh
+
+      # Run Pyright on Python 3.7
+      - name: Run Pyright on Python 3.7
+        run: ./run_pyright.sh 3.7.17
+
+      # Run Pyright on Python 3.11
+      - name: Run Pyright on Python 3.11
+        run: ./run_pyright.sh 3.11.9
