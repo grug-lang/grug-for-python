@@ -15,14 +15,13 @@ jobs:
       run: |
         sudo add-apt-repository ppa:deadsnakes/ppa -y
         sudo apt-get update
-        sudo apt-get install -y python3.7 python3.7-distutils
-        curl -sS https://bootstrap.pypa.io/pip/3.7/get-pip.py | sudo python3.7
-        sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
-        python --version
+        sudo apt-get install -y python3.7 python3.7-distutils python3.7-venv
+        python3.7 --version # TODO: REMOVE!
+        python3 --version # TODO: REMOVE!
 
-    - name: Install dependencies
+    - name: Install pyright
       run: |
-        python -m pip install --upgrade pip
+        python3 -m pip install --upgrade pip
         pip install pyright
 
     - name: Run Pyright
