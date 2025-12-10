@@ -4,95 +4,69 @@ on:
   push:
   pull_request:
 
-###############################################################################
-# Anchors
-###############################################################################
-
-pyenv_init: &pyenv_init
-  run: |
-    export PYENV_ROOT="$HOME/.pyenv"
-    export PATH="$PYENV_ROOT/bin:$PATH"
-    eval "$(pyenv init -)"
-
-pyright_for_version: &pyright_for_version
-  run: |
-    export PYENV_ROOT="$HOME/.pyenv"
-    export PATH="$PYENV_ROOT/bin:$PATH"
-    eval "$(pyenv init -)"
-
-    pyenv global "$PYTHON_VERSION"
-    echo "Using Python $(python --version)"
-
-    pyright --pythonversion "$PYTHON_VERSION"
-  env:
-    PYTHON_VERSION: ""
-
-###############################################################################
-# Jobs
-###############################################################################
-
 jobs:
   typecheck:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7.17, 3.11.9]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    ###########################################################################
-    # Setup
-    ###########################################################################
+      # Install pyenv and build dependencies (run only once)
+      - name: Install pyenv and build dependencies
+        if: matrix.python-version == '3.7.17'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            zlib1g-dev \
+            libssl-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            libffi-dev \
+            liblzma-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libgdbm-dev \
+            uuid-dev \
+            curl
 
-    - name: Install pyenv and build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          zlib1g-dev \
-          libssl-dev \
-          libbz2-dev \
-          libreadline-dev \
-          libsqlite3-dev \
-          libffi-dev \
-          liblzma-dev \
-          libncurses5-dev \
-          libncursesw5-dev \
-          libgdbm-dev \
-          uuid-dev \
-          curl
+          curl https://pyenv.run | bash
 
-        curl https://pyenv.run | bash
+          echo 'export PYENV_ROOT="$HOME/.pyenv"' >> $GITHUB_ENV
+          echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> $GITHUB_ENV
+          echo 'eval "$(pyenv init -)"' >> $GITHUB_ENV
 
-        echo 'export PYENV_ROOT="$HOME/.pyenv"' >> $GITHUB_ENV
-        echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> $GITHUB_ENV
-        echo 'eval "$(pyenv init -)"' >> $GITHUB_ENV
+      # Install all required Python versions (run only once)
+      - name: Install Python versions
+        if: matrix.python-version == '3.7.17'
+        run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init -)"
+          pyenv install -s 3.7.17
+          pyenv install -s 3.11.9
 
-    - name: Initialize pyenv
-      <<: *pyenv_init
+      # Install Pyright once using Python 3.7
+      - name: Install Pyright
+        if: matrix.python-version == '3.7.17'
+        run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init -)"
+          pyenv global 3.7.17
+          python -m pip install --upgrade pip
+          pip install pyright
 
-    - name: Install Python versions
-      run: |
-        export PYENV_ROOT="$HOME/.pyenv"
-        export PATH="$PYENV_ROOT/bin:$PATH"
-        eval "$(pyenv init -)"
-
-        pyenv install 3.7.17
-        pyenv install 3.11.9
-
-    - name: Install Pyright
-      run: |
-        python3 -m pip install --upgrade pip
-        pip install pyright
-
-    ###########################################################################
-    # Pyright runs
-    ###########################################################################
-
-    - name: Run Pyright for Python 3.7.17
-      <<: *pyright_for_version
-      env:
-        PYTHON_VERSION: "3.7.17"
-
-    - name: Run Pyright for Python 3.11.9
-      <<: *pyright_for_version
-      env:
-        PYTHON_VERSION: "3.11.9"
+      # Run Pyright for this matrix Python version
+      - name: Run Pyright
+        run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init -)"
+          pyenv global ${{ matrix.python-version }}
+          echo "Using Python $(python --version)"
+          pyright --pythonversion ${{ matrix.python-version }}
