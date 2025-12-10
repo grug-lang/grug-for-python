@@ -11,10 +11,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.7.17'
+    - name: Set up Python 3.7.17
+      run: |
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+        sudo apt-get update
+        sudo apt-get install -y python3.7 python3.7-distutils
+        curl -sS https://bootstrap.pypa.io/get-pip.py | sudo python3.7
+        sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
+        python --version
 
     - name: Install dependencies
       run: |
