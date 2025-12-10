@@ -4,37 +4,39 @@ on:
   push:
   pull_request:
 
+###############################################################################
+# Anchors
+###############################################################################
+
+pyenv_init: &pyenv_init
+  run: |
+    export PYENV_ROOT="$HOME/.pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    eval "$(pyenv init -)"
+
+pyright_for_version: &pyright_for_version
+  run: |
+    export PYENV_ROOT="$HOME/.pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    eval "$(pyenv init -)"
+
+    pyenv global "$PYTHON_VERSION"
+    echo "Using Python $(python --version)"
+
+    pyright --pythonversion "$PYTHON_VERSION"
+  env:
+    PYTHON_VERSION: ""
+
+###############################################################################
+# Jobs
+###############################################################################
+
 jobs:
   typecheck:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-
-    ###########################################################################
-    # Anchors
-    ###########################################################################
-
-    - &pyenv_init
-      name: Initialize pyenv
-      run: |
-        export PYENV_ROOT="$HOME/.pyenv"
-        export PATH="$PYENV_ROOT/bin:$PATH"
-        eval "$(pyenv init -)"
-
-    - &pyright_for_version
-      name: Run Pyright
-      run: |
-        export PYENV_ROOT="$HOME/.pyenv"
-        export PATH="$PYENV_ROOT/bin:$PATH"
-        eval "$(pyenv init -)"
-
-        pyenv global "$PYTHON_VERSION"
-        echo "Using Python $(python --version)"
-
-        pyright --pythonversion "$PYTHON_VERSION"
-      env:
-        PYTHON_VERSION: ""
 
     ###########################################################################
     # Setup
@@ -64,7 +66,8 @@ jobs:
         echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> $GITHUB_ENV
         echo 'eval "$(pyenv init -)"' >> $GITHUB_ENV
 
-    - <<: *pyenv_init
+    - name: Initialize pyenv
+      <<: *pyenv_init
 
     - name: Install Python versions
       run: |
@@ -84,10 +87,12 @@ jobs:
     # Pyright runs
     ###########################################################################
 
-    - <<: *pyright_for_version
+    - name: Run Pyright for Python 3.7.17
+      <<: *pyright_for_version
       env:
         PYTHON_VERSION: "3.7.17"
 
-    - <<: *pyright_for_version
+    - name: Run Pyright for Python 3.11.9
+      <<: *pyright_for_version
       env:
         PYTHON_VERSION: "3.11.9"
