@@ -16,6 +16,7 @@ jobs:
         sudo add-apt-repository ppa:deadsnakes/ppa -y
         sudo apt-get update
         sudo apt-get install -y python3.7 python3.7-distutils python3.7-venv
+        python3.7 --version
 
     - name: Install pyright
       run: |
@@ -23,9 +24,7 @@ jobs:
         pip install pyright
 
     - name: Run Pyright on Python 3.7
-      run: |
-        export PYRIGHT_PYTHON_FORCE_VERSION=3.7
-        pyright
+      run: pyright --pythonversion 3.7
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
@@ -33,6 +32,4 @@ jobs:
         python-version: '3.11'
 
     - name: Run Pyright on Python 3.11
-      run: |
-        export PYRIGHT_PYTHON_FORCE_VERSION=3.11
-        pyright
+      run: pyright --pythonversion 3.11
