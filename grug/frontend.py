@@ -380,7 +380,7 @@ class LogicalExpr:
 @dataclass
 class CallExpr:
     fn_name: str
-    arguments: List[Expr] = field(default_factory=list["Expr"])
+    arguments: List[Expr] = field(default_factory=lambda: [])
     result: Result = field(default_factory=Result)
 
 
@@ -483,17 +483,17 @@ class Argument:
 @dataclass
 class OnFn:
     fn_name: str
-    arguments: List[Argument] = field(default_factory=list[Argument])
-    body_statements: List[Statement] = field(default_factory=list[Statement])
+    arguments: List[Argument] = field(default_factory=lambda: [])
+    body_statements: List[Statement] = field(default_factory=lambda: [])
 
 
 @dataclass
 class HelperFn:
     fn_name: str
-    arguments: List[Argument] = field(default_factory=list[Argument])
+    arguments: List[Argument] = field(default_factory=lambda: [])
     return_type: Type = Type.VOID
     return_type_name: str = "void"
-    body_statements: List[Statement] = field(default_factory=list[Statement])
+    body_statements: List[Statement] = field(default_factory=lambda: [])
 
 
 Ast = List[
@@ -1401,7 +1401,7 @@ class Variable:
 @dataclass
 class GameFn:
     fn_name: str
-    arguments: List[Argument] = field(default_factory=list[Argument])
+    arguments: List[Argument] = field(default_factory=lambda: [])
     return_type: Type = Type.VOID
     return_type_name: str = "void"
 
@@ -1953,7 +1953,7 @@ class TypePropagator:
             if len(fn.arguments) != len(params):
                 if len(fn.arguments) < len(params):
                     raise TypePropagationError(
-                        f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.arguments)]["name"]}' with type {params[len(fn.arguments)]["type"]}"
+                        f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.arguments)]['name']}' with type {params[len(fn.arguments)]['type']}"
                     )
                 else:
                     raise TypePropagationError(
@@ -1963,7 +1963,7 @@ class TypePropagator:
             for arg, param in zip(fn.arguments, params):
                 if arg.name != param["name"]:
                     raise TypePropagationError(
-                        f"Function '{expected_fn_name}' its '{arg.name}' parameter was supposed to be named '{param["name"]}'"
+                        f"Function '{expected_fn_name}' its '{arg.name}' parameter was supposed to be named '{param['name']}'"
                     )
 
                 if self.is_wrong_type(
@@ -1973,7 +1973,7 @@ class TypePropagator:
                     param["type"],
                 ):
                     raise TypePropagationError(
-                        f"Function '{expected_fn_name}' its '{param["name"]}' parameter was supposed to have the type {param["type"]}, but got {arg.type_name}"
+                        f"Function '{expected_fn_name}' its '{param['name']}' parameter was supposed to have the type {param['type']}, but got {arg.type_name}"
                     )
 
             self.add_argument_variables(fn.arguments)

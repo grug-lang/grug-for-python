@@ -1,5 +1,6 @@
 import ctypes
 from pathlib import Path
+from typing import Optional, cast
 
 import pytest
 
@@ -18,7 +19,7 @@ generate_file_from_json_t = ctypes.CFUNCTYPE(
 game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--grug-tests-path",
         action="store",
@@ -36,31 +37,31 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="session")
-def grug_tests_path(request):
+def grug_tests_path(request: pytest.FixtureRequest) -> Path:
     """
     Returns the path to the grug-tests repository.
     """
-    path = request.config.getoption("--grug-tests-path")
+    path = cast(Optional[str], request.config.getoption("--grug-tests-path"))
     if not path:
         pytest.exit("Error: You must specify --grug-tests-path=path/to/grug-tests")
 
-    path = Path(path)
-    if not path.is_dir():
-        pytest.exit(f"Error: Directory not found: {path}")
+    path_obj = Path(path)
+    if not path_obj.is_dir():
+        pytest.exit(f"Error: Directory not found: {path_obj}")
 
-    return path
+    return path_obj
 
 
 @pytest.fixture(scope="session")
-def whitelisted_test(request):
+def whitelisted_test(request: pytest.FixtureRequest) -> Optional[str]:
     """
     Returns the name of a whitelisted test.
     """
-    return request.config.getoption("--whitelisted-test")
+    return cast(Optional[str], request.config.getoption("--whitelisted-test"))
 
 
 @pytest.fixture(scope="session")
-def grug_lib(grug_tests_path):
+def grug_lib(grug_tests_path: Path) -> ctypes.CDLL:
     """
     Loads tests.so and sets argument signatures.
     """
@@ -70,7 +71,6 @@ def grug_lib(grug_tests_path):
 
     lib = ctypes.CDLL(str(lib_path))
 
-    # Correct signature of grug_tests_run
     lib.grug_tests_run.argtypes = [
         ctypes.c_char_p,
         compile_grug_file_t,

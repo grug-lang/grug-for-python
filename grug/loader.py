@@ -1,10 +1,25 @@
 import importlib
-import tomllib
-from importlib.metadata import entry_points
+import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Type, cast
+
+# 1. Handle TOML parser
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
+# 2. Handle entry_points
+if sys.version_info >= (3, 10):
+    from importlib.metadata import EntryPoint, entry_points
+else:
+    from importlib_metadata import (
+        entry_points,  # pyright: ignore[reportUnknownVariableType]
+    )
+    from importlib_metadata import EntryPoint
 
 
-def _load_from_config(name: str):
+def _load_from_config(name: str) -> Optional[type]:
     """Return class from grug.toml in cwd, or None if not set."""
     path = Path.cwd() / "grug.toml"
     if not path.exists():
@@ -15,31 +30,43 @@ def _load_from_config(name: str):
     except Exception:
         return None
 
-    mod_path = data.get("grug", {}).get(name)
+    grug_section: Dict[str, Any] = data.get("grug", {})
+    mod_path: Any = grug_section.get(name)
+
     if not mod_path:
         return None
 
-    module_name, _, attr = mod_path.partition(":")
+    module_name: str
+    _: str
+    attr: str
+    module_name, _, attr = str(mod_path).partition(":")
     module = importlib.import_module(module_name)
     return getattr(module, attr)
 
 
-def _load_from_entrypoints(group: str):
+def _load_from_entrypoints(group: str) -> type:
     """Return first non-default entrypoint if available, otherwise default."""
-    eps = entry_points().select(group=group)
-    eps_list = list(eps)
+
+    # Cast entry_points() call to Any to bypass library stub's incomplete typing,
+    # then immediately cast the result back to EntryPoints for the rest of the function.
+    # This avoids the "partially unknown" error on entry_points itself.
+    eps_container: Any = cast(Any, entry_points)()
+
+    # Now call select - since eps_container is typed as Any, the select call
+    # won't trigger unknown parameter warnings
+    eps_list: List[EntryPoint] = list(eps_container.select(group=group))
 
     for ep in eps_list:
         if ep.name != "default":
-            return ep.load()
+            return cast(Type[Any], ep.load())
 
     for ep in eps_list:
-        return ep.load()
+        return cast(Type[Any], ep.load())
 
     raise RuntimeError(f"No entrypoints registered for group: {group!r}")
 
 
-def load_component(name: str, group: str, default_cls: type):
+def load_component(name: str, group: str, default_cls: Type[type]) -> type:
     """Load component class with overrides."""
     # 1. Try config file
     cls = _load_from_config(name)

@@ -1,3 +1,5 @@
+from typing import Any, Type
+
 from . import backend as default_backend
 from . import bindings as default_bindings
 from . import frontend as default_frontend
@@ -7,22 +9,22 @@ from .loader import load_component
 class _LazyComponent:
     """Lazy-load a class from grug.toml, entrypoints, or defaults."""
 
-    def __init__(self, name, group, default_cls):
+    def __init__(self, name: str, group: str, default_cls: Type[Any]) -> None:
         self._name = name
         self._group = group
         self._default_cls = default_cls
         self._cls = None
 
-    def _load(self):
+    def _load(self) -> Type[Any]:
         if self._cls is None:
             self._cls = load_component(self._name, self._group, self._default_cls)
         return self._cls
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         cls = self._load()
         return cls(*args, **kwargs)
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         # Forward attribute access to the class
         cls = self._load()
         return getattr(cls, item)

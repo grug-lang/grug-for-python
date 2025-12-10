@@ -38,9 +38,9 @@ class Serializer:
     """Serializes AST to JSON text or Grug source code."""
 
     @staticmethod
-    def _serialize_expr(expr: Expr) -> dict[str, Any]:
+    def _serialize_expr(expr: Expr) -> Dict[str, Any]:
         """Serialize an expression node to dict."""
-        result: dict[str, Any] = {}
+        result: Dict[str, Any] = {}
 
         # Get the type name from the class name
         result["type"] = expr.__class__.__name__.replace("Expr", "").upper() + "_EXPR"
@@ -84,9 +84,9 @@ class Serializer:
         return result
 
     @staticmethod
-    def _serialize_statement(stmt: Statement) -> dict[str, Any]:
+    def _serialize_statement(stmt: Statement) -> Dict[str, Any]:
         """Serialize a statement node to dict."""
-        result: dict[str, Any] = {}
+        result: Dict[str, Any] = {}
 
         # Get the type name from the class name
         result["type"] = (
@@ -138,7 +138,7 @@ class Serializer:
         return result
 
     @staticmethod
-    def _serialize_arguments(arguments: list[Argument]) -> list[dict[str, str]]:
+    def _serialize_arguments(arguments: List[Argument]) -> List[Dict[str, str]]:
         """Serialize function arguments to list of dicts."""
         return [{"name": arg.name, "type": arg.type_name} for arg in arguments]
 
@@ -147,9 +147,9 @@ class Serializer:
         global_stmt: Union[
             VariableStatement, EmptyLineStatement, CommentStatement, OnFn, HelperFn
         ],
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """Serialize a global statement node to dict."""
-        result: dict[str, Any] = {}
+        result: Dict[str, Any] = {}
 
         if isinstance(global_stmt, OnFn):
             result["type"] = "GLOBAL_ON_FN"
@@ -194,7 +194,7 @@ class Serializer:
         """Convert AST to JSON text representation."""
         serialized = [Serializer._serialize_global_statement(node) for node in ast]
         return json.dumps(serialized, separators=(",", ":"))
-        # return json.dumps(serialized, indent=4)  # TODO: Ensure this works too!
+        # return json.dumps(serialized, indent=4)  # TODO: Ensure this passes all grug-tests tests too!
 
     @staticmethod
     def ast_to_grug(ast: List[Dict[str, Any]]) -> str:
