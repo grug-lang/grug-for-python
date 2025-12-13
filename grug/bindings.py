@@ -15,7 +15,7 @@ class Bindings:
             mod_api = json.load(f)
         self.frontend = Frontend(mod_api)
 
-    def compile_grug_fn(self, grug_path: str, mod_name: str):
+    def compile_grug_file(self, grug_path: str, mod_name: str):
         """Read a file and pass its contents to the frontend."""
         try:
             text = Path(grug_path).read_text()
@@ -33,7 +33,7 @@ class Bindings:
             return str(e)
 
         try:
-            self.ast = self.frontend.compile_grug_fn(text, mod_name, entity_type)
+            self.ast = self.frontend.compile_grug_file(text, mod_name, entity_type)
         except FrontendError as e:
             return str(e)
         except Exception as e:

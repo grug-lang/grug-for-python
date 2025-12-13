@@ -15,7 +15,7 @@ def test_grug(
 
     @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p)
     def compile_grug_file(path: bytes, mod_name: bytes) -> Optional[bytes]:
-        msg = bindings.compile_grug_fn(path.decode(), mod_name.decode())
+        msg = bindings.compile_grug_file(path.decode(), mod_name.decode())
         return msg.encode() if msg else None
 
     @ctypes.CFUNCTYPE(None, ctypes.c_char_p)

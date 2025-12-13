@@ -2045,7 +2045,7 @@ class Frontend:
     def __init__(self, mod_api: ModApi):
         self.mod_api = mod_api
 
-    def compile_grug_fn(self, source: str, mod_name: str, entity_type: str):
+    def compile_grug_file(self, source: str, mod_name: str, entity_type: str):
         """
         Compile source text and return an error message string,
         or None if compilation succeeded.
