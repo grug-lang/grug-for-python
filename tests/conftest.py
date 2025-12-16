@@ -10,8 +10,8 @@ compile_grug_file_t = ctypes.CFUNCTYPE(
 )
 init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
 on_fn_dispatcher_t = ctypes.CFUNCTYPE(
-    None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
-)  # TODO: Change this ctypes.c_void_p to `struct grug_value values[]`
+    None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p
+)  # TODO: Change this ctypes.c_void_p to `const union grug_value args[]`
 dump_file_to_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
 generate_file_from_json_t = ctypes.CFUNCTYPE(
     ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p

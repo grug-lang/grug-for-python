@@ -1,8 +1,11 @@
 import json
 import sys
 import traceback
+from ctypes import c_uint64
 from pathlib import Path
+from typing import List
 
+from .backend import Backend, GrugValue
 from .frontend import Frontend, FrontendError, Parser, Tokenizer
 from .serializer import Serializer
 
@@ -14,6 +17,7 @@ class Bindings:
         with open(mod_api_path) as f:
             mod_api = json.load(f)
         self.frontend = Frontend(mod_api)
+        self.backend = Backend(mod_api)
 
     def compile_grug_file(self, grug_path: str, mod_name: str):
         """Read a file and pass its contents to the frontend."""
@@ -139,3 +143,14 @@ class Bindings:
                     f"'{type_name}' seems like a custom ID type, but it contains '{c}', "
                     f"which isn't uppercase/lowercase/a digit"
                 )
+
+    def register_game_fn(self, name: str, fn: c_uint64):
+        self.backend.register_game_fn(name, fn)
+
+    def init_globals_fn_dispatcher(self, path: str):
+        self.backend.init_globals_fn_dispatcher(path)
+
+    def on_fn_dispatcher(
+        self, on_fn_name: str, grug_file_path: str, args: List[GrugValue]
+    ):
+        self.backend.on_fn_dispatcher(on_fn_name, grug_file_path, args)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import struct
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -12,7 +13,8 @@ MAX_FILE_ENTITY_TYPE_LENGTH = 420
 MAX_ENTITY_DEPENDENCY_NAME_LENGTH = 420
 MAX_PARSING_DEPTH = 100
 
-MAX_F32 = struct.unpack("!f", struct.pack("!I", 0x7F7FFFFF))[0]
+MIN_F64 = struct.unpack("!d", struct.pack("!Q", 0x0010000000000000))[0]
+MAX_F64 = struct.unpack("!d", struct.pack("!Q", 0x7FEFFFFFFFFFFFFF))[0]
 
 
 class TokenType(Enum):
@@ -50,8 +52,7 @@ class TokenType(Enum):
     INDENTATION_TOKEN = auto()
     STRING_TOKEN = auto()
     WORD_TOKEN = auto()
-    I32_TOKEN = auto()
-    F32_TOKEN = auto()
+    NUMBER_TOKEN = auto()
     COMMENT_TOKEN = auto()
 
 
@@ -213,14 +214,12 @@ class Tokenizer:
                         seen_period = True
                     i += 1
 
-                if seen_period:
-                    if src[i - 1] == ".":
-                        raise TokenizerError(
-                            f"Missing digit after decimal point in '{src[start:i]}'"
-                        )
-                    tokens.append(Token(TokenType.F32_TOKEN, src[start:i]))
-                else:
-                    tokens.append(Token(TokenType.I32_TOKEN, src[start:i]))
+                if src[i - 1] == ".":
+                    raise TokenizerError(
+                        f"Missing digit after decimal point in '{src[start:i]}'"
+                    )
+
+                tokens.append(Token(TokenType.NUMBER_TOKEN, src[start:i]))
             elif c == "#":
                 i += 1
                 if i >= len(src) or src[i] != " ":
@@ -292,8 +291,7 @@ class ParserError(Exception):
 class Type(Enum):
     VOID = auto()
     BOOL = auto()
-    I32 = auto()
-    F32 = auto()
+    NUMBER = auto()
     STRING = auto()
     ID = auto()
     RESOURCE = auto()
@@ -342,16 +340,10 @@ class IdentifierExpr:
 
 
 @dataclass
-class I32Expr:
-    i32: int
-    result: Result = field(default_factory=lambda: Result(Type.I32, "i32"))
-
-
-@dataclass
-class F32Expr:
+class NumberExpr:
     value: float
     string: str
-    result: Result = field(default_factory=lambda: Result(Type.F32, "f32"))
+    result: Result = field(default_factory=lambda: Result(Type.NUMBER, "number"))
 
 
 @dataclass
@@ -397,8 +389,7 @@ Expr = Union[
     ResourceExpr,
     EntityExpr,
     IdentifierExpr,
-    I32Expr,
-    F32Expr,
+    NumberExpr,
     UnaryExpr,
     BinaryExpr,
     LogicalExpr,
@@ -756,10 +747,8 @@ class Parser:
             return Type.VOID
         if type_str == "bool":
             return Type.BOOL
-        if type_str == "i32":
-            return Type.I32
-        if type_str == "f32":
-            return Type.F32
+        if type_str == "number":
+            return Type.NUMBER
         if type_str == "string":
             return Type.STRING
         if type_str == "resource":
@@ -1147,38 +1136,24 @@ class Parser:
         self.decrease_parsing_depth()
         return expr
 
-    def str_to_f32(self, s: str):
+    def str_to_number(self, s: str):
         f = float(s)
 
-        # Check if the value exceeds the maximum 32-bit float
-        if f > MAX_F32:
-            raise ParserError(f"The f32 {s} is too big")
+        # Overflow
+        if not math.isfinite(f) or abs(f) > MAX_F64:
+            raise ParserError(f"The number {s} is too big")
 
-        # Check for underflow: non-zero value that's too small for 32-bit float
-        # Minimum positive normal f32 is approximately 1.175494e-38
-        MIN_F32 = 1.175494e-38
-        if f != 0.0 and f < MIN_F32:
-            raise ParserError(f"The f32 {s} is too close to zero")
+        # Underflow
+        if f != 0.0 and abs(f) < MIN_F64:
+            raise ParserError(f"The number {s} is too close to zero")
 
         # Check if conversion resulted in zero due to underflow
         if f == 0.0:
             # Check if the string actually represents zero or if it underflowed
             if any(c in s for c in "123456789"):
-                raise ParserError(f"The f32 {s} is too close to zero")
+                raise ParserError(f"The number {s} is too close to zero")
 
         return f
-
-    def str_to_i32(self, s: str):
-        try:
-            n = int(s)
-            if n > 2147483647:  # INT32_MAX
-                raise ParserError(
-                    f"The i32 {s} is too big, which has a maximum value of 2147483647"
-                )
-            assert n >= 0, "i32 should be non-negative at this point"
-            return n
-        except ValueError:
-            raise ParserError(f"Invalid i32 value: {s}")
 
     def parse_primary(self, i: List[int]):
         self.increase_parsing_depth()
@@ -1204,12 +1179,9 @@ class Parser:
         elif tname == "WORD_TOKEN":
             i[0] += 1
             expr = IdentifierExpr(token.value)
-        elif tname == "I32_TOKEN":
+        elif tname == "NUMBER_TOKEN":
             i[0] += 1
-            expr = I32Expr(self.str_to_i32(token.value))
-        elif tname == "F32_TOKEN":
-            i[0] += 1
-            expr = F32Expr(self.str_to_f32(token.value), token.value)
+            expr = NumberExpr(self.str_to_number(token.value), token.value)
         else:
             raise ParserError(
                 f"Expected a primary expression token, but got token type {tname} on line {self.get_token_line_number(i[0])}"
@@ -1733,8 +1705,8 @@ class TypePropagator:
             TokenType.LESS_OR_EQUAL_TOKEN,
             TokenType.LESS_TOKEN,
         ):
-            if left.result.type not in (Type.I32, Type.F32):
-                raise TypePropagationError(f"'{op_name}' operator expects i32 or f32")
+            if left.result.type != Type.NUMBER:
+                raise TypePropagationError(f"'{op_name}' operator expects number")
             expr.result.type = Type.BOOL
             expr.result.type_name = "bool"
         elif op in (TokenType.AND_TOKEN, TokenType.OR_TOKEN):
@@ -1748,15 +1720,15 @@ class TypePropagator:
             TokenType.MULTIPLICATION_TOKEN,
             TokenType.DIVISION_TOKEN,
         ):
-            if left.result.type not in (Type.I32, Type.F32):
-                raise TypePropagationError(f"'{op_name}' operator expects i32 or f32")
+            if left.result.type != Type.NUMBER:
+                raise TypePropagationError(f"'{op_name}' operator expects number")
             expr.result.type = left.result.type
             expr.result.type_name = left.result.type_name
         elif op == TokenType.REMAINDER_TOKEN:
-            if left.result.type != Type.I32:
-                raise TypePropagationError("'%' operator expects i32")
-            expr.result.type = Type.I32
-            expr.result.type_name = "i32"
+            if left.result.type != Type.NUMBER:
+                raise TypePropagationError("'%' operator expects number")
+            expr.result.type = Type.NUMBER
+            expr.result.type_name = "number"
 
     def fill_expr(self, expr: Expr):
         if isinstance(expr, IdentifierExpr):
@@ -1785,9 +1757,9 @@ class TypePropagator:
                         f"Found 'not' before {expr.result.type_name}, but it can only be put before a bool"
                     )
             elif op == TokenType.MINUS_TOKEN:
-                if expr.result.type not in (Type.I32, Type.F32):
+                if expr.result.type != Type.NUMBER:
                     raise TypePropagationError(
-                        f"Found '-' before {expr.result.type_name}, but it can only be put before an i32 or f32"
+                        f"Found '-' before {expr.result.type_name}, but it can only be put before a number"
                     )
         elif isinstance(expr, (BinaryExpr, LogicalExpr)):
             self.fill_binary_expr(expr)
@@ -1800,7 +1772,7 @@ class TypePropagator:
 
     def fill_variable_statement(self, stmt: VariableStatement):
         # This call has to happen before the `add_local_variable()` we do below,
-        # since `a: i32 = a` doesn't throw otherwise.
+        # since `a: number = a` doesn't throw otherwise.
         self.fill_expr(stmt.assignment_expr)
 
         var = self.get_variable(stmt.name)

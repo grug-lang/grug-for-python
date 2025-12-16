@@ -1,17 +1,28 @@
 import ctypes
 import sys
+import traceback
 from pathlib import Path
 from typing import Optional
 
 import pytest
 
 from grug import Bindings
+from grug.backend import GrugValue
 
 
 def test_grug(
     grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.CDLL
 ) -> None:
     bindings = Bindings(grug_tests_path / "mod_api.json")
+
+    grug_lib.game_fn_magic.argtypes = ()
+    grug_lib.game_fn_magic.restype = GrugValue
+
+    grug_lib.game_fn_initialize.argtypes = (ctypes.POINTER(GrugValue),)
+    grug_lib.game_fn_initialize.restype = None
+
+    bindings.register_game_fn("magic", grug_lib.game_fn_magic)
+    bindings.register_game_fn("initialize", grug_lib.game_fn_initialize)
 
     @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p)
     def compile_grug_file(path: bytes, mod_name: bytes) -> Optional[bytes]:
@@ -20,15 +31,19 @@ def test_grug(
 
     @ctypes.CFUNCTYPE(None, ctypes.c_char_p)
     def init_globals_fn_dispatcher(path: bytes) -> None:
-        print(f"init_globals_fn_dispatcher called with {path.decode()}")
+        bindings.init_globals_fn_dispatcher(path.decode())
 
     @ctypes.CFUNCTYPE(
-        None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
-    )  # TODO: Change this ctypes.c_void_p to `struct grug_value values[]`
-    def on_fn_dispatcher(
-        fn_name: bytes, grug_file_path: bytes, values: int, value_count: int
-    ) -> None:
-        print(f"on_fn_dispatcher: {fn_name.decode()} {grug_file_path.decode()}")
+        None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p
+    )  # TODO: Change this ctypes.c_void_p to `const union grug_value args[]`
+    def on_fn_dispatcher(on_fn_name: bytes, grug_file_path: bytes, args: int) -> None:
+        # TODO: Translate `args` from a ctypes.c_void_p to a Python List of GrugValue types
+        try:
+            bindings.on_fn_dispatcher(
+                on_fn_name.decode(), grug_file_path.decode(), args
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
 
     @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
     def dump_file_to_json(input_grug_path: bytes, output_json_path: bytes) -> bool:
@@ -46,7 +61,7 @@ def test_grug(
 
     @ctypes.CFUNCTYPE(None, ctypes.c_char_p)
     def game_fn_error(msg: bytes) -> None:
-        print(f"game_fn_error called with {msg.decode()}")
+        print(f"game_fn_error called with {msg.decode()}")  # TODO: REMOVE!
 
     print("\n")
 

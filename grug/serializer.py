@@ -14,13 +14,12 @@ from .frontend import (
     EmptyLineStatement,
     EntityExpr,
     Expr,
-    F32Expr,
     FalseExpr,
     HelperFn,
-    I32Expr,
     IdentifierExpr,
     IfStatement,
     LogicalExpr,
+    NumberExpr,
     OnFn,
     ParenthesizedExpr,
     ResourceExpr,
@@ -60,9 +59,7 @@ class Serializer:
             result["str"] = (
                 expr.name if isinstance(expr, IdentifierExpr) else expr.string
             )
-        elif isinstance(expr, I32Expr):
-            result["value"] = str(expr.i32)
-        elif isinstance(expr, F32Expr):
+        elif isinstance(expr, NumberExpr):
             result["value"] = expr.string
         elif isinstance(expr, UnaryExpr):
             result["operator"] = expr.operator.name
@@ -225,9 +222,7 @@ class Serializer:
                 write(f'"{expr["str"]}"')
             elif expr_type == "IDENTIFIER_EXPR":
                 write(expr["str"])
-            elif expr_type == "I32_EXPR":
-                write(expr["value"])
-            elif expr_type == "F32_EXPR":
+            elif expr_type == "NUMBER_EXPR":
                 write(expr["value"])
             elif expr_type == "UNARY_EXPR":
                 operator = expr["operator"]
