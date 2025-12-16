@@ -1,6 +1,6 @@
 import ctypes
 import numbers
-from typing import Any, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union
 
 from .frontend import ModApi
 
@@ -16,15 +16,15 @@ class GrugValue(ctypes.Union):
     ]
 
 
-GameFn = Dict[str, Union[ctypes.c_uint64, str, List[str]]]
+GameFn = Callable[[ctypes.Array[GrugValue]], GrugValue]
 
 
 class Backend:
     def __init__(self, mod_api: ModApi):
         self.mod_api = mod_api
-        self.game_fns: Dict[str, GameFn] = {}
+        self.game_fns: Dict[str, Dict[str, Any]] = {}
 
-    def register_game_fn(self, name: str, fn: ctypes.c_uint64):
+    def register_game_fn(self, name: str, fn: GameFn):
         self.game_fns[name] = {
             "fn": fn,
             "return_type": self.mod_api["game_functions"][name].get("return_type"),
@@ -48,7 +48,7 @@ class Backend:
             raise KeyError(f"Unknown game function '{name}'")
 
         info = self.game_fns[name]
-        fn = info["fn"]
+        fn: GameFn = info["fn"]
 
         # The fn args must be a ctypes array, not a Python list
         c_args = (GrugValue * len(args))()
@@ -82,4 +82,5 @@ class Backend:
             return result._string
         if return_type == "id":
             return result._id
+
         assert return_type == None

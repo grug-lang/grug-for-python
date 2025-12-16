@@ -2,7 +2,7 @@ import ctypes
 import sys
 import traceback
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 
@@ -15,14 +15,7 @@ def test_grug(
 ) -> None:
     bindings = Bindings(grug_tests_path / "mod_api.json")
 
-    grug_lib.game_fn_magic.argtypes = ()
-    grug_lib.game_fn_magic.restype = GrugValue
-
-    grug_lib.game_fn_initialize.argtypes = (ctypes.POINTER(GrugValue),)
-    grug_lib.game_fn_initialize.restype = None
-
-    bindings.register_game_fn("magic", grug_lib.game_fn_magic)
-    bindings.register_game_fn("initialize", grug_lib.game_fn_initialize)
+    GameFnRegistrator(bindings, grug_lib).register_game_fns()
 
     @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p)
     def compile_grug_file(path: bytes, mod_name: bytes) -> Optional[bytes]:
@@ -75,6 +68,88 @@ def test_grug(
         game_fn_error,
         whitelisted_test.encode() if whitelisted_test else None,
     )
+
+
+class GameFnRegistrator:
+    def __init__(self, bindings: Any, grug_lib: ctypes.CDLL):
+        self.bindings = bindings
+        self.grug_lib = grug_lib
+
+    def register_game_fns(self):
+        self._register_void_argless("nothing")
+        self._register_value_argless("magic")
+        self._register_void("initialize")
+        self._register_void("initialize_bool")
+        self._register_value("identity")
+        self._register_value("max")
+        self._register_void("say")
+        self._register_value("sin")
+        self._register_value("cos")
+        self._register_void("mega")
+        self._register_value_argless("get_evil_false")
+        self._register_void("set_is_happy")
+        self._register_void("mega_f32")
+        self._register_void("mega_i32")
+        self._register_void("draw")
+        self._register_void_argless("blocked_alrm")
+        self._register_void("spawn")
+        self._register_value("has_resource")
+        self._register_value("has_entity")
+        self._register_value("has_string")
+        self._register_value_argless("get_opponent")
+        self._register_void("set_d")
+        self._register_void("set_opponent")
+        self._register_void("motherload")
+        self._register_void("motherload_subless")
+        self._register_void("offset_32_bit_f32")
+        self._register_void("offset_32_bit_i32")
+        self._register_void("offset_32_bit_string")
+        self._register_void("talk")
+        self._register_value("get_position")
+        self._register_void("set_position")
+        self._register_void_argless("cause_game_fn_error")
+        self._register_void_argless("call_on_b_fn")
+        self._register_void("store")
+        self._register_value_argless("retrieve")
+        self._register_value("box_number")
+
+    def _register_void(self, name: str):
+        fn = self._get_fn(name)
+
+        fn.argtypes = (ctypes.POINTER(GrugValue),)
+        fn.restype = None
+
+        self._register(name, fn)
+
+    def _register_void_argless(self, name: str):
+        fn = self._get_fn(name)
+
+        fn.argtypes = ()
+        fn.restype = None
+
+        self._register(name, fn)
+
+    def _register_value(self, name: str):
+        fn = self._get_fn(name)
+
+        fn.argtypes = (ctypes.POINTER(GrugValue),)
+        fn.restype = GrugValue
+
+        self._register(name, fn)
+
+    def _register_value_argless(self, name: str):
+        fn = self._get_fn(name)
+
+        fn.argtypes = ()
+        fn.restype = GrugValue
+
+        self._register(name, fn)
+
+    def _get_fn(self, name: str):
+        return self.grug_lib["game_fn_" + name]
+
+    def _register(self, name: str, fn: Any):
+        self.bindings.register_game_fn(name, fn)
 
 
 # Enables stepping through code with VS Code its Python debugger.

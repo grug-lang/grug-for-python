@@ -1,11 +1,10 @@
 import json
 import sys
 import traceback
-from ctypes import c_uint64
 from pathlib import Path
 from typing import List
 
-from .backend import Backend, GrugValue
+from .backend import Backend, GameFn, GrugValueType
 from .frontend import Frontend, FrontendError, Parser, Tokenizer
 from .serializer import Serializer
 
@@ -144,13 +143,13 @@ class Bindings:
                     f"which isn't uppercase/lowercase/a digit"
                 )
 
-    def register_game_fn(self, name: str, fn: c_uint64):
+    def register_game_fn(self, name: str, fn: GameFn):
         self.backend.register_game_fn(name, fn)
 
     def init_globals_fn_dispatcher(self, path: str):
         self.backend.init_globals_fn_dispatcher(path)
 
     def on_fn_dispatcher(
-        self, on_fn_name: str, grug_file_path: str, args: List[GrugValue]
+        self, on_fn_name: str, grug_file_path: str, args: List[GrugValueType]
     ):
         self.backend.on_fn_dispatcher(on_fn_name, grug_file_path, args)
