@@ -26,7 +26,6 @@ class TokenType(Enum):
     MINUS_TOKEN = auto()
     MULTIPLICATION_TOKEN = auto()
     DIVISION_TOKEN = auto()
-    REMAINDER_TOKEN = auto()
     COMMA_TOKEN = auto()
     COLON_TOKEN = auto()
     NEWLINE_TOKEN = auto()
@@ -99,9 +98,6 @@ class Tokenizer:
                 i += 1
             elif c == "/":
                 tokens.append(Token(TokenType.DIVISION_TOKEN, c))
-                i += 1
-            elif c == "%":
-                tokens.append(Token(TokenType.REMAINDER_TOKEN, c))
                 i += 1
             elif c == ",":
                 tokens.append(Token(TokenType.COMMA_TOKEN, c))
@@ -1198,11 +1194,7 @@ class Parser:
                 tok1
                 and tok1.type == TokenType.SPACE_TOKEN
                 and self.peek_token(i[0] + 1).type
-                in (
-                    TokenType.MULTIPLICATION_TOKEN,
-                    TokenType.DIVISION_TOKEN,
-                    TokenType.REMAINDER_TOKEN,
-                )
+                in (TokenType.MULTIPLICATION_TOKEN, TokenType.DIVISION_TOKEN)
             ):
                 i[0] += 1
                 op = self.consume_token(i).type
@@ -1724,11 +1716,6 @@ class TypePropagator:
                 raise TypePropagationError(f"'{op_name}' operator expects number")
             expr.result.type = left.result.type
             expr.result.type_name = left.result.type_name
-        elif op == TokenType.REMAINDER_TOKEN:
-            if left.result.type != Type.NUMBER:
-                raise TypePropagationError("'%' operator expects number")
-            expr.result.type = Type.NUMBER
-            expr.result.type_name = "number"
 
     def fill_expr(self, expr: Expr):
         if isinstance(expr, IdentifierExpr):

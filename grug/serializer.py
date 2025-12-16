@@ -269,7 +269,6 @@ class Serializer:
                 "MINUS_TOKEN": "-",
                 "MULTIPLICATION_TOKEN": "*",
                 "DIVISION_TOKEN": "/",
-                "REMAINDER_TOKEN": "%",
                 "EQUALS_TOKEN": "==",
                 "NOT_EQUALS_TOKEN": "!=",
                 "GREATER_OR_EQUAL_TOKEN": ">=",
