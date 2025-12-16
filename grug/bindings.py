@@ -2,10 +2,10 @@ import json
 import sys
 import traceback
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from .backend import Backend, GameFn, GrugValueType
-from .frontend import Frontend, FrontendError, Parser, Tokenizer
+from .frontend import Frontend, FrontendError, OnFn, Parser, Tokenizer
 from .serializer import Serializer
 
 MAX_FILE_ENTITY_TYPE_LENGTH = 420
@@ -152,4 +152,14 @@ class Bindings:
     def on_fn_dispatcher(
         self, on_fn_name: str, grug_file_path: str, args: List[GrugValueType]
     ):
-        self.backend.on_fn_dispatcher(on_fn_name, grug_file_path, args)
+        on_fns: Dict[str, OnFn] = {
+            s.fn_name: s for s in self.ast if isinstance(s, OnFn)
+        }
+
+        on_fn = on_fns.get(on_fn_name)
+        if not on_fn:
+            raise RuntimeError(
+                f"The function '{on_fn_name}' is not defined by the file {grug_file_path}"
+            )
+
+        self.backend.run_on_fn(on_fn_name, grug_file_path, args, on_fn)
