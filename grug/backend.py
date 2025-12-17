@@ -50,6 +50,12 @@ class Backend:
         self.mod_api = mod_api
         self.game_fns: Dict[str, Dict[str, Any]] = {}
 
+        # Every on_ and helper_ function gets its own local variables.
+        self.local_variables: Dict[str, GrugValueType] = {}
+
+        # Stack of scopes, necessary when an on_ fn calls a helper_ fn.
+        self.local_variable_scopes: List[Dict[str, GrugValueType]] = []
+
     def register_game_fn(self, name: str, fn: GameFn):
         self.game_fns[name] = {
             "fn": fn,
@@ -70,7 +76,13 @@ class Backend:
         args: List[GrugValueType],  # TODO: Turn these into local variables
         on_fn: OnFn,
     ):
+        self.local_variables = {}
+        self.local_variable_scopes.append(self.local_variables)
+
         self._run_statements(on_fn.body_statements)
+
+        self.local_variable_scopes.pop()
+        assert len(self.local_variable_scopes) == 0
 
     def _run_statements(self, statements: List[Statement]):
         for statement in statements:
@@ -95,7 +107,7 @@ class Backend:
             assert isinstance(statement, (EmptyLineStatement, CommentStatement))
 
     def _run_variable_statement(self, statement: VariableStatement):
-        assert False  # TODO: Implement
+        self.local_variables[statement.name] = self._run_expr(statement.assignment_expr)
 
     def _run_call_statement(self, statement: CallStatement):
         return self._run_call_expr(statement.expr)
@@ -112,8 +124,7 @@ class Backend:
         elif isinstance(expr, EntityExpr):
             return expr.string
         elif isinstance(expr, IdentifierExpr):
-            # TODO: Use `expr.name` to look up local and global vars
-            return ctypes.c_uint64(42)
+            return self.local_variables[expr.name]
         elif isinstance(expr, NumberExpr):
             return expr.value
         elif isinstance(expr, UnaryExpr):
