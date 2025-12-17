@@ -1,5 +1,5 @@
 import ctypes
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from .frontend import (
     BinaryExpr,
@@ -98,18 +98,7 @@ class Backend:
         pass
 
     def _run_call_statement(self, statement: CallStatement):
-        expr = statement.expr
-
-        arguments = expr.arguments
-
-        args = [self._run_expr(expr) for expr in arguments]
-
-        fn_name = expr.fn_name
-
-        if fn_name.startswith("helper_"):
-            assert False  # TODO: Implement!
-        else:
-            self._call_game_fn(fn_name, args)
+        return self._run_call_expr(statement.expr)
 
     def _run_expr(self, expr: Expr) -> GrugValueType:
         if isinstance(expr, TrueExpr):
@@ -134,7 +123,9 @@ class Backend:
         elif isinstance(expr, LogicalExpr):
             return self._run_logical_expr(expr)
         elif isinstance(expr, CallExpr):
-            assert False  # TODO: Implement
+            value = self._run_call_expr(expr)
+            assert value  # Functions that return nothing are not callable in exprs
+            return value
         else:
             assert isinstance(expr, ParenthesizedExpr)
             return self._run_expr(expr.expr)
@@ -203,6 +194,12 @@ class Backend:
                 logical_expr.right_expr
             )
 
+    def _run_call_expr(self, call_expr: CallExpr):
+        if call_expr.fn_name.startswith("helper_"):
+            assert False  # TODO: Implement!
+        else:
+            return self._call_game_fn(call_expr.fn_name, call_expr.arguments)
+
     def _run_if_statement(self, statement: IfStatement):
         pass
 
@@ -218,21 +215,21 @@ class Backend:
     def _run_continue_statement(self):
         pass
 
-    def _call_game_fn(self, name: str, args: List[GrugValueType]):
+    def _call_game_fn(self, name: str, args: List[Expr]) -> Optional[GrugValueType]:
         if name not in self.game_fns:
             raise KeyError(f"Unknown game function '{name}'")
 
         info = self.game_fns[name]
         fn: GameFn = info["fn"]
 
-        # We will be turning the fn args from a Python list into a ctypes array
+        # The fn args will be turned from a Python list into a ctypes array
         c_args = (GrugValue * len(args))()
 
         # TODO: Can this be removed?
         # Keeps strings alive
         string_refs: List[Any] = []
 
-        for i, v in enumerate(args):
+        for i, v in enumerate([self._run_expr(expr) for expr in args]):
             if isinstance(v, float):
                 c_args[i]._number = v
             elif isinstance(v, bool):
