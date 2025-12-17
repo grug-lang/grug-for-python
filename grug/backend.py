@@ -111,7 +111,7 @@ class Backend:
         else:
             self._call_game_fn(fn_name, args)
 
-    def _run_expr(self, expr: Expr):
+    def _run_expr(self, expr: Expr) -> GrugValueType:
         if isinstance(expr, TrueExpr):
             return True
         elif isinstance(expr, FalseExpr):
@@ -123,21 +123,32 @@ class Backend:
         elif isinstance(expr, EntityExpr):
             return expr.string
         elif isinstance(expr, IdentifierExpr):
-            # TODO: Use `expr.name` to do a lookup
+            # TODO: Use `expr.name` to look up local and global vars
             return ctypes.c_uint64(42)
         elif isinstance(expr, NumberExpr):
             return expr.value
         elif isinstance(expr, UnaryExpr):
-            assert False  # TODO: Implement
+            return self._run_unary_expr(expr)
         elif isinstance(expr, BinaryExpr):
             return self._run_binary_expr(expr)
         elif isinstance(expr, LogicalExpr):
-            assert False  # TODO: Implement
+            return self._run_logical_expr(expr)
         elif isinstance(expr, CallExpr):
             assert False  # TODO: Implement
         else:
             assert isinstance(expr, ParenthesizedExpr)
-            assert False  # TODO: Implement
+            return self._run_expr(expr.expr)
+
+    def _run_unary_expr(self, unary_expr: UnaryExpr):
+        op = unary_expr.operator
+
+        if op == TokenType.MINUS_TOKEN:
+            number = self._run_expr(unary_expr.expr)
+            assert isinstance(number, float)
+            return -number
+        else:
+            assert op == TokenType.NOT_TOKEN
+            return not self._run_expr(unary_expr.expr)
 
     def _run_binary_expr(self, binary_expr: BinaryExpr):
         left = self._run_expr(binary_expr.left_expr)
@@ -146,34 +157,51 @@ class Backend:
         op = binary_expr.operator
 
         if op == TokenType.PLUS_TOKEN:
-            assert isinstance(binary_expr.left_expr, NumberExpr)
-            assert isinstance(binary_expr.right_expr, NumberExpr)
-            assert isinstance(left, float)
-            assert isinstance(right, float)
-
+            assert isinstance(left, float) and isinstance(right, float)
             return left + right
         elif op == TokenType.MINUS_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, float) and isinstance(right, float)
+            return left - right
         elif op == TokenType.MULTIPLICATION_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, float) and isinstance(right, float)
+            return left * right
         elif op == TokenType.DIVISION_TOKEN:
-            assert False  # TODO: Implement
-        elif op == TokenType.REMAINDER_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, float) and isinstance(right, float)
+            return left / right
         elif op == TokenType.EQUALS_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, (float, str)) and isinstance(right, (float, str))
+            return left == right
         elif op == TokenType.NOT_EQUALS_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, (float, str)) and isinstance(right, (float, str))
+            return left != right
         elif op == TokenType.GREATER_OR_EQUAL_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, float) and isinstance(right, float)
+            return left >= right
         elif op == TokenType.GREATER_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, float) and isinstance(right, float)
+            return left > right
         elif op == TokenType.LESS_OR_EQUAL_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, float) and isinstance(right, float)
+            return left <= right
         elif op == TokenType.LESS_TOKEN:
-            assert False  # TODO: Implement
+            assert isinstance(left, float) and isinstance(right, float)
+            return left < right
         else:
             assert False  # Unreachable
+
+    def _run_logical_expr(self, logical_expr: LogicalExpr):
+        op = logical_expr.operator
+
+        if op == TokenType.AND_TOKEN:
+            return self._run_expr(logical_expr.left_expr) and self._run_expr(
+                logical_expr.right_expr
+            )
+        else:
+            assert op == TokenType.OR_TOKEN
+
+            return self._run_expr(logical_expr.left_expr) or self._run_expr(
+                logical_expr.right_expr
+            )
 
     def _run_if_statement(self, statement: IfStatement):
         pass
