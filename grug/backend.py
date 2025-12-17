@@ -95,7 +95,7 @@ class Backend:
             assert isinstance(statement, (EmptyLineStatement, CommentStatement))
 
     def _run_variable_statement(self, statement: VariableStatement):
-        pass
+        assert False  # TODO: Implement
 
     def _run_call_statement(self, statement: CallStatement):
         return self._run_call_expr(statement.expr)
@@ -201,19 +201,19 @@ class Backend:
             return self._call_game_fn(call_expr.fn_name, call_expr.arguments)
 
     def _run_if_statement(self, statement: IfStatement):
-        pass
+        assert False  # TODO: Implement
 
     def _run_return_statement(self, statement: ReturnStatement):
-        pass
+        assert False  # TODO: Implement
 
     def _run_while_statement(self, statement: WhileStatement):
-        pass
+        assert False  # TODO: Implement
 
     def _run_break_statement(self):
-        pass
+        assert False  # TODO: Implement
 
     def _run_continue_statement(self):
-        pass
+        assert False  # TODO: Implement
 
     def _call_game_fn(self, name: str, args: List[Expr]) -> Optional[GrugValueType]:
         if name not in self.game_fns:
