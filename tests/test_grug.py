@@ -10,8 +10,28 @@ from grug import Bindings
 from grug.backend import GrugValue
 
 
+class GrugValueWorkaround(ctypes.Structure):
+    """
+    This defines a Structure of the exact same size and alignment as GrugValue.
+
+    When using `ctypes.Union`, Python's logic for "return by value" is flawed.
+    It seemingly assumes complex types (like Unions) are always too large
+    for registers and must be returned via memory. It allocates a buffer,
+    passes its address to C (which C ignores), and then reads that buffer back.
+    Since C never wrote to it, you see garbage memory.
+
+    Quoting a [cpython GitHub issue](https://github.com/python/cpython/issues/60779) from 2012:
+    > ctypes pretends to support passing arguments to C functions
+    > that are unions (not pointers to unions), but that's a lie.
+    > In fact, the underlying libffi does not support it.
+    > The attached example misbehaves on Linux x86-64.
+    """
+
+    _fields_ = [("_blob", ctypes.c_uint64)]
+
+
 def test_grug(
-    grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.CDLL
+    grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.PyDLL
 ) -> None:
     bindings = Bindings(grug_tests_path / "mod_api.json")
 
@@ -71,7 +91,7 @@ def test_grug(
 
 
 class GameFnRegistrator:
-    def __init__(self, bindings: Any, grug_lib: ctypes.CDLL):
+    def __init__(self, bindings: Any, grug_lib: ctypes.PyDLL):
         self.bindings = bindings
         self.grug_lib = grug_lib
 
@@ -86,7 +106,7 @@ class GameFnRegistrator:
         self._register_value("sin")
         self._register_value("cos")
         self._register_void("mega")
-        self._register_value_argless("get_evil_false")
+        self._register_value_argless("get_false")
         self._register_void("set_is_happy")
         self._register_void("mega_f32")
         self._register_void("mega_i32")
@@ -133,7 +153,7 @@ class GameFnRegistrator:
         fn = self._get_fn(name)
 
         fn.argtypes = (ctypes.POINTER(GrugValue),)
-        fn.restype = GrugValue
+        fn.restype = GrugValueWorkaround
 
         self._register(name, fn)
 
@@ -141,7 +161,7 @@ class GameFnRegistrator:
         fn = self._get_fn(name)
 
         fn.argtypes = ()
-        fn.restype = GrugValue
+        fn.restype = GrugValueWorkaround
 
         self._register(name, fn)
 

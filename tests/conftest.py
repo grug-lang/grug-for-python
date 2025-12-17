@@ -61,7 +61,7 @@ def whitelisted_test(request: pytest.FixtureRequest) -> Optional[str]:
 
 
 @pytest.fixture(scope="session")
-def grug_lib(grug_tests_path: Path) -> ctypes.CDLL:
+def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
     """
     Loads tests.so and sets argument signatures.
     """
@@ -69,7 +69,7 @@ def grug_lib(grug_tests_path: Path) -> ctypes.CDLL:
     if not lib_path.is_file():
         pytest.exit(f"Error: Shared library not found: {lib_path}")
 
-    lib = ctypes.CDLL(str(lib_path))
+    lib = ctypes.PyDLL(str(lib_path))
 
     lib.grug_tests_run.argtypes = [
         ctypes.c_char_p,

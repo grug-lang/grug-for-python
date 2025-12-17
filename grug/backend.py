@@ -124,7 +124,10 @@ class Backend:
             return self._run_logical_expr(expr)
         elif isinstance(expr, CallExpr):
             value = self._run_call_expr(expr)
-            assert value  # Functions that return nothing are not callable in exprs
+
+            # Functions that return nothing are not callable in exprs
+            assert value is not None
+
             return value
         else:
             assert isinstance(expr, ParenthesizedExpr)
@@ -242,16 +245,24 @@ class Backend:
                 assert isinstance(v, ctypes.c_uint64)
                 c_args[i]._id = v
 
+        # Python receives a GrugValueWorkaround struct (correctly handled via register OR memory).
         result = fn(c_args)
 
         return_type = info["return_type"]
-        if return_type == "number":
-            return result._number
-        if return_type == "bool":
-            return result._bool
-        if return_type == "string":
-            return result._string
-        if return_type == "id":
-            return result._id
 
-        assert return_type == None
+        if return_type == None:
+            return
+
+        # Create a GrugValue and copy the bits from GrugValueWorkaround into it.
+        value = GrugValue()
+        ctypes.memmove(ctypes.byref(value), ctypes.byref(result), ctypes.sizeof(value))
+
+        if return_type == "number":
+            return value._number
+        if return_type == "bool":
+            return value._bool
+        if return_type == "string":
+            return value._string
+
+        assert return_type == "id"
+        return value._id
