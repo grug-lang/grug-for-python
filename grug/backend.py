@@ -215,13 +215,17 @@ class Backend:
             return self._call_game_fn(call_expr.fn_name, call_expr.arguments)
 
     def _run_if_statement(self, statement: IfStatement):
-        assert False  # TODO: Implement
+        if self._run_expr(statement.condition):
+            self._run_statements(statement.if_body)
+        else:
+            self._run_statements(statement.else_body)
 
     def _run_return_statement(self, statement: ReturnStatement):
         assert False  # TODO: Implement
 
     def _run_while_statement(self, statement: WhileStatement):
-        assert False  # TODO: Implement
+        if self._run_expr(statement.condition):
+            self._run_statements(statement.body_statements)
 
     def _run_break_statement(self):
         assert False  # TODO: Implement
