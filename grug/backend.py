@@ -2,6 +2,7 @@ import ctypes
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from .frontend import (
+    Ast,
     BinaryExpr,
     BreakStatement,
     CallExpr,
@@ -12,6 +13,7 @@ from .frontend import (
     EntityExpr,
     Expr,
     FalseExpr,
+    HelperFn,
     IdentifierExpr,
     IfStatement,
     LogicalExpr,
@@ -42,12 +44,25 @@ class GrugValue(ctypes.Union):
     ]
 
 
+class Break(Exception):
+    pass
+
+
+class Continue(Exception):
+    pass
+
+
+class Return(Exception):
+    pass
+
+
 GameFn = Callable[[ctypes.Array[GrugValue]], GrugValue]
 
 
 class Backend:
     def __init__(self, mod_api: ModApi):
         self.mod_api = mod_api
+
         self.game_fns: Dict[str, Dict[str, Any]] = {}
 
         # Every on_ and helper_ function gets its own local variables.
@@ -74,10 +89,23 @@ class Backend:
         on_fn_name: str,  # TODO: Use in runtime error messages
         grug_file_path: str,  # TODO: Use in runtime error messages
         args: List[GrugValueType],  # TODO: Turn these into local variables
-        on_fn: OnFn,
+        ast: Ast,
     ):
         self.local_variables = {}
         self.local_variable_scopes.append(self.local_variables)
+
+        on_fns: Dict[str, OnFn] = {s.fn_name: s for s in ast if isinstance(s, OnFn)}
+
+        on_fn = on_fns.get(on_fn_name)
+        if not on_fn:
+            raise RuntimeError(
+                f"The function '{on_fn_name}' is not defined by the file {grug_file_path}"
+            )
+
+        self.helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
+
+        for arg, argument in zip(args, on_fn.arguments):
+            self.local_variables[argument.name] = arg
 
         self._run_statements(on_fn.body_statements)
 
@@ -209,10 +237,12 @@ class Backend:
             )
 
     def _run_call_expr(self, call_expr: CallExpr):
+        args = [self._run_expr(arg) for arg in call_expr.arguments]
+
         if call_expr.fn_name.startswith("helper_"):
-            assert False  # TODO: Implement!
+            return self._call_helper_fn(call_expr.fn_name, args)
         else:
-            return self._call_game_fn(call_expr.fn_name, call_expr.arguments)
+            return self._call_game_fn(call_expr.fn_name, args)
 
     def _run_if_statement(self, statement: IfStatement):
         if self._run_expr(statement.condition):
@@ -221,24 +251,46 @@ class Backend:
             self._run_statements(statement.else_body)
 
     def _run_return_statement(self, statement: ReturnStatement):
-        assert False  # TODO: Implement
+        if statement.value:
+            raise Return(self._run_expr(statement.value))
+        raise Return()
 
     def _run_while_statement(self, statement: WhileStatement):
-        if self._run_expr(statement.condition):
-            self._run_statements(statement.body_statements)
+        try:
+            while self._run_expr(statement.condition):
+                try:
+                    self._run_statements(statement.body_statements)
+                except Continue:
+                    pass
+        except Break:
+            pass
 
     def _run_break_statement(self):
-        assert False  # TODO: Implement
+        raise Break()
 
     def _run_continue_statement(self):
-        assert False  # TODO: Implement
+        raise Continue()
 
-    def _call_game_fn(self, name: str, args: List[Expr]) -> Optional[GrugValueType]:
-        if name not in self.game_fns:
+    def _call_helper_fn(
+        self, name: str, args: List[GrugValueType]
+    ) -> Optional[GrugValueType]:
+        helper_fn = self.helper_fns.get(name)
+        if not helper_fn:
+            raise KeyError(f"Unknown helper function '{name}'")
+
+        for arg, argument in zip(args, helper_fn.arguments):
+            self.local_variables[argument.name] = arg
+
+        return self._run_statements(helper_fn.body_statements)
+
+    def _call_game_fn(
+        self, name: str, args: List[GrugValueType]
+    ) -> Optional[GrugValueType]:
+        game_fn = self.game_fns.get(name)
+        if not game_fn:
             raise KeyError(f"Unknown game function '{name}'")
 
-        info = self.game_fns[name]
-        fn: GameFn = info["fn"]
+        fn_ptr: GameFn = game_fn["fn"]
 
         # The fn args will be turned from a Python list into a ctypes array
         c_args = (GrugValue * len(args))()
@@ -247,7 +299,7 @@ class Backend:
         # Keeps strings alive
         string_refs: List[Any] = []
 
-        for i, v in enumerate([self._run_expr(expr) for expr in args]):
+        for i, v in enumerate(args):
             if isinstance(v, float):
                 c_args[i]._number = v
             elif isinstance(v, bool):
@@ -261,9 +313,9 @@ class Backend:
                 c_args[i]._id = v
 
         # Python receives a GrugValueWorkaround struct (correctly handled via register OR memory).
-        result = fn(c_args)
+        result = fn_ptr(c_args)
 
-        return_type = info["return_type"]
+        return_type = game_fn["return_type"]
 
         if return_type == None:
             return

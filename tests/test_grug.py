@@ -53,7 +53,7 @@ def test_grug(
         # TODO: Translate `args` from a ctypes.c_void_p to a Python List of GrugValue types
         try:
             bindings.on_fn_dispatcher(
-                on_fn_name.decode(), grug_file_path.decode(), args
+                on_fn_name.decode(), grug_file_path.decode(), args or []
             )
         except Exception:
             traceback.print_exc(file=sys.stderr)

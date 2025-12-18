@@ -285,7 +285,6 @@ class ParserError(Exception):
 
 
 class Type(Enum):
-    VOID = auto()
     BOOL = auto()
     NUMBER = auto()
     STRING = auto()
@@ -478,8 +477,8 @@ class OnFn:
 class HelperFn:
     fn_name: str
     arguments: List[Argument] = field(default_factory=lambda: [])
-    return_type: Type = Type.VOID
-    return_type_name: str = "void"
+    return_type: Optional[Type] = None
+    return_type_name: Optional[str] = None
     body_statements: List[Statement] = field(default_factory=lambda: [])
 
 
@@ -739,8 +738,6 @@ class Parser:
 
     @staticmethod
     def parse_type(type_str: str):
-        if type_str == "void":
-            return Type.VOID
         if type_str == "bool":
             return Type.BOOL
         if type_str == "number":
@@ -1366,8 +1363,8 @@ class Variable:
 class GameFn:
     fn_name: str
     arguments: List[Argument] = field(default_factory=lambda: [])
-    return_type: Type = Type.VOID
-    return_type_name: str = "void"
+    return_type: Optional[Type] = None
+    return_type_name: Optional[str] = None
 
 
 class TypePropagationError(Exception):
@@ -1413,8 +1410,8 @@ class TypePropagator:
             return GameFn(
                 fn_name,
                 parse_args(fn.get("arguments", [])),
-                Parser.parse_type(fn.get("return_type", "void")),
-                fn.get("return_type", "void"),
+                Parser.parse_type(fn["return_type"]) if "return_type" in fn else None,
+                fn.get("return_type", None),
             )
 
         self.game_functions = {
@@ -1616,7 +1613,7 @@ class TypePropagator:
                 self.validate_entity_string(arg.string)
                 args[i] = arg
 
-            if arg.result.type == Type.VOID:
+            if not arg.result.type:
                 raise TypePropagationError(
                     f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got a function call that doesn't return anything"
                 )
@@ -1824,7 +1821,7 @@ class TypePropagator:
                 if stmt.value:
                     self.fill_expr(stmt.value)
 
-                    if self.fn_return_type == Type.VOID:
+                    if not self.fn_return_type:
                         raise TypePropagationError(
                             f"Function '{self.filled_fn_name}' wasn't supposed to return any value"
                         )
@@ -1839,7 +1836,7 @@ class TypePropagator:
                             f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name}, not {stmt.value.result.type_name}"
                         )
                 else:
-                    if self.fn_return_type != Type.VOID:
+                    if self.fn_return_type:
                         raise TypePropagationError(
                             f"Function '{self.filled_fn_name}' is supposed to return a value of type {self.fn_return_type_name}"
                         )
@@ -1865,7 +1862,7 @@ class TypePropagator:
 
             self.fill_statements(fn.body_statements)
 
-            if fn.return_type != Type.VOID:
+            if fn.return_type:
                 if not fn.body_statements:
                     raise TypePropagationError(
                         f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name} as its last line"
@@ -1903,8 +1900,8 @@ class TypePropagator:
                 )
             previous_on_fn_index = current_parser_index
 
-            self.fn_return_type = Type.VOID
-            self.fn_return_type_name = "void"
+            self.fn_return_type = None
+            self.fn_return_type_name = None
             self.filled_fn_name = expected_fn_name
 
             params = self.entity_on_functions[expected_fn_name].get("arguments", [])

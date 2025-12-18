@@ -15,6 +15,7 @@ class Bindings:
     def __init__(self, mod_api_path: str):
         with open(mod_api_path) as f:
             mod_api = json.load(f)
+
         self.frontend = Frontend(mod_api)
         self.backend = Backend(mod_api)
 
@@ -152,14 +153,4 @@ class Bindings:
     def on_fn_dispatcher(
         self, on_fn_name: str, grug_file_path: str, args: List[GrugValueType]
     ):
-        on_fns: Dict[str, OnFn] = {
-            s.fn_name: s for s in self.ast if isinstance(s, OnFn)
-        }
-
-        on_fn = on_fns.get(on_fn_name)
-        if not on_fn:
-            raise RuntimeError(
-                f"The function '{on_fn_name}' is not defined by the file {grug_file_path}"
-            )
-
-        self.backend.run_on_fn(on_fn_name, grug_file_path, args, on_fn)
+        self.backend.run_on_fn(on_fn_name, grug_file_path, args, self.ast)
