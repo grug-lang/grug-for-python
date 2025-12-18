@@ -1618,7 +1618,7 @@ class TypePropagator:
                     f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got a function call that doesn't return anything"
                 )
 
-            if param.type_name != Type.ID and self.is_wrong_type(
+            if param.type_name != "id" and self.is_wrong_type(
                 arg.result.type,
                 param.type,
                 arg.result.type_name,

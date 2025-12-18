@@ -2,10 +2,10 @@ import json
 import sys
 import traceback
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 from .backend import Backend, GameFn, GrugValueType
-from .frontend import Frontend, FrontendError, OnFn, Parser, Tokenizer
+from .frontend import Frontend, FrontendError, Parser, Tokenizer
 from .serializer import Serializer
 
 MAX_FILE_ENTITY_TYPE_LENGTH = 420

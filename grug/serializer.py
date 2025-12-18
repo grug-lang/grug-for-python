@@ -41,12 +41,11 @@ class Serializer:
         """Serialize an expression node to dict."""
         result: Dict[str, Any] = {}
 
-        # Get the type name from the class name
-        result["type"] = expr.__class__.__name__.replace("Expr", "").upper() + "_EXPR"
-
         # Handle different expression types
-        if isinstance(expr, (TrueExpr, FalseExpr)):
-            pass  # No additional fields
+        if isinstance(expr, TrueExpr):
+            result["type"] = "TRUE_EXPR"
+        elif isinstance(expr, FalseExpr):
+            result["type"] = "FALSE_EXPR"
         elif isinstance(
             expr,
             (
@@ -56,19 +55,35 @@ class Serializer:
                 IdentifierExpr,
             ),
         ):
+            if isinstance(expr, StringExpr):
+                result["type"] = "STRING_EXPR"
+            elif isinstance(expr, ResourceExpr):
+                result["type"] = "RESOURCE_EXPR"
+            elif isinstance(expr, EntityExpr):
+                result["type"] = "ENTITY_EXPR"
+            else:
+                assert isinstance(expr, IdentifierExpr)
+                result["type"] = "IDENTIFIER_EXPR"
+
             result["str"] = (
                 expr.name if isinstance(expr, IdentifierExpr) else expr.string
             )
         elif isinstance(expr, NumberExpr):
+            result["type"] = "NUMBER_EXPR"
             result["value"] = expr.string
         elif isinstance(expr, UnaryExpr):
+            result["type"] = "UNARY_EXPR"
             result["operator"] = expr.operator.name
             result["expr"] = Serializer._serialize_expr(expr.expr)
         elif isinstance(expr, (BinaryExpr, LogicalExpr)):
+            result["type"] = (
+                "BINARY_EXPR" if isinstance(expr, BinaryExpr) else "LOGICAL_EXPR"
+            )
             result["left_expr"] = Serializer._serialize_expr(expr.left_expr)
             result["operator"] = expr.operator.name
             result["right_expr"] = Serializer._serialize_expr(expr.right_expr)
         elif isinstance(expr, CallExpr):
+            result["type"] = "CALL_EXPR"
             result["name"] = expr.fn_name
             if expr.arguments:
                 result["arguments"] = [
@@ -76,6 +91,7 @@ class Serializer:
                 ]
         else:
             assert isinstance(expr, ParenthesizedExpr)
+            result["type"] = "PARENTHESIZED_EXPR"
             result["expr"] = Serializer._serialize_expr(expr.expr)
 
         return result
@@ -85,17 +101,14 @@ class Serializer:
         """Serialize a statement node to dict."""
         result: Dict[str, Any] = {}
 
-        # Get the type name from the class name
-        result["type"] = (
-            stmt.__class__.__name__.replace("Statement", "").upper() + "_STATEMENT"
-        )
-
         if isinstance(stmt, VariableStatement):
+            result["type"] = "VARIABLE_STATEMENT"
             result["name"] = stmt.name
             if stmt.type:
                 result["variable_type"] = stmt.type_name
             result["assignment"] = Serializer._serialize_expr(stmt.assignment_expr)
         elif isinstance(stmt, CallStatement):
+            result["type"] = "CALL_STATEMENT"
             call_expr = stmt.expr
             result["name"] = call_expr.fn_name
             if call_expr.arguments:
@@ -103,6 +116,7 @@ class Serializer:
                     Serializer._serialize_expr(arg) for arg in call_expr.arguments
                 ]
         elif isinstance(stmt, IfStatement):
+            result["type"] = "IF_STATEMENT"
             result["condition"] = Serializer._serialize_expr(stmt.condition)
             if stmt.if_body:
                 result["if_statements"] = [
@@ -113,24 +127,25 @@ class Serializer:
                     Serializer._serialize_statement(s) for s in stmt.else_body
                 ]
         elif isinstance(stmt, ReturnStatement):
+            result["type"] = "RETURN_STATEMENT"
             if stmt.value:
                 result["expr"] = Serializer._serialize_expr(stmt.value)
         elif isinstance(stmt, WhileStatement):
+            result["type"] = "WHILE_STATEMENT"
             result["condition"] = Serializer._serialize_expr(stmt.condition)
             result["statements"] = [
                 Serializer._serialize_statement(s) for s in stmt.body_statements
             ]
         elif isinstance(stmt, CommentStatement):
+            result["type"] = "COMMENT_STATEMENT"
             result["comment"] = stmt.string
+        elif isinstance(stmt, BreakStatement):
+            result["type"] = "BREAK_STATEMENT"
+        elif isinstance(stmt, ContinueStatement):
+            result["type"] = "CONTINUE_STATEMENT"
         else:
-            assert isinstance(
-                stmt,
-                (
-                    BreakStatement,
-                    ContinueStatement,
-                    EmptyLineStatement,
-                ),
-            )
+            assert isinstance(stmt, EmptyLineStatement)
+            result["type"] = "EMPTY_LINE_STATEMENT"
 
         return result
 
