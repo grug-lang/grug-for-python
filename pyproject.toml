@@ -3,8 +3,3 @@ name = "grug"
 version = "1.0.0"
 dependencies = []
 requires-python = ">=3.7"
-
-[project.entry-points]
-"grug.backends" = { default = "grug.backend:Backend" }
-"grug.frontends" = { default = "grug.frontend:Frontend" }
-"grug.bindings" = { default = "grug.bindings:Bindings" }

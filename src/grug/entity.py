@@ -1,8 +1,9 @@
-import ctypes
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Dict, List, Optional
+
+from grug.grug_file import GrugFile
+from grug.grug_value import GrugValue
 
 from .frontend import (
-    Ast,
     BinaryExpr,
     BreakStatement,
     CallExpr,
@@ -13,13 +14,10 @@ from .frontend import (
     EntityExpr,
     Expr,
     FalseExpr,
-    HelperFn,
     IdentifierExpr,
     IfStatement,
     LogicalExpr,
-    ModApi,
     NumberExpr,
-    OnFn,
     ParenthesizedExpr,
     ResourceExpr,
     ReturnStatement,
@@ -31,17 +29,6 @@ from .frontend import (
     VariableStatement,
     WhileStatement,
 )
-
-GrugValueType = Union[float, bool, str, ctypes.c_uint64]
-
-
-class GrugValue(ctypes.Union):
-    _fields_ = [
-        ("_number", ctypes.c_double),
-        ("_bool", ctypes.c_bool),
-        ("_string", ctypes.c_char_p),
-        ("_id", ctypes.c_uint64),
-    ]
 
 
 class Break(Exception):
@@ -56,53 +43,49 @@ class Return(Exception):
     pass
 
 
-GameFn = Callable[[ctypes.Array[GrugValue]], GrugValue]
+class Entity:
+    def __init__(self, file: GrugFile):
+        self.me_id = file.state.next_id
+        file.state.next_id += 1
 
+        self.file = file
 
-class Backend:
-    def __init__(self, mod_api: ModApi):
-        self.mod_api = mod_api
+        self.game_fns = file.game_fns
 
-        self.game_fns: Dict[str, Dict[str, Any]] = {}
-
-        # Every on_ and helper_ function gets its own local variables.
-        self.local_variables: Dict[str, GrugValueType] = {}
-
-        # Stack of scopes, necessary when an on_ fn calls a helper_ fn.
-        self.local_variable_scopes: List[Dict[str, GrugValueType]] = []
-
-    def register_game_fn(self, name: str, fn: GameFn):
-        self.game_fns[name] = {
-            "fn": fn,
-            "return_type": self.mod_api["game_functions"][name].get("return_type"),
-            "arg_types": [
-                arg["type"]
-                for arg in self.mod_api["game_functions"][name].get("arguments", [])
-            ],
+        # TODO: This must support global variables using one another
+        self.global_variables = {
+            g.name: self._run_expr(g.expr) for g in file.global_variables
         }
 
-    def init_globals_fn_dispatcher(self, path: str):
-        pass
+        # Stack of scopes, necessary when an on_ fn calls a helper_ fn.
+        self.local_variable_scopes: List[Dict[str, GrugValue]] = []
 
-    def run_on_fn(
-        self,
-        on_fn_name: str,  # TODO: Use in runtime error messages
-        grug_file_path: str,  # TODO: Use in runtime error messages
-        args: List[GrugValueType],  # TODO: Turn these into local variables
-        ast: Ast,
-    ):
-        self.local_variables = {}
-        self.local_variable_scopes.append(self.local_variables)
+        # Points to the current on/helper fn's scope in self.local_variable_scopes.
+        self.local_variables: Dict[str, GrugValue] = {}
 
-        on_fns: Dict[str, OnFn] = {s.fn_name: s for s in ast if isinstance(s, OnFn)}
+    # TODO: Check if this funciton can be simplified, while keeping pyright happy
+    def __getattr__(self, name: str):
+        """
+        This function lets `dog.spawn(42)` call `dog.run_on_fn("spawn", 42)`.
+        """
+        try:
 
-        on_fn = on_fns.get(on_fn_name)
+            def node_callable(*args: GrugValue) -> Optional[GrugValue]:
+                return self.run_on_fn(name, *args)
+
+            return node_callable
+        except KeyError:
+            raise AttributeError(name) from None
+
+    def run_on_fn(self, on_fn_name: str, *args: GrugValue):
+        on_fn = self.file.on_fns.get(on_fn_name)
         if not on_fn:
             raise RuntimeError(
-                f"The function '{on_fn_name}' is not defined by the file {grug_file_path}"
+                f"The function '{on_fn_name}' is not defined by the file {self.file.relative_path}"
             )
 
-        self.helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
+        self.local_variables = {}
+        self.local_variable_scopes.append(self.local_variables)
 
         for arg, argument in zip(args, on_fn.arguments):
             self.local_variables[argument.name] = arg
@@ -135,12 +118,12 @@ class Backend:
             assert isinstance(statement, (EmptyLineStatement, CommentStatement))
 
     def _run_variable_statement(self, statement: VariableStatement):
-        self.local_variables[statement.name] = self._run_expr(statement.assignment_expr)
+        self.local_variables[statement.name] = self._run_expr(statement.expr)
 
     def _run_call_statement(self, statement: CallStatement):
-        return self._run_call_expr(statement.expr)
+        self._run_call_expr(statement.expr)
 
-    def _run_expr(self, expr: Expr) -> GrugValueType:
+    def _run_expr(self, expr: Expr) -> GrugValue:
         if isinstance(expr, TrueExpr):
             return True
         elif isinstance(expr, FalseExpr):
@@ -240,9 +223,9 @@ class Backend:
         args = [self._run_expr(arg) for arg in call_expr.arguments]
 
         if call_expr.fn_name.startswith("helper_"):
-            return self._call_helper_fn(call_expr.fn_name, args)
+            return self._run_helper_fn(call_expr.fn_name, *args)
         else:
-            return self._call_game_fn(call_expr.fn_name, args)
+            return self._run_game_fn(call_expr.fn_name, *args)
 
     def _run_if_statement(self, statement: IfStatement):
         if self._run_expr(statement.condition):
@@ -271,65 +254,25 @@ class Backend:
     def _run_continue_statement(self):
         raise Continue()
 
-    def _call_helper_fn(
-        self, name: str, args: List[GrugValueType]
-    ) -> Optional[GrugValueType]:
-        helper_fn = self.helper_fns.get(name)
+    def _run_helper_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
+        helper_fn = self.file.helper_fns.get(name)
         if not helper_fn:
             raise KeyError(f"Unknown helper function '{name}'")
+
+        self.local_variables = {}
+        self.local_variable_scopes.append(self.local_variables)
 
         for arg, argument in zip(args, helper_fn.arguments):
             self.local_variables[argument.name] = arg
 
-        return self._run_statements(helper_fn.body_statements)
+        result = self._run_statements(helper_fn.body_statements)
 
-    def _call_game_fn(
-        self, name: str, args: List[GrugValueType]
-    ) -> Optional[GrugValueType]:
+        self.local_variable_scopes.pop()
+
+        return result
+
+    def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
         game_fn = self.game_fns.get(name)
         if not game_fn:
             raise KeyError(f"Unknown game function '{name}'")
-
-        fn_ptr: GameFn = game_fn["fn"]
-
-        # The fn args will be turned from a Python list into a ctypes array
-        c_args = (GrugValue * len(args))()
-
-        # TODO: Can this be removed?
-        # Keeps strings alive
-        string_refs: List[Any] = []
-
-        for i, v in enumerate(args):
-            if isinstance(v, float):
-                c_args[i]._number = v
-            elif isinstance(v, bool):
-                c_args[i]._bool = v
-            elif isinstance(v, str):
-                s = ctypes.c_char_p(v.encode())
-                string_refs.append(s)
-                c_args[i]._string = s
-            else:
-                assert isinstance(v, ctypes.c_uint64)
-                c_args[i]._id = v
-
-        # Python receives a GrugValueWorkaround struct (correctly handled via register OR memory).
-        result = fn_ptr(c_args)
-
-        return_type = game_fn["return_type"]
-
-        if return_type == None:
-            return
-
-        # Create a GrugValue and copy the bits from GrugValueWorkaround into it.
-        value = GrugValue()
-        ctypes.memmove(ctypes.byref(value), ctypes.byref(result), ctypes.sizeof(value))
-
-        if return_type == "number":
-            return value._number
-        if return_type == "bool":
-            return value._bool
-        if return_type == "string":
-            return value._string
-
-        assert return_type == "id"
-        return value._id
+        return game_fn(*args)

@@ -19,6 +19,13 @@ If you are on a Python version older than 3.11, you will additionally need to in
 pip install tomli importlib-metadata
 ```
 
+## Running the example
+
+```sh
+cd example
+python example.py
+```
+
 ## Running the tests
 
 You will need to clone the [grug-tests](https://github.com/grug-lang/grug-tests) repository *next* to this repository, and then run `git checkout development` in it, followed by `./tests.sh`.

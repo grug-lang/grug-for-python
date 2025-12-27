@@ -106,7 +106,7 @@ class Serializer:
             result["name"] = stmt.name
             if stmt.type:
                 result["variable_type"] = stmt.type_name
-            result["assignment"] = Serializer._serialize_expr(stmt.assignment_expr)
+            result["assignment"] = Serializer._serialize_expr(stmt.expr)
         elif isinstance(stmt, CallStatement):
             result["type"] = "CALL_STATEMENT"
             call_expr = stmt.expr
@@ -189,9 +189,7 @@ class Serializer:
             result["type"] = "GLOBAL_VARIABLE"
             result["name"] = global_stmt.name
             result["variable_type"] = global_stmt.type_name
-            result["assignment"] = Serializer._serialize_expr(
-                global_stmt.assignment_expr
-            )
+            result["assignment"] = Serializer._serialize_expr(global_stmt.expr)
         elif isinstance(global_stmt, CommentStatement):
             result["type"] = "GLOBAL_COMMENT"
             result["comment"] = global_stmt.string

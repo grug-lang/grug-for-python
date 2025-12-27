@@ -1,50 +1,94 @@
 import json
-import sys
-import traceback
+from enum import Enum, auto
 from pathlib import Path
-from typing import List
+from typing import Callable, Dict
 
-from .backend import Backend, GameFn, GrugValueType
-from .frontend import Frontend, FrontendError, Parser, Tokenizer
+from grug.game_fn import GameFn
+from grug.grug_file import GrugFile
+
+from .frontend import Frontend, HelperFn, OnFn, Parser, Tokenizer, VariableStatement
 from .serializer import Serializer
 
 MAX_FILE_ENTITY_TYPE_LENGTH = 420
 
 
-class Bindings:
-    def __init__(self, mod_api_path: str):
+class GrugRuntimeErrorType(Enum):
+    GRUG_ON_FN_STACK_OVERFLOW = auto()
+    GRUG_ON_FN_TIME_LIMIT_EXCEEDED = auto()
+    GRUG_ON_FN_GAME_FN_ERROR = auto()
+
+
+GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
+
+
+def default_runtime_error_handler(
+    reason: str,
+    grug_runtime_error_type: GrugRuntimeErrorType,
+    on_fn_name: str,
+    on_fn_path: str,
+):
+    assert False  # TODO: Implement
+
+
+class GrugState:
+    def __init__(
+        self,
+        *,
+        runtime_error_handler: GrugRuntimeErrorHandler,
+        mod_api_path: str,
+        mods_dir_path: str,
+        on_fn_time_limit_ms: float,
+    ):
         with open(mod_api_path) as f:
-            mod_api = json.load(f)
+            self.mod_api = json.load(f)
 
-        self.frontend = Frontend(mod_api)
-        self.backend = Backend(mod_api)
+        self.mods_dir_path = mods_dir_path
 
-    def compile_grug_file(self, grug_path: str, mod_name: str):
+        self.frontend = Frontend(self.mod_api)
+
+        self.game_fns: Dict[str, GameFn] = {}
+
+        self.next_id = 0
+
+    def game_fn(self, fn: GameFn) -> GameFn:
+        """Decorator for game functions."""
+        self.register_game_fn(fn.__name__, fn)
+        return fn
+
+    def register_game_fn(self, name: str, fn: GameFn):
+        self.game_fns[name] = fn
+
+    def compile_grug_file(self, grug_file_relative_path: str):
         """Read a file and pass its contents to the frontend."""
-        try:
-            text = Path(grug_path).read_text()
-        except Exception as e:
-            return f"Error reading file {grug_path}: {e}"
+        mod = Path(grug_file_relative_path).parts[0]
 
-        if "/" not in grug_path:
-            raise ValueError(
-                f"The grug file path '{grug_path}' does not contain a '/' character"
-            )
+        grug_file_absolute_path = Path(self.mods_dir_path) / grug_file_relative_path
+        text = grug_file_absolute_path.read_text()
 
-        try:
-            entity_type = self.get_file_entity_type(Path(grug_path).name)
-        except ValueError as e:
-            return str(e)
+        entity_type = self._get_file_entity_type(Path(grug_file_relative_path).name)
 
-        try:
-            self.ast = self.frontend.compile_grug_file(text, mod_name, entity_type)
-        except FrontendError as e:
-            return str(e)
-        except Exception as e:
-            traceback.print_exc(file=sys.stderr)
-            return "Unhandled error"
+        ast = self.frontend.compile_grug_file(text, mod, entity_type)
 
-        return None
+        global_variables = [s for s in ast if isinstance(s, VariableStatement)]
+
+        on_fns = {s.fn_name: s for s in ast if isinstance(s, OnFn)}
+
+        helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
+
+        return GrugFile(
+            grug_file_relative_path,
+            global_variables,
+            on_fns,
+            helper_fns,
+            self.game_fns,
+            self,
+        )
+
+    def update(self):
+        # TODO: Implement hot reloading
+        pass
+
+    # TODO: MOVE EVERYTHING BELOW HERE SOMEWHERE ELSE!
 
     def dump_file_to_json(self, input_grug_path: str, output_json_path: str):
         grug_text = Path(input_grug_path).read_text()
@@ -70,7 +114,7 @@ class Bindings:
 
         return False
 
-    def get_file_entity_type(self, grug_filename: str) -> str:
+    def _get_file_entity_type(self, grug_filename: str) -> str:
         """
         Extract and validate the entity type from a grug filename.
 
@@ -116,11 +160,11 @@ class Bindings:
             )
 
         # Validate PascalCase
-        self.check_custom_id_is_pascal(entity_type)
+        self._check_custom_id_is_pascal(entity_type)
 
         return entity_type
 
-    def check_custom_id_is_pascal(self, type_name: str):
+    def _check_custom_id_is_pascal(self, type_name: str):
         """
         Validate that a custom ID type name is in PascalCase.
 
@@ -144,13 +188,13 @@ class Bindings:
                     f"which isn't uppercase/lowercase/a digit"
                 )
 
-    def register_game_fn(self, name: str, fn: GameFn):
-        self.backend.register_game_fn(name, fn)
+    # TODO: Implement, to make this API possible:
+    # mods = grug.get_mods()
+    # animals_mod = mods.dirs[0]
+    # labrador_file = animals_mod.files[0]
+    def get_mods(self):
+        assert False
 
+    # TODO: Implement, possibly updating init_globals_fn_dispatcher_t in tests.h
     def init_globals_fn_dispatcher(self, path: str):
-        self.backend.init_globals_fn_dispatcher(path)
-
-    def on_fn_dispatcher(
-        self, on_fn_name: str, grug_file_path: str, args: List[GrugValueType]
-    ):
-        self.backend.run_on_fn(on_fn_name, grug_file_path, args, self.ast)
+        assert False

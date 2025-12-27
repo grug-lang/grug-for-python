@@ -398,7 +398,7 @@ class VariableStatement:
     name: str
     type: Optional[Type]
     type_name: Optional[str]
-    assignment_expr: Expr
+    expr: Expr
 
 
 @dataclass
@@ -1021,9 +1021,9 @@ class Parser:
 
         self.consume_space(i)
 
-        assignment_expr = self.parse_expression(i)
+        expr = self.parse_expression(i)
 
-        return VariableStatement(var_name, var_type, var_type_name, assignment_expr)
+        return VariableStatement(var_name, var_type, var_type_name, expr)
 
     def parse_global_variable(self, i: List[int]):
         name_token_index = i[0]
@@ -1065,11 +1065,9 @@ class Parser:
         self.consume_token_type(i, TokenType.ASSIGNMENT_TOKEN)
 
         self.consume_space(i)
-        assignment_expr = self.parse_expression(i)
+        expr = self.parse_expression(i)
 
-        return VariableStatement(
-            global_name, global_type, global_type_name, assignment_expr
-        )
+        return VariableStatement(global_name, global_type, global_type_name, expr)
 
     def parse_unary(self, i: List[int]):
         self.increase_parsing_depth()
@@ -1375,9 +1373,9 @@ ModApi = Dict[str, Dict[str, Any]]
 
 
 class TypePropagator:
-    def __init__(self, ast: Ast, mod_name: str, entity_type: str, mod_api: ModApi):
+    def __init__(self, ast: Ast, mod: str, entity_type: str, mod_api: ModApi):
         self.ast = ast
-        self.mod = mod_name
+        self.mod = mod
         self.file_entity_type = entity_type
         self.mod_api = mod_api
 
@@ -1480,7 +1478,7 @@ class TypePropagator:
         if not string:
             raise TypePropagationError("Entities can't be empty strings")
 
-        mod_name = self.mod
+        mod = self.mod
         entity_name = string
 
         colon_pos = string.find(":")
@@ -1495,20 +1493,20 @@ class TypePropagator:
                     f"There are more than {MAX_ENTITY_DEPENDENCY_NAME_LENGTH} characters in the entity '{string}', exceeding MAX_ENTITY_DEPENDENCY_NAME_LENGTH"
                 )
 
-            mod_name = temp_mod_name
+            mod = temp_mod_name
             entity_name = string[colon_pos + 1 :]
 
             if not entity_name:
                 raise TypePropagationError(
-                    f"Entity '{string}' specifies the mod name '{mod_name}', but it is missing an entity name after the ':'"
+                    f"Entity '{string}' specifies the mod name '{mod}', but it is missing an entity name after the ':'"
                 )
 
-            if mod_name == self.mod:
+            if mod == self.mod:
                 raise TypePropagationError(
-                    f"Entity '{string}' its mod name '{mod_name}' is invalid, since the file it is in refers to its own mod; just change it to '{entity_name}'"
+                    f"Entity '{string}' its mod name '{mod}' is invalid, since the file it is in refers to its own mod; just change it to '{entity_name}'"
                 )
 
-        for c in mod_name:
+        for c in mod:
             if not (c.islower() or c.isdigit() or c in ("_", "-")):
                 raise TypePropagationError(
                     f"Entity '{string}' its mod name contains the invalid character '{c}'"
@@ -1757,7 +1755,7 @@ class TypePropagator:
     def fill_variable_statement(self, stmt: VariableStatement):
         # This call has to happen before the `add_local_variable()` we do below,
         # since `a: number = a` doesn't throw otherwise.
-        self.fill_expr(stmt.assignment_expr)
+        self.fill_expr(stmt.expr)
 
         var = self.get_variable(stmt.name)
 
@@ -1769,12 +1767,12 @@ class TypePropagator:
 
             if stmt.type_name != "id" and self.is_wrong_type(
                 stmt.type,
-                stmt.assignment_expr.result.type,
+                stmt.expr.result.type,
                 stmt.type_name,
-                stmt.assignment_expr.result.type_name,
+                stmt.expr.result.type_name,
             ):
                 raise TypePropagationError(
-                    f"Can't assign {stmt.assignment_expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
+                    f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                 )
 
             self.add_local_variable(stmt.name, stmt.type, stmt.type_name)
@@ -1789,12 +1787,12 @@ class TypePropagator:
 
             if var.type_name != "id" and self.is_wrong_type(
                 var.type,
-                stmt.assignment_expr.result.type,
+                stmt.expr.result.type,
                 var.type_name,
-                stmt.assignment_expr.result.type_name,
+                stmt.expr.result.type_name,
             ):
                 raise TypePropagationError(
-                    f"Can't assign {stmt.assignment_expr.result.type_name} to '{var.name}', which has type {var.type_name}"
+                    f"Can't assign {stmt.expr.result.type_name} to '{var.name}', which has type {var.type_name}"
                 )
 
     def remove_local_variables_in_statements(self, statements: List[Statement]):
@@ -1962,26 +1960,26 @@ class TypePropagator:
                 # Global variables are guaranteed to be initialized
                 assert stmt.type
                 assert stmt.type_name
-                assert stmt.assignment_expr
+                assert stmt.expr
 
-                self.check_global_expr(stmt.assignment_expr, stmt.name)
-                self.fill_expr(stmt.assignment_expr)
+                self.check_global_expr(stmt.expr, stmt.name)
+                self.fill_expr(stmt.expr)
 
                 # Check for assignment to 'me'
-                if isinstance(stmt.assignment_expr, IdentifierExpr):
-                    if stmt.assignment_expr.name == "me":
+                if isinstance(stmt.expr, IdentifierExpr):
+                    if stmt.expr.name == "me":
                         raise TypePropagationError(
                             "Global variables can't be assigned 'me'"
                         )
 
                 if stmt.type_name != "id" and self.is_wrong_type(
                     stmt.type,
-                    stmt.assignment_expr.result.type,
+                    stmt.expr.result.type,
                     stmt.type_name,
-                    stmt.assignment_expr.result.type_name,
+                    stmt.expr.result.type_name,
                 ):
                     raise TypePropagationError(
-                        f"Can't assign {stmt.assignment_expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
+                        f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                     )
 
                 self.add_global_variable(stmt.name, stmt.type, stmt.type_name)
@@ -2001,17 +1999,14 @@ class Frontend:
     def __init__(self, mod_api: ModApi):
         self.mod_api = mod_api
 
-    def compile_grug_file(self, source: str, mod_name: str, entity_type: str):
-        """
-        Compile source text and return an error message string,
-        or None if compilation succeeded.
-        """
+    def compile_grug_file(self, source: str, mod: str, entity_type: str):
+        """Compiles source text to an AST."""
         try:
             tokens = Tokenizer(source).tokenize()
 
             ast = Parser(tokens).parse()
 
-            TypePropagator(ast, mod_name, entity_type, self.mod_api).fill()
+            TypePropagator(ast, mod, entity_type, self.mod_api).fill()
         except (TokenizerError, ParserError, TypePropagationError) as e:
             raise FrontendError(str(e)) from e
 
