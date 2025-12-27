@@ -1,8 +1,19 @@
 [project]
 name = "grug-lang"
-version = "1.0.0"
-dependencies = []
+version = "1.0.1"
+authors = [{ name = "MyNameIsTrez", email = "welfje@gmail.com" }]
+description = "Make your mods immortal."
+readme = "README.md"
 requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Repository = "https://github.com/grug-lang/grug"
 
 [build-system]
 requires = ["setuptools >= 77.0.3"]
