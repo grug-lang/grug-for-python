@@ -2,6 +2,10 @@
 
 This repository provides Python bindings, a frontend, and a backend for [grug](https://github.com/grug-lang/grug).
 
+Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check it.
+
+You can run the example program by cloning this repository, `cd`-ing into it, running `cd example`, and finally running `python example.py`.
+
 ## Dependencies
 
 This project requires Python version 3.7 or newer. You can manage your Python versions using [pyenv](https://github.com/pyenv/pyenv).
@@ -17,13 +21,6 @@ If you are on a Python version older than 3.11, you will additionally need to in
 
 ```sh
 pip install tomli importlib-metadata
-```
-
-## Running the example
-
-```sh
-cd example
-python example.py
 ```
 
 ## Running the tests
@@ -43,3 +40,13 @@ Alternatively, you can *walk* through the tests and set breakpoints by installin
 ## Type checking
 
 Run `pyright` in the terminal to type check the Python code. Pyright can be installed using `sudo npm install -g pyright`.
+
+## Updating the pypi package
+
+```sh
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade build
+python -m build
+python -m pip install --upgrade twine
+python -m twine upload dist/*
+```
