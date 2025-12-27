@@ -4,7 +4,7 @@ This repository provides Python bindings, a frontend, and a backend for [grug](h
 
 Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check it.
 
-You can run the example program by cloning this repository, `cd`-ing into it, running `cd example`, and finally running `python example.py`.
+You can run the example program by cloning [this repository](https://github.com/grug-lang/grug-for-python), `cd`-ing into it, running `cd example`, and finally running `python example.py`.
 
 ## Dependencies
 
