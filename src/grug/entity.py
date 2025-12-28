@@ -40,7 +40,8 @@ class Continue(Exception):
 
 
 class Return(Exception):
-    pass
+    def __init__(self, value: Optional[GrugValue] = None):
+        self.value = value
 
 
 class Entity:
@@ -57,23 +58,19 @@ class Entity:
         for g in file.global_variables:
             self.global_variables[g.name] = self._run_expr(g.expr)
 
-        # Stack of scopes, necessary when an on_ fn calls a helper_ fn.
-        self.local_variable_scopes: List[Dict[str, GrugValue]] = []
-
-        # Points to the current on/helper fn's scope in self.local_variable_scopes.
         self.local_variables: Dict[str, GrugValue] = {}
 
     def __getattr__(self, name: str):
         """
-        This function lets `dog.spawn(42)` call `dog.run_on_fn("spawn", 42)`.
+        This function lets `dog.spawn(42)` call `dog._run_on_fn("spawn", 42)`.
         """
 
         def runner(*args: GrugValue) -> Optional[GrugValue]:
-            return self.run_on_fn(name, *args)
+            return self._run_on_fn(name, *args)
 
         return runner
 
-    def run_on_fn(self, on_fn_name: str, *args: GrugValue):
+    def _run_on_fn(self, on_fn_name: str, *args: GrugValue):
         on_fn = self.file.on_fns.get(on_fn_name)
         if not on_fn:
             raise RuntimeError(
@@ -81,15 +78,14 @@ class Entity:
             )
 
         self.local_variables = {}
-        self.local_variable_scopes.append(self.local_variables)
 
         for arg, argument in zip(args, on_fn.arguments):
             self.local_variables[argument.name] = arg
 
-        self._run_statements(on_fn.body_statements)
-
-        self.local_variable_scopes.pop()
-        assert len(self.local_variable_scopes) == 0
+        try:
+            self._run_statements(on_fn.body_statements)
+        except Return:
+            pass
 
     def _run_statements(self, statements: List[Statement]):
         for statement in statements:
@@ -131,7 +127,7 @@ class Entity:
         elif isinstance(expr, StringExpr):
             return expr.string
         elif isinstance(expr, ResourceExpr):
-            return expr.string
+            return f"{self.file.mod}/{expr.string}"
         elif isinstance(expr, EntityExpr):
             return (
                 expr.string if ":" in expr.string else f"{self.file.mod}:{expr.string}"
@@ -189,10 +185,8 @@ class Entity:
             assert isinstance(left, float) and isinstance(right, float)
             return left / right
         elif op == TokenType.EQUALS_TOKEN:
-            assert isinstance(left, (float, str)) and isinstance(right, (float, str))
             return left == right
         elif op == TokenType.NOT_EQUALS_TOKEN:
-            assert isinstance(left, (float, str)) and isinstance(right, (float, str))
             return left != right
         elif op == TokenType.GREATER_OR_EQUAL_TOKEN:
             assert isinstance(left, float) and isinstance(right, float)
@@ -210,14 +204,12 @@ class Entity:
             assert False  # Unreachable
 
     def _run_logical_expr(self, logical_expr: LogicalExpr):
-        op = logical_expr.operator
-
-        if op == TokenType.AND_TOKEN:
+        if logical_expr.operator == TokenType.AND_TOKEN:
             return self._run_expr(logical_expr.left_expr) and self._run_expr(
                 logical_expr.right_expr
             )
         else:
-            assert op == TokenType.OR_TOKEN
+            assert logical_expr.operator == TokenType.OR_TOKEN
 
             return self._run_expr(logical_expr.left_expr) or self._run_expr(
                 logical_expr.right_expr
@@ -263,15 +255,19 @@ class Entity:
         if not helper_fn:
             raise KeyError(f"Unknown helper function '{name}'")
 
+        parent_local_variables = self.local_variables
         self.local_variables = {}
-        self.local_variable_scopes.append(self.local_variables)
 
         for arg, argument in zip(args, helper_fn.arguments):
             self.local_variables[argument.name] = arg
 
-        result = self._run_statements(helper_fn.body_statements)
+        result: Optional[GrugValue] = None
+        try:
+            self._run_statements(helper_fn.body_statements)
+        except Return as e:
+            result = e.value
 
-        self.local_variable_scopes.pop()
+        self.local_variables = parent_local_variables
 
         return result
 

@@ -1,6 +1,6 @@
 [project]
 name = "grug-lang"
-version = "1.0.5"
+version = "1.0.6"
 authors = [{ name = "MyNameIsTrez", email = "welfje@gmail.com" }]
 description = "Make your mods immortal."
 readme = "README.md"

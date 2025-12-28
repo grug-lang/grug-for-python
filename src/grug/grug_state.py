@@ -9,8 +9,6 @@ from grug.grug_file import GrugFile
 from .frontend import Frontend, HelperFn, OnFn, Parser, Tokenizer, VariableStatement
 from .serializer import Serializer
 
-MAX_FILE_ENTITY_TYPE_LENGTH = 420
-
 
 class GrugRuntimeErrorType(Enum):
     GRUG_ON_FN_STACK_OVERFLOW = auto()
@@ -151,13 +149,6 @@ class GrugState:
             raise ValueError(
                 f"'{grug_filename}' is missing an entity type in its name; "
                 f"use a dash to specify it, like 'ak47-gun.grug'"
-            )
-
-        # Check length
-        if len(entity_type) >= MAX_FILE_ENTITY_TYPE_LENGTH:
-            raise ValueError(
-                f"There are more than {MAX_FILE_ENTITY_TYPE_LENGTH} characters "
-                f"in the entity type of '{grug_filename}', exceeding MAX_FILE_ENTITY_TYPE_LENGTH"
             )
 
         # Validate PascalCase

@@ -7,10 +7,6 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Set, Union
 
 SPACES_PER_INDENT = 4
-MAX_VARIABLES_PER_FUNCTION = 1000
-MAX_GLOBAL_VARIABLES = 1000
-MAX_FILE_ENTITY_TYPE_LENGTH = 420
-MAX_ENTITY_DEPENDENCY_NAME_LENGTH = 420
 MAX_PARSING_DEPTH = 100
 
 MIN_F64 = struct.unpack("!d", struct.pack("!Q", 0x0010000000000000))[0]
@@ -1418,11 +1414,6 @@ class TypePropagator:
         )
 
     def add_global_variable(self, name: str, var_type: Type, type_name: str):
-        if len(self.global_variables) >= MAX_GLOBAL_VARIABLES:
-            raise TypePropagationError(
-                f"There are more than {MAX_GLOBAL_VARIABLES} global variables in a grug file"
-            )
-
         if name in self.global_variables:
             raise TypePropagationError(
                 f"The global variable '{name}' shadows an earlier global variable with the same name, so change the name of one of them"
@@ -1439,11 +1430,6 @@ class TypePropagator:
         return None
 
     def add_local_variable(self, name: str, var_type: Type, type_name: str):
-        if len(self.local_variables) >= MAX_VARIABLES_PER_FUNCTION:
-            raise TypePropagationError(
-                f"There are more than {MAX_VARIABLES_PER_FUNCTION} variables in a function"
-            )
-
         if name in self.local_variables:
             raise TypePropagationError(
                 f"The local variable '{name}' shadows an earlier local variable"
@@ -1483,11 +1469,6 @@ class TypePropagator:
                 raise TypePropagationError(f"Entity '{string}' is missing a mod name")
 
             temp_mod_name = string[:colon_pos]
-
-            if len(temp_mod_name) >= MAX_ENTITY_DEPENDENCY_NAME_LENGTH:
-                raise TypePropagationError(
-                    f"There are more than {MAX_ENTITY_DEPENDENCY_NAME_LENGTH} characters in the entity '{string}', exceeding MAX_ENTITY_DEPENDENCY_NAME_LENGTH"
-                )
 
             mod = temp_mod_name
             entity_name = string[colon_pos + 1 :]
