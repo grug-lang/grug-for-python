@@ -77,8 +77,8 @@ Run `pyright` in the terminal to type check the Python code. Pyright can be inst
 ## Updating the pypi package
 
 ```sh
-python3 -m pip install --upgrade pip
-python3 -m pip install --upgrade build
+python -m pip install --upgrade pip
+python -m pip install --upgrade build
 python -m build
 python -m pip install --upgrade twine
 python -m twine upload dist/*
