@@ -4,7 +4,40 @@ This repository provides Python bindings, a frontend, and a backend for [grug](h
 
 Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check it.
 
-You can run the example program by cloning [this repository](https://github.com/grug-lang/grug-for-python), `cd`-ing into it, running `cd example`, and finally running `python example.py`.
+A minimal example program is provided in the [`example/` directory](https://github.com/grug-lang/grug-for-python/tree/main/example) on GitHub:
+
+```py
+import grug
+import time
+
+state = grug.init()
+
+@state.game_fn
+def print_string(string: str):
+    print(string)
+
+file = state.compile_grug_file("animals/labrador-Dog.grug")
+dog1 = file.create_entity()
+dog2 = file.create_entity()
+
+while True:
+    state.update()
+    dog1.on_bark("woof")
+    dog2.on_bark("arf")
+    time.sleep(1)
+```
+```py
+on_bark(sound: string) {
+    print_string(sound)
+
+    # Print "arf" a second time
+    if sound == "arf" {
+        print_string(sound)
+    }
+}
+```
+
+Run it by cloning the repository, `cd`-ing into it, running `cd example`, and finally running `python example.py`.
 
 ## Dependencies
 
