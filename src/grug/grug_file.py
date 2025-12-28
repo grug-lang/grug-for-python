@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 @dataclass
 class GrugFile:
     relative_path: str
+    mod: str
 
     global_variables: List[VariableStatement]
     on_fns: Dict[str, OnFn]

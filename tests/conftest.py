@@ -3,13 +3,14 @@ from pathlib import Path
 from typing import Optional, cast
 
 import pytest
+from test_grug import GrugValueUnion
 
 # Callback type definitions
 compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
 init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None)
 on_fn_dispatcher_t = ctypes.CFUNCTYPE(
-    None, ctypes.c_char_p, ctypes.c_void_p
-)  # TODO: Change this ctypes.c_void_p to `const union grug_value args[]`
+    None, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion)
+)
 dump_file_to_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p)
 generate_file_from_json_t = ctypes.CFUNCTYPE(
     ctypes.c_bool, ctypes.c_char_p, ctypes.c_char_p

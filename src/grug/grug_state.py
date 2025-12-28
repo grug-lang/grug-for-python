@@ -77,6 +77,7 @@ class GrugState:
 
         return GrugFile(
             grug_file_relative_path,
+            mod,
             global_variables,
             on_fns,
             helper_fns,

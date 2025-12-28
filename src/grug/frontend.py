@@ -293,7 +293,6 @@ class Type(Enum):
     ENTITY = auto()
 
 
-# TODO: Ensure this object never shows up in the serialized JSON
 @dataclass
 class Result:
     type: Optional[Type] = None
@@ -497,7 +496,6 @@ class Parser:
         self.arguments = []
         self.parsing_depth = 0
         self.loop_depth = 0
-        self.parsing_depth = 0
         self.indentation = 0
         self.called_helper_fn_names: Set[str] = set()
 
@@ -1320,19 +1318,17 @@ class Parser:
         tok = self.peek_token(i[0])
         if tok and tok.type == TokenType.SPACE_TOKEN:
             i[0] += 1
-            tok2 = self.peek_token(i[0])
-            if tok2.type == TokenType.ELSE_TOKEN:
-                i[0] += 1
-                tok_next = self.peek_token(i[0])
-                if (
-                    tok_next.type == TokenType.SPACE_TOKEN
-                    and self.peek_token(i[0] + 1).type == TokenType.IF_TOKEN
-                ):
-                    i[0] += 2
-                    else_body = [self.parse_if_statement(i)]
-                else:
-                    self.consume_space(i)
-                    else_body = self.parse_statements(i)
+
+            self.consume_token_type(i, TokenType.ELSE_TOKEN)
+
+            if (
+                self.peek_token(i[0]).type == TokenType.SPACE_TOKEN
+                and self.peek_token(i[0] + 1).type == TokenType.IF_TOKEN
+            ):
+                i[0] += 2
+                else_body = [self.parse_if_statement(i)]
+            else:
+                else_body = self.parse_statements(i)
 
         self.decrease_parsing_depth()
         return IfStatement(condition, if_body, else_body)
@@ -1581,9 +1577,10 @@ class TypePropagator:
         if string.endswith("."):
             raise TypePropagationError(f'resource name "{string}" cannot end with .')
 
-        if not resource_extension or not string.endswith(resource_extension):
+        if resource_extension and not string.endswith(resource_extension):
+            # TODO: Add an err/ test for this
             raise TypePropagationError(
-                f"The resource '{string}' was supposed to have extension '{resource_extension}'"
+                f"The resource '{string}' was supposed to have the extension '{resource_extension}'"
             )
 
     def check_arguments(self, params: List[Argument], call_expr: CallExpr):

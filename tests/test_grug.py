@@ -2,7 +2,7 @@ import ctypes
 import sys
 import traceback
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import pytest
 
@@ -41,6 +41,16 @@ class GrugValueWorkaround(ctypes.Structure):
     _fields_ = [("_blob", ctypes.c_uint64)]
 
 
+def c_to_py_value(value: GrugValueUnion, typ: str):
+    if typ == "number":
+        return float(value._number)
+    if typ == "bool":
+        return bool(value._bool)
+    if typ == "string":
+        return ctypes.string_at(value._string).decode()
+    return int(value._id)
+
+
 def test_grug(
     grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.PyDLL
 ) -> None:
@@ -68,19 +78,31 @@ def test_grug(
         nonlocal grug_entity
         try:
             assert grug_file is not None
+            state.next_id = 42
             grug_entity = grug_file.create_entity()
         except Exception:
             traceback.print_exc(file=sys.stderr)
 
-    @ctypes.CFUNCTYPE(
-        None, ctypes.c_char_p, ctypes.c_void_p
-    )  # TODO: Change this ctypes.c_void_p to `const union grug_value args[]`
-    def on_fn_dispatcher(on_fn_name: bytes, args: int) -> None:
-        # TODO: Translate `args` from a ctypes.c_void_p to a Python List of GrugValueUnion
+    @ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion))
+    def on_fn_dispatcher(c_on_fn_name: bytes, c_args: List[GrugValueUnion]) -> None:
         try:
+            on_fn_name = c_on_fn_name.decode()
+
+            assert grug_file
+            on_fn_decl = grug_file.on_fns.get(on_fn_name)
+            if not on_fn_decl:
+                raise RuntimeError(
+                    f"The function '{on_fn_name}' is not defined by the file {grug_file.relative_path}"
+                )
+
+            args = [
+                c_to_py_value(arg, argument.type_name)
+                for arg, argument in zip(c_args or [], on_fn_decl.arguments)
+            ]
+
             assert grug_entity is not None
-            on_fn = getattr(grug_entity, on_fn_name.decode())
-            on_fn(args or [])
+            on_fn = getattr(grug_entity, on_fn_name)
+            on_fn(*args)
         except Exception:
             traceback.print_exc(file=sys.stderr)
 
@@ -164,6 +186,7 @@ class GameFnRegistrator:
 
     def _get_c_args(self, *args: GrugValue):
         c_args = (GrugValueUnion * len(args))()
+        keepalive: List[bytes] = []
 
         for i, v in enumerate(args):
             if isinstance(v, float):
@@ -171,32 +194,27 @@ class GameFnRegistrator:
             elif isinstance(v, bool):
                 c_args[i]._bool = v
             elif isinstance(v, str):
-                c_args[i]._string = ctypes.c_char_p(v.encode())
+                b = v.encode()
+                keepalive.append(b)
+                c_args[i]._string = ctypes.c_char_p(b)
             else:
                 assert isinstance(v, int)
                 c_args[i]._id = ctypes.c_uint64(v)
 
-        return c_args
+        return c_args, keepalive
 
     def _unpack_workaround(
         self, c_workaround: GrugValueWorkaround, return_type: str
     ) -> GrugValue:
-        # Create a GrugValueUnion and copy the bits from GrugValueWorkaround into it.
-        # See the GrugValueWorkaround class docs for the reason.
+        """
+        Creates a GrugValueUnion, and copies the bits from GrugValueWorkaround into it.
+        See the GrugValueWorkaround class docs for more information.
+        """
         value = GrugValueUnion()
         ctypes.memmove(
             ctypes.byref(value), ctypes.byref(c_workaround), ctypes.sizeof(value)
         )
-
-        if return_type == "number":
-            return value._number
-        if return_type == "bool":
-            return value._bool
-        if return_type == "string":
-            return value._string
-
-        assert return_type == "id"
-        return value._id
+        return c_to_py_value(value, return_type)
 
     def _get_return_type(self, name: str):
         return self.state.mod_api["game_functions"][name].get("return_type")
@@ -208,7 +226,7 @@ class GameFnRegistrator:
         c_fn.restype = None
 
         def fn(*args: GrugValue):
-            c_args = self._get_c_args(*args)
+            c_args, _keepalive = self._get_c_args(*args)
             c_fn(c_args)
 
         self.state.register_game_fn(name, fn)
@@ -233,7 +251,7 @@ class GameFnRegistrator:
         return_type = self._get_return_type(name)
 
         def fn(*args: GrugValue):
-            c_args = self._get_c_args(*args)
+            c_args, _keepalive = self._get_c_args(*args)
             result: GrugValueWorkaround = c_fn(*c_args)
             return self._unpack_workaround(result, return_type)
 

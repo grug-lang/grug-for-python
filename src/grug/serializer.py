@@ -122,7 +122,7 @@ class Serializer:
                 result["if_statements"] = [
                     Serializer._serialize_statement(s) for s in stmt.if_body
                 ]
-            if hasattr(stmt, "else_body_statements") and stmt.else_body:
+            if stmt.else_body:
                 result["else_statements"] = [
                     Serializer._serialize_statement(s) for s in stmt.else_body
                 ]
@@ -180,7 +180,7 @@ class Serializer:
                 result["arguments"] = Serializer._serialize_arguments(
                     global_stmt.arguments
                 )
-            if hasattr(global_stmt, "return_type") and global_stmt.return_type:
+            if global_stmt.return_type:
                 result["return_type"] = global_stmt.return_type_name
             result["statements"] = [
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements

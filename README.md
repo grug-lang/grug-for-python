@@ -58,6 +58,23 @@ pip install -e .
 
 ## Tests
 
+### Testing grug-lang changes
+
+Either uninstall grug-lang, if you had it installed:
+```sh
+pip uninstall grug-lang
+```
+Or set up a virtual environment:
+```sh
+rm -rf .venv
+python -m venv .venv
+source .venv/bin/activate
+```
+And then create an editable install of grug-lang:
+```sh
+pip install -e .
+```
+
 ### Building `libtests.so`
 
 1. Clone the [grug-tests](https://github.com/grug-lang/grug-tests) repository *next* to this repository

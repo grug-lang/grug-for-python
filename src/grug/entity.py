@@ -52,10 +52,10 @@ class Entity:
 
         self.game_fns = file.game_fns
 
-        # TODO: This must support global variables using one another
-        self.global_variables = {
-            g.name: self._run_expr(g.expr) for g in file.global_variables
-        }
+        self.global_variables: Dict[str, GrugValue] = {}
+        self.global_variables["me"] = self.me_id
+        for g in file.global_variables:
+            self.global_variables[g.name] = self._run_expr(g.expr)
 
         # Stack of scopes, necessary when an on_ fn calls a helper_ fn.
         self.local_variable_scopes: List[Dict[str, GrugValue]] = []
@@ -63,19 +63,15 @@ class Entity:
         # Points to the current on/helper fn's scope in self.local_variable_scopes.
         self.local_variables: Dict[str, GrugValue] = {}
 
-    # TODO: Check if this funciton can be simplified, while keeping pyright happy
     def __getattr__(self, name: str):
         """
         This function lets `dog.spawn(42)` call `dog.run_on_fn("spawn", 42)`.
         """
-        try:
 
-            def node_callable(*args: GrugValue) -> Optional[GrugValue]:
-                return self.run_on_fn(name, *args)
+        def runner(*args: GrugValue) -> Optional[GrugValue]:
+            return self.run_on_fn(name, *args)
 
-            return node_callable
-        except KeyError:
-            raise AttributeError(name) from None
+        return runner
 
     def run_on_fn(self, on_fn_name: str, *args: GrugValue):
         on_fn = self.file.on_fns.get(on_fn_name)
@@ -118,7 +114,11 @@ class Entity:
             assert isinstance(statement, (EmptyLineStatement, CommentStatement))
 
     def _run_variable_statement(self, statement: VariableStatement):
-        self.local_variables[statement.name] = self._run_expr(statement.expr)
+        value = self._run_expr(statement.expr)
+        if statement.name in self.global_variables:
+            self.global_variables[statement.name] = value
+        else:
+            self.local_variables[statement.name] = value
 
     def _run_call_statement(self, statement: CallStatement):
         self._run_call_expr(statement.expr)
@@ -133,8 +133,12 @@ class Entity:
         elif isinstance(expr, ResourceExpr):
             return expr.string
         elif isinstance(expr, EntityExpr):
-            return expr.string
+            return (
+                expr.string if ":" in expr.string else f"{self.file.mod}:{expr.string}"
+            )
         elif isinstance(expr, IdentifierExpr):
+            if expr.name in self.global_variables:
+                return self.global_variables[expr.name]
             return self.local_variables[expr.name]
         elif isinstance(expr, NumberExpr):
             return expr.value
