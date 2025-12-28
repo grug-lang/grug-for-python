@@ -2,7 +2,7 @@
 
 This repository provides Python bindings, a frontend, and a backend for [grug](https://github.com/grug-lang/grug).
 
-Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check it.
+Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check that it doesn't print an error.
 
 A minimal example program is provided in the [`example/` directory](https://github.com/grug-lang/grug-for-python/tree/main/example) on GitHub:
 
@@ -43,32 +43,38 @@ Run it by cloning the repository, `cd`-ing into it, running `cd example`, and fi
 
 This project requires Python version 3.7 or newer. You can manage your Python versions using [pyenv](https://github.com/pyenv/pyenv).
 
-If you want to run the tests, you'll need to install pytest:
+If you are on a Python version older than 3.11, you will need to install these:
+
+```sh
+pip install tomli importlib-metadata
+```
+
+If you want to run the tests, you will need to install pytest:
 
 ```sh
 pip install pytest
 pip install -e .
 ```
 
-If you are on a Python version older than 3.11, you will additionally need to install these:
+## Tests
+
+### Building `libtests.so`
+
+1. Clone the [grug-tests](https://github.com/grug-lang/grug-tests) repository *next* to this repository
+2. Run `git checkout development` in the `grug-tests` repository.
+3. Follow the instructions in the `grug-tests` repository for building `libtests.so`.
+
+### Running tests
+
+In this grug-for-python repository, you can run all tests using this command:
 
 ```sh
-pip install tomli importlib-metadata
+pytest --grug-tests-path=../grug-tests -s -v
 ```
 
-## Running the tests
+Pass `--whitelisted-test=f32_too_big` to only run the test called `f32_too_big`.
 
-You will need to clone the [grug-tests](https://github.com/grug-lang/grug-tests) repository *next* to this repository, and then run `git checkout development` in it, followed by `./tests.sh`.
-
-In this grug-for-python repository, you can then run all tests using this command:
-
-```sh
-pytest --grug-tests-path=../grug-tests -s
-```
-
-You can additionally pass `--whitelisted-test=f32_too_big` if you only want to run the test called `f32_too_big`.
-
-Alternatively, you can *walk* through the tests and set breakpoints by installing the [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) VS Code extension. Hit `F5` to run all tests. You can edit `.vscode/launch.json` if you want to pass `--whitelisted-test=f32_too_big`.
+Alternatively, you can *walk* through the tests and set breakpoints by installing the [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) VS Code extension. Hit `F5` to run all tests. You can edit `.vscode/launch.json` to pass `--whitelisted-test=f32_too_big`.
 
 ## Type checking
 
