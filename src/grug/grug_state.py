@@ -1,4 +1,5 @@
 import json
+import sys
 from enum import Enum, auto
 from pathlib import Path
 from typing import Callable, Dict
@@ -11,9 +12,9 @@ from .serializer import Serializer
 
 
 class GrugRuntimeErrorType(Enum):
-    GRUG_ON_FN_STACK_OVERFLOW = auto()
-    GRUG_ON_FN_TIME_LIMIT_EXCEEDED = auto()
-    GRUG_ON_FN_GAME_FN_ERROR = auto()
+    STACK_OVERFLOW = 0  # Using auto() here would assign 1
+    TIME_LIMIT_EXCEEDED = auto()
+    GAME_FN_ERROR = auto()
 
 
 GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
@@ -25,7 +26,10 @@ def default_runtime_error_handler(
     on_fn_name: str,
     on_fn_path: str,
 ):
-    assert False  # TODO: Implement
+    print(
+        f"grug runtime error in {on_fn_name}(): {reason}, in {on_fn_path}",
+        file=sys.stderr,
+    )
 
 
 class GrugState:
@@ -37,16 +41,22 @@ class GrugState:
         mods_dir_path: str,
         on_fn_time_limit_ms: float,
     ):
+        self.runtime_error_handler = runtime_error_handler
+
         with open(mod_api_path) as f:
             self.mod_api = json.load(f)
 
         self.mods_dir_path = mods_dir_path
+
+        self.on_fn_time_limit_ms = on_fn_time_limit_ms
 
         self.frontend = Frontend(self.mod_api)
 
         self.game_fns: Dict[str, GameFn] = {}
 
         self.next_id = 0
+
+        self.fn_depth = 0
 
     def game_fn(self, fn: GameFn) -> GameFn:
         """Decorator for game functions."""

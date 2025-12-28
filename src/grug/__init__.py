@@ -1,3 +1,5 @@
+from grug.entity import GameFnError
+
 from .grug_state import (
     GrugRuntimeErrorHandler,
     GrugState,
@@ -10,7 +12,7 @@ def init(
     runtime_error_handler: GrugRuntimeErrorHandler = default_runtime_error_handler,
     mod_api_path: str = "mod_api.json",
     mods_dir_path: str = "mods",
-    on_fn_time_limit_ms: float = 10,
+    on_fn_time_limit_ms: float = 100,
 ):
     return GrugState(
         runtime_error_handler=runtime_error_handler,
@@ -20,4 +22,4 @@ def init(
     )
 
 
-__all__ = ["init"]
+__all__ = ["init", "GameFnError"]

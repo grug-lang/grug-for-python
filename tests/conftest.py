@@ -70,15 +70,23 @@ def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
 
     lib = ctypes.PyDLL(str(lib_path))
 
+    lib.grug_tests_runtime_error_handler.argtypes = [
+        ctypes.c_char_p,  # reason
+        ctypes.c_int,  # grug_runtime_error_type
+        ctypes.c_char_p,  # on_fn_name
+        ctypes.c_char_p,  # on_fn_path
+    ]
+    lib.grug_tests_runtime_error_handler.restype = None
+
     lib.grug_tests_run.argtypes = [
-        ctypes.c_char_p,
+        ctypes.c_char_p,  # tests_dir_path
         compile_grug_file_t,
         init_globals_fn_dispatcher_t,
         on_fn_dispatcher_t,
         dump_file_to_json_t,
         generate_file_from_json_t,
         game_fn_error_t,
-        ctypes.c_char_p,
+        ctypes.c_char_p,  # whitelisted_test
     ]
     lib.grug_tests_run.restype = None
 

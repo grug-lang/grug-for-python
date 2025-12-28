@@ -1,6 +1,8 @@
+import time
 from typing import Dict, List, Optional
 
 from grug.grug_file import GrugFile
+from grug.grug_state import GrugRuntimeErrorType
 from grug.grug_value import GrugValue
 
 from .frontend import (
@@ -30,6 +32,8 @@ from .frontend import (
     WhileStatement,
 )
 
+MAX_DEPTH = 100
+
 
 class Break(Exception):
     pass
@@ -44,21 +48,66 @@ class Return(Exception):
         self.value = value
 
 
+class StackOverflow(Exception):
+    pass
+
+
+class TimeLimitExceeded(Exception):
+    pass
+
+
+class GameFnError(Exception):
+    def __init__(self, reason: str):
+        self.reason = reason
+
+
+class ReraisedGameFnError(Exception):
+    pass
+
+
 class Entity:
     def __init__(self, file: GrugFile):
         self.me_id = file.state.next_id
         file.state.next_id += 1
 
         self.file = file
+        self.state = file.state
 
         self.game_fns = file.game_fns
 
-        self.global_variables: Dict[str, GrugValue] = {}
-        self.global_variables["me"] = self.me_id
-        for g in file.global_variables:
-            self.global_variables[g.name] = self._run_expr(g.expr)
+        self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
+
+        self.start_time: float
 
         self.local_variables: Dict[str, GrugValue] = {}
+
+        self.on_fn_depth: int = 0
+
+        self._init_globals(file.global_variables)
+
+    def _init_globals(self, global_variables: List[VariableStatement]):
+        self.fn_name = "init_globals"
+
+        self.global_variables: Dict[str, GrugValue] = {}
+        self.global_variables["me"] = self.me_id
+
+        old_fn_depth = self.state.fn_depth
+        self.state.fn_depth += 1
+
+        self.start_time = time.time()
+
+        # TODO: Add a test to grug-tests for this, containing two .grug files,
+        #       where file 1 spawns file 2, and file 2 has a game fn error.
+        #
+        # TODO: Add example/advanced.py, to show off a Python game fn raising grug.GameFnError
+        try:
+            for g in global_variables:
+                self.global_variables[g.name] = self._run_expr(g.expr)
+        except (StackOverflow, TimeLimitExceeded, ReraisedGameFnError):
+            if self.state.fn_depth > 1:
+                raise  # Propagate exception
+        finally:
+            self.state.fn_depth = old_fn_depth
 
     def __getattr__(self, name: str):
         """
@@ -77,15 +126,38 @@ class Entity:
                 f"The function '{on_fn_name}' is not defined by the file {self.file.relative_path}"
             )
 
+        # TODO: Add an ok/ test that verifies that the local vars of a single entity its on_a()
+        #       isn't overwritten when it calls on_b().
+        parent_local_variables = self.local_variables
         self.local_variables = {}
+
+        self.fn_name = on_fn_name
 
         for arg, argument in zip(args, on_fn.arguments):
             self.local_variables[argument.name] = arg
+
+        old_fn_depth = self.state.fn_depth
+        self.state.fn_depth += 1
+
+        # TODO: Add an ok/ test that asserts that start_time isn't shared by all on fns of a single entity, since on_a()->on_b()->etc. shouldn't keep resetting the start time.
+        #
+        # Prevents on_a() its start_time being reset when it indirectly calls its on_b().
+        old_on_fn_depth = self.on_fn_depth
+        self.on_fn_depth += 1
+        if self.on_fn_depth == 1:
+            self.start_time = time.time()
 
         try:
             self._run_statements(on_fn.body_statements)
         except Return:
             pass
+        except (StackOverflow, TimeLimitExceeded, ReraisedGameFnError):
+            if self.state.fn_depth > 1:
+                raise  # Propagate exception
+        finally:
+            self.state.fn_depth = old_fn_depth
+            self.on_fn_depth = old_on_fn_depth
+            self.local_variables = parent_local_variables
 
     def _run_statements(self, statements: List[Statement]):
         for statement in statements:
@@ -197,11 +269,10 @@ class Entity:
         elif op == TokenType.LESS_OR_EQUAL_TOKEN:
             assert isinstance(left, float) and isinstance(right, float)
             return left <= right
-        elif op == TokenType.LESS_TOKEN:
+        else:
+            assert op == TokenType.LESS_TOKEN
             assert isinstance(left, float) and isinstance(right, float)
             return left < right
-        else:
-            assert False  # Unreachable
 
     def _run_logical_expr(self, logical_expr: LogicalExpr):
         if logical_expr.operator == TokenType.AND_TOKEN:
@@ -241,8 +312,19 @@ class Entity:
                     self._run_statements(statement.body_statements)
                 except Continue:
                     pass
+                self._check_time_limit_exceeded()
         except Break:
             pass
+
+    def _check_time_limit_exceeded(self):
+        if time.time() - self.start_time > self.on_fn_time_limit_sec:
+            self.state.runtime_error_handler(
+                f"Took longer than {self.on_fn_time_limit_sec * 1000:g} milliseconds to run",
+                GrugRuntimeErrorType.TIME_LIMIT_EXCEEDED,
+                self.fn_name,
+                self.file.relative_path,
+            )
+            raise TimeLimitExceeded()
 
     def _run_break_statement(self):
         raise Break()
@@ -261,11 +343,26 @@ class Entity:
         for arg, argument in zip(args, helper_fn.arguments):
             self.local_variables[argument.name] = arg
 
+        old_fn_depth = self.state.fn_depth
+        self.state.fn_depth += 1
+        if self.state.fn_depth > MAX_DEPTH:
+            self.state.runtime_error_handler(
+                "Stack overflow, so check for accidental infinite recursion",
+                GrugRuntimeErrorType.STACK_OVERFLOW,
+                self.fn_name,
+                self.file.relative_path,
+            )
+            raise StackOverflow()
+
+        self._check_time_limit_exceeded()
+
         result: Optional[GrugValue] = None
         try:
             self._run_statements(helper_fn.body_statements)
         except Return as e:
             result = e.value
+
+        self.state.fn_depth = old_fn_depth
 
         self.local_variables = parent_local_variables
 
@@ -275,4 +372,16 @@ class Entity:
         game_fn = self.game_fns.get(name)
         if not game_fn:
             raise KeyError(f"Unknown game function '{name}'")
-        return game_fn(*args)
+
+        try:
+            result = game_fn(*args)
+        except GameFnError as e:
+            self.state.runtime_error_handler(
+                e.reason,
+                GrugRuntimeErrorType.GAME_FN_ERROR,
+                self.fn_name,
+                self.file.relative_path,
+            )
+            raise ReraisedGameFnError()
+
+        return result

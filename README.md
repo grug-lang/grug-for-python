@@ -1,6 +1,6 @@
 # grug for Python
 
-This repository provides Python bindings, a frontend, and a backend for [grug](https://github.com/grug-lang/grug).
+This repository provides Python bindings, a frontend, and a backend for [grug](https://github.com/grug-lang/grug). It passes all tests in [grug-lang/grug-tests](https://github.com/grug-lang/grug-tests).
 
 Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check that it doesn't print an error.
 
