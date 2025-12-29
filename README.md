@@ -4,7 +4,7 @@ This repository provides Python bindings, a frontend, and a backend for [grug](h
 
 Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check that it doesn't print an error.
 
-A minimal example program is provided in the [`example/` directory](https://github.com/grug-lang/grug-for-python/tree/main/example) on GitHub:
+A minimal example program is provided in the [`examples/minimal/` directory](https://github.com/grug-lang/grug-for-python/tree/main/examples/minimal) on GitHub:
 
 ```py
 import grug
@@ -37,7 +37,9 @@ on_bark(sound: string) {
 }
 ```
 
-Run it by cloning the repository, `cd`-ing into it, running `cd example`, and finally running `python example.py`.
+Run it by cloning the repository, `cd`-ing into it, running `cd examples/minimal`, and finally running `python example.py`.
+
+See the [`examples/` directory](https://github.com/grug-lang/grug-for-python/tree/main/examples) for more interesting programs, like [`examples/using_grug_packages`](https://github.com/grug-lang/grug-for-python/tree/main/examples/using_grug_packages).
 
 ## Dependencies
 

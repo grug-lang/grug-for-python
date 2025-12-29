@@ -99,7 +99,7 @@ class Entity:
         # TODO: Add a test to grug-tests for this, containing two .grug files,
         #       where file 1 spawns file 2, and file 2 has a game fn error.
         #
-        # TODO: Add example/advanced.py, to show off a Python game fn raising grug.GameFnError
+        # TODO: Add examples/game_fn_error.py, to show off a Python game fn raising grug.GameFnError
         try:
             for g in global_variables:
                 self.global_variables[g.name] = self._run_expr(g.expr)

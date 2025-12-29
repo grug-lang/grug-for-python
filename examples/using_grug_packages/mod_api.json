@@ -1,0 +1,43 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "on_functions": {
+                "on_tick": {
+                    "description": "Called every tick."
+                }
+            }
+        }
+    },
+    "game_functions": {
+        "print_number": {
+            "description": "Prints a number.",
+            "arguments": [
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "ceil": {
+            "description": "Ceiling of n, the smallest integer greater than or equal to n.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "np_exp": {
+            "description": "Calculate the exponential of n.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        }
+    }
+}

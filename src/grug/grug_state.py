@@ -2,10 +2,11 @@ import json
 import sys
 from enum import Enum, auto
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable, Dict, Sequence
 
 from grug.game_fn import GameFn
 from grug.grug_file import GrugFile
+from grug.grug_package import GrugPackage
 
 from .frontend import Frontend, HelperFn, OnFn, Parser, Tokenizer, VariableStatement
 from .serializer import Serializer
@@ -40,6 +41,7 @@ class GrugState:
         mod_api_path: str,
         mods_dir_path: str,
         on_fn_time_limit_ms: float,
+        packages: Sequence[GrugPackage],
     ):
         self.runtime_error_handler = runtime_error_handler
 
@@ -53,10 +55,26 @@ class GrugState:
         self.frontend = Frontend(self.mod_api)
 
         self.game_fns: Dict[str, GameFn] = {}
+        self._add_game_fns_from_packages(packages)
 
         self.next_id = 0
 
         self.fn_depth = 0
+
+    def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
+        for pkg in packages:
+            for game_fn in pkg.game_fns:
+                if game_fn.__name__ in self.game_fns:
+                    exit(
+                        f"Error: Game function '{game_fn.__name__}' has already been registered, so change its grug package's prefix"
+                    )
+
+                name = (
+                    f"{pkg.prefix}_{game_fn.__name__}"
+                    if pkg.prefix
+                    else game_fn.__name__
+                )
+                self.game_fns[name] = game_fn
 
     def game_fn(self, fn: GameFn) -> GameFn:
         """Decorator for game functions."""

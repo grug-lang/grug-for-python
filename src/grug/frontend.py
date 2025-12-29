@@ -1631,8 +1631,8 @@ class TypePropagator:
             raise TypePropagationError(
                 f"Mods aren't allowed to call their own on_ functions, but '{fn_name}' was called"
             )
-        else:
-            raise TypePropagationError(f"The function '{fn_name}' does not exist")
+
+        raise TypePropagationError(f"The function '{fn_name}' does not exist")
 
     def fill_binary_expr(self, expr: BinaryExpr | LogicalExpr):
         left = expr.left_expr
