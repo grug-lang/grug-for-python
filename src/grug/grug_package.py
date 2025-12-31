@@ -1,18 +1,17 @@
-from dataclasses import dataclass
 from typing import Sequence
 
 from grug.game_fn import GameFn
 
 
-@dataclass
 class GrugPackage:
-    prefix: str
-    game_fns: Sequence[GameFn]
+    def __init__(self, *, prefix: str, game_fns: Sequence[GameFn]):
+        self.prefix = prefix
+        self.game_fns = game_fns
 
-    def __post_init__(self):
-        if not self.prefix:
-            raise ValueError("GrugPackage.prefix must be non-empty")
-
-    def noprefix(self):
+    def no_prefix(self):
         self.prefix = ""
+        return self
+
+    def set_prefix(self, new_prefix: str):
+        self.prefix = new_prefix
         return self

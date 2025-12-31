@@ -1,3 +1,3 @@
 from typing import Union
 
-GrugValue = Union[float, bool, str, int]
+GrugValue = Union[float, bool, str, object]

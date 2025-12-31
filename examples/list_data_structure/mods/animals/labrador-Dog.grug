@@ -1,0 +1,59 @@
+on_run() {
+    l: ListNumber = list_number()
+
+    list_number_append(l, 1)
+    list_number_append(l, 2)
+    list_number_append(l, 3)
+    list_number_append(l, 4)
+    helper_print(l, "[1, 2, 3, 4] at the start:")
+
+    print_string("4 after len():")
+    print_number(list_number_len(l))
+    print_string("")
+
+    l2: ListNumber = list_number()
+    list_number_append(l2, 5)
+    list_number_append(l2, 6)
+    list_number_extend(l, l2)
+    helper_print(l, "[1, 2, 3, 4, 5, 6] after extend([5, 6]):")
+
+    list_number_insert(l, 2, 0)
+    helper_print(l, "[1, 2, 0, 3, 4, 5, 6] after insert(2, 0):")
+
+    list_number_remove(l, 3)
+    helper_print(l, "[1, 2, 0, 4, 5, 6] after remove(3):")
+
+    x: number = list_number_pop(l)
+    helper_print(l, "[1, 2, 0, 4, 5] after pop():")
+    y: number = list_number_pop_index(l, 1)
+    helper_print(l, "[1, 0, 4, 5] after pop(1):")
+
+    idx: number = list_number_index(l, 4)
+    print_string("2 after index(4):")
+    print_number(idx)
+    print_string("")
+
+    list_number_append(l, 4)
+    helper_print(l, "[1, 0, 4, 5, 4] after append(4):")
+    print_string("2 after count(4):")
+    print_number(list_number_count(l, 4))
+    print_string("")
+
+    list_number_sort(l)
+    helper_print(l, "[0, 1, 4, 4, 5] after sort():")
+
+    list_number_reverse(l)
+    helper_print(l, "[5, 4, 4, 1, 0] after reverse():")
+
+    l3: ListNumber = list_number_copy(l)
+    helper_print(l3, "[5, 4, 4, 1, 0] after copy():")
+
+    list_number_clear(l)
+    helper_print(l, "[] after clear():")
+}
+
+helper_print(list: ListNumber, label: string) {
+    print_string(label)
+    print_list_number(list)
+    print_string("")
+}

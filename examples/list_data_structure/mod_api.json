@@ -1,0 +1,200 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "on_functions": {
+                "on_run": {
+                    "description": "Called once."
+                }
+            }
+        }
+    },
+    "game_functions": {
+        "print_string": {
+            "description": "Prints a string.",
+            "arguments": [
+                {
+                    "name": "str",
+                    "type": "string"
+                }
+            ]
+        },
+        "print_number": {
+            "description": "Prints a number.",
+            "arguments": [
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_number": {
+            "description": "Creates a list of numbers.",
+            "return_type": "ListNumber"
+        },
+        "list_number_append": {
+            "description": "Add a number to the end of the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_number_len": {
+            "description": "Returns the length of a list of numbers.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                }
+            ]
+        },
+        "print_list_number": {
+            "description": "Prints a list of numbers.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                }
+            ]
+        },
+        "list_number_extend": {
+            "description": "Extend the list by appending all the numbers from another list.",
+            "arguments": [
+                {
+                    "name": "list1",
+                    "type": "ListNumber"
+                },
+                {
+                    "name": "list2",
+                    "type": "ListNumber"
+                }
+            ]
+        },
+        "list_number_insert": {
+            "description": "Insert a number at a given position. The first argument is the index of the number before which to insert, so list_number_insert(l, 0, n) inserts at the front of the list, and list_number_insert(l, list_number_len(l), n) is equivalent to list_number_append(l, n).",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                },
+                {
+                    "name": "index",
+                    "type": "number"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_number_remove": {
+            "description": "Remove the first number from the list whose value is equal to n. Raises an error if not found.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_number_pop": {
+            "description": "Remove and return the last number in the list.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                }
+            ]
+        },
+        "list_number_pop_index": {
+            "description": "Remove and return the number at the given index.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                },
+                {
+                    "name": "index",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_number_index": {
+            "description": "Return the zero-based index of the first occurrence of n in the list.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_number_count": {
+            "description": "Return the number of times n appears in the list.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_number_sort": {
+            "description": "Sort the numbers of the list in place.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                }
+            ]
+        },
+        "list_number_reverse": {
+            "description": "Reverse the numbers of the list in place.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                }
+            ]
+        },
+        "list_number_copy": {
+            "description": "Return a shallow copy of the list of numbers.",
+            "return_type": "ListNumber",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                }
+            ]
+        },
+        "list_number_clear": {
+            "description": "Remove all numbers from the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "ListNumber"
+                }
+            ]
+        }
+    }
+}
