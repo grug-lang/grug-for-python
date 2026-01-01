@@ -2,7 +2,7 @@ import json
 import sys
 from enum import Enum, auto
 from pathlib import Path
-from typing import Callable, Dict, Sequence
+from typing import Any, Callable, Dict, Sequence, cast
 
 from grug.game_fn import GameFn
 from grug.grug_dir import GrugDir
@@ -47,7 +47,12 @@ class GrugState:
         self.runtime_error_handler = runtime_error_handler
 
         with open(mod_api_path) as f:
-            self.mod_api = json.load(f)
+            raw = json.load(f)
+        if not isinstance(raw, dict):
+            exit("Error: mod API JSON root must be an object")
+        self.mod_api: Dict[str, Any] = cast(Dict[str, Any], raw)
+
+        self._assert_mod_api()
 
         self.mods_dir_path = mods_dir_path
 
@@ -61,6 +66,80 @@ class GrugState:
         self.next_id = 0
 
         self.fn_depth = 0
+
+    def _assert_mod_api(self):
+        entities = self.mod_api.get("entities")
+        if not isinstance(entities, dict):
+            exit("Error: 'entities' must be a JSON object")
+
+        entities_dict = cast(Dict[str, Any], entities)
+        self._assert_entities_sorted(entities_dict)
+
+        for entity_name, entity in entities_dict.items():
+            if not isinstance(entity, dict):
+                exit(f"Error: entity '{entity_name}' must be a JSON object")
+
+            entity_dict = cast(Dict[str, Any], entity)
+            on_functions = entity_dict.get("on_functions")
+            if on_functions is None:
+                continue
+
+            if not isinstance(on_functions, dict):
+                exit(
+                    f"Error: 'on_functions' for entity '{entity_name}' must be a JSON object"
+                )
+
+            on_functions_dict = cast(Dict[str, Any], on_functions)
+            self._assert_on_functions_sorted(entity_name, on_functions_dict)
+
+        game_functions = self.mod_api.get("game_functions")
+        if not isinstance(game_functions, dict):
+            exit("Error: 'game_functions' must be a JSON object")
+
+        game_functions_dict = cast(Dict[str, Any], game_functions)
+        self._assert_game_functions_sorted(game_functions_dict)
+
+    def _assert_entities_sorted(self, entities: Dict[str, Any]):
+        keys = list(entities.keys())
+        sorted_keys = sorted(keys)
+
+        if keys != sorted_keys:
+            for actual, expected in zip(keys, sorted_keys):
+                if actual != expected:
+                    exit(
+                        f"Error: Entities must be sorted alphabetically in mod_api.json, "
+                        f"so '{expected}' must come before '{actual}'"
+                    )
+            assert False
+
+    def _assert_on_functions_sorted(
+        self, entity_name: str, on_functions: Dict[str, Any]
+    ):
+        keys = list(on_functions.keys())
+        sorted_keys = sorted(keys)
+
+        if keys != sorted_keys:
+            for actual, expected in zip(keys, sorted_keys):
+                if actual != expected:
+                    exit(
+                        "Error: on_functions for entity "
+                        f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
+                        f"so '{expected}' must come before '{actual}'"
+                    )
+            assert False
+
+    def _assert_game_functions_sorted(self, game_functions: Dict[str, Any]):
+        keys = list(game_functions.keys())
+        sorted_keys = sorted(keys)
+
+        if keys != sorted_keys:
+            for actual, expected in zip(keys, sorted_keys):
+                if actual != expected:
+                    exit(
+                        f"Error: Game functions must be sorted alphabetically in mod_api.json, "
+                        f"so {expected}() must come before {actual}()"
+                    )
+            assert False
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:
