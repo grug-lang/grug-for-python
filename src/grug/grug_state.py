@@ -75,14 +75,14 @@ class GrugState:
                     if pkg.prefix
                     else game_fn.__name__
                 )
-                self.game_fns[name] = game_fn
+                self._register_game_fn(name, game_fn)
 
     def game_fn(self, fn: GameFn) -> GameFn:
         """Decorator for game functions."""
-        self.register_game_fn(fn.__name__, fn)
+        self._register_game_fn(fn.__name__, fn)
         return fn
 
-    def register_game_fn(self, name: str, fn: GameFn):
+    def _register_game_fn(self, name: str, fn: GameFn):
         self.game_fns[name] = fn
 
     def compile_grug_file(self, grug_file_relative_path: str):
