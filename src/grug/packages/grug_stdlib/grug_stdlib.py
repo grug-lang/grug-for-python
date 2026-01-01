@@ -46,7 +46,7 @@ def print_id(id: object):
 
 
 def print_number(n: float):
-    print(n)
+    print(int(n) if n.is_integer() else n)
 
 
 def print_string(s: str):
