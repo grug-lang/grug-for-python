@@ -1,0 +1,5 @@
+on_run() {
+    l: List = list()
+    list_bool_append(l, true)
+    assert_number(list_bool_len(l), 1)
+}

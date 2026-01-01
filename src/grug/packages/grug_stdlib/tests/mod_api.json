@@ -72,6 +72,316 @@
                 }
             ]
         },
+        "list_id_append": {
+            "description": "Add a id to the end of the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "id",
+                    "type": "id"
+                }
+            ]
+        },
+        "list_id_clear": {
+            "description": "Remove all ids from the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_id_copy": {
+            "description": "Return a shallow copy of the list of ids.",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_id_count": {
+            "description": "Return the number of times id appears in the list.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "id",
+                    "type": "id"
+                }
+            ]
+        },
+        "list_id_extend": {
+            "description": "Extend the list by appending all the ids from another list.",
+            "arguments": [
+                {
+                    "name": "list1",
+                    "type": "List"
+                },
+                {
+                    "name": "list2",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_id_index": {
+            "description": "Return the zero-based index of the first occurrence of id in the list.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "id",
+                    "type": "id"
+                }
+            ]
+        },
+        "list_id_insert": {
+            "description": "Insert an id at a given position. The first argument is the index of the id before which to insert, so list_id_insert(l, 0, id) inserts at the front of the list, and list_id_insert(l, list_id_len(l), id) is equivalent to list_id_append(l, id).",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "index",
+                    "type": "number"
+                },
+                {
+                    "name": "id",
+                    "type": "id"
+                }
+            ]
+        },
+        "list_id_len": {
+            "description": "Returns the length of a list of ids.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_id_pop_index": {
+            "description": "Remove and return the id at the given index.",
+            "return_type": "id",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "index",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_id_pop": {
+            "description": "Remove and return the last id in the list.",
+            "return_type": "id",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_id_remove": {
+            "description": "Remove the first id from the list whose value is equal to id. Raises an error if not found.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "id",
+                    "type": "id"
+                }
+            ]
+        },
+        "list_id_reverse": {
+            "description": "Reverse the ids of the list in place.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_id_sort": {
+            "description": "Sort the ids of the list in place.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_bool_append": {
+            "description": "Add a bool to the end of the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "b",
+                    "type": "bool"
+                }
+            ]
+        },
+        "list_bool_clear": {
+            "description": "Remove all bools from the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_bool_copy": {
+            "description": "Return a shallow copy of the list of bools.",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_bool_count": {
+            "description": "Return the number of times b appears in the list.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "b",
+                    "type": "bool"
+                }
+            ]
+        },
+        "list_bool_extend": {
+            "description": "Extend the list by appending all the bools from another list.",
+            "arguments": [
+                {
+                    "name": "list1",
+                    "type": "List"
+                },
+                {
+                    "name": "list2",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_bool_index": {
+            "description": "Return the zero-based index of the first occurrence of b in the list.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "b",
+                    "type": "bool"
+                }
+            ]
+        },
+        "list_bool_insert": {
+            "description": "Insert a bool at a given position. The first argument is the index of the bool before which to insert, so list_bool_insert(l, 0, b) inserts at the front of the list, and list_bool_insert(l, list_bool_len(l), b) is equivalent to list_bool_append(l, b).",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "index",
+                    "type": "number"
+                },
+                {
+                    "name": "b",
+                    "type": "bool"
+                }
+            ]
+        },
+        "list_bool_len": {
+            "description": "Returns the length of a list of bools.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_bool_pop_index": {
+            "description": "Remove and return the bool at the given index.",
+            "return_type": "bool",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "index",
+                    "type": "number"
+                }
+            ]
+        },
+        "list_bool_pop": {
+            "description": "Remove and return the last bool in the list.",
+            "return_type": "bool",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_bool_remove": {
+            "description": "Remove the first bool from the list whose value is equal to b. Raises an error if not found.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "b",
+                    "type": "bool"
+                }
+            ]
+        },
+        "list_bool_reverse": {
+            "description": "Reverse the bools of the list in place.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_bool_sort": {
+            "description": "Sort the bools of the list in place.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
             "arguments": [
@@ -227,10 +537,6 @@
                 }
             ]
         },
-        "list": {
-            "description": "Creates a list.",
-            "return_type": "List"
-        },
         "list_string_append": {
             "description": "Add a string to the end of the list.",
             "arguments": [
@@ -385,6 +691,10 @@
                     "type": "List"
                 }
             ]
+        },
+        "list": {
+            "description": "Creates a list.",
+            "return_type": "List"
         },
         "print_bool": {
             "description": "Prints a bool.",
