@@ -1,6 +1,6 @@
 [project]
 name = "grug-lang"
-version = "1.2.0"
+version = "1.3.0"
 authors = [{ name = "MyNameIsTrez", email = "welfje@gmail.com" }]
 description = "Make your mods immortal."
 readme = "README.md"
@@ -9,12 +9,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
-license = "MIT"
-license-files = ["LICEN[CS]E*"]
+license = { file = "LICENSE" }
 
 [project.urls]
 Repository = "https://github.com/grug-lang/grug-for-python"
 
 [build-system]
-requires = ["setuptools >= 77.0.3"]
+requires = ["setuptools>=65,<68"]
 build-backend = "setuptools.build_meta"
