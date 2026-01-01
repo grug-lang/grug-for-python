@@ -305,7 +305,7 @@ class GameFnRegistrator:
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
 
-        self.state.register_game_fn(name, fn)
+        self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
 
     def _register_void_argless(self, name: str):
         c_fn = self._get_c_fn(name)
@@ -318,7 +318,7 @@ class GameFnRegistrator:
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
 
-        self.state.register_game_fn(name, fn)
+        self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
 
     def _register_value(self, name: str):
         c_fn = self._get_c_fn(name)
@@ -335,7 +335,7 @@ class GameFnRegistrator:
                 raise _grug_runtime_err
             return self._unpack_workaround(result, return_type)
 
-        self.state.register_game_fn(name, fn)
+        self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
 
     def _register_value_argless(self, name: str):
         c_fn = self._get_c_fn(name)
@@ -351,7 +351,7 @@ class GameFnRegistrator:
                 raise _grug_runtime_err
             return self._unpack_workaround(result, return_type)
 
-        self.state.register_game_fn(name, fn)
+        self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
 
 
 # Enables stepping through code with VS Code its Python debugger.
