@@ -1,0 +1,6 @@
+on_run() {
+    l: ListString = list_string()
+    list_string_append(l, "foo")
+    list_string_insert(l, 0, "bar")
+    assert_number(list_string_index(l, "bar"), 0)
+}

@@ -67,7 +67,7 @@ class GrugState:
             for game_fn in pkg.game_fns:
                 if game_fn.__name__ in self.game_fns:
                     exit(
-                        f"Error: Game function '{game_fn.__name__}' has already been registered, so change its grug package's prefix"
+                        f"Error: Game function '{game_fn.__name__}' has already been registered, so you either registered it twice, or its grug package prefix clashes with another grug package"
                     )
 
                 name = (

@@ -1,0 +1,5 @@
+on_run() {
+    l: ListString = list_string()
+    l2: ListString = list_string_copy(l)
+    assert_id(l2, l2)
+}

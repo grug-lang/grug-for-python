@@ -1,0 +1,7 @@
+on_run() {
+    l: ListString = list_string()
+    list_string_append(l, "foo")
+    list_string_append(l, "bar")
+    list_string_reverse(l)
+    assert_number(list_string_index(l, "foo"), 1)
+}
