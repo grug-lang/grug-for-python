@@ -1,5 +1,5 @@
 on_run() {
     l: List = list()
     list_number_append(l, 1)
-    print_list_number(l)
+    print_list(l)
 }

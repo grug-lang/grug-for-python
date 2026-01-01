@@ -1,0 +1,11 @@
+on_run() {
+    l: List = list()
+    list_number_append(l, 42)
+
+    l2: List = list()
+    list_id_append(l2, l)
+
+    l3: List = id_to_list(list_id_pop(l2))
+    n: number = list_number_pop(l3)
+    assert_number(n, 42)
+}

@@ -1,6 +1,6 @@
-l: ListNumber = list_number()
+l: List = list()
 
 on_run() {
     list_number_append(l, 42)
-    print_list_number(l)
+    print_list(l)
 }

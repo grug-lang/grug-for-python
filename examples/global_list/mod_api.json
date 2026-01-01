@@ -10,16 +10,16 @@
         }
     },
     "game_functions": {
-        "list_number": {
-            "description": "Creates a list of numbers.",
-            "return_type": "ListNumber"
+        "list": {
+            "description": "Creates a list.",
+            "return_type": "List"
         },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "n",
@@ -27,12 +27,12 @@
                 }
             ]
         },
-        "print_list_number": {
-            "description": "Prints a list of numbers.",
+        "print_list": {
+            "description": "Prints a list.",
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         }

@@ -63,21 +63,18 @@ def _print_list(lst: List[object]):
     print([int(x) if isinstance(x, float) and x.is_integer() else x for x in lst])
 
 
-# Type-specific list print wrappers
-def print_list_number(lst: List[object]):
+def print_list(lst: List[object]):
     _print_list(lst)
 
 
-def print_list_bool(lst: List[object]):
-    _print_list(lst)
+# -------------------------
+# Casting
+# -------------------------
 
 
-def print_list_string(lst: List[object]):
-    _print_list(lst)
-
-
-def print_list_id(lst: List[object]):
-    _print_list(lst)
+def id_to_list(id_: List[object]) -> List[object]:
+    # TODO: Throw if id is not a List, though idk which file should own the id->type map
+    return id_
 
 
 # -------------------------
@@ -190,15 +187,13 @@ def get():
         assert_id,
         assert_number,
         assert_string,
+        id_to_list,
         list_X,
         print_number,
         print_bool,
         print_string,
         print_id,
-        print_list_number,
-        print_list_bool,
-        print_list_string,
-        print_list_id,
+        print_list,
         ceil,
         sqrt,
     ]
