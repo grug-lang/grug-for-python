@@ -1,7 +1,12 @@
 import math
-from typing import Any, Callable, Dict, List, Protocol, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Tuple, TypeVar
 
 from grug import GrugPackage
+
+try:
+    from typing import Protocol  # Python >= 3.8
+except ImportError:
+    from typing_extensions import Protocol  # Python 3.7
 
 
 # -------------------------
@@ -27,7 +32,7 @@ def assert_string(s1: str, s2: str):
 # Math
 # -------------------------
 def ceil(n: float) -> float:
-    return math.ceil(n)
+    return float(math.ceil(n))
 
 
 def sqrt(n: float) -> float:

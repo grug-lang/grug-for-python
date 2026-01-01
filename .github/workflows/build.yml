@@ -31,7 +31,7 @@ jobs:
           pyenv install -s 3.7.17
           pyenv install -s 3.11.9
 
-      # Run Pyright on Python 3.7
+      # Run on Python 3.7
       - name: Run Pyright on Python 3.7
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
@@ -40,13 +40,14 @@ jobs:
           pyenv global 3.7.17
           python --version
 
-          python -m pip install --upgrade pip --user
-          python -m pip install pyright pytest --user
-          python -m pip install tomli importlib-metadata --user
+          pip install --upgrade pip --user
+          pip install pyright pytest --user
+          pip install tomli importlib-metadata --user
+          pip install -e .[dev]
 
           pyright --pythonversion 3.7
 
-      # Run Pyright on Python 3.11
+      # Run on Python 3.11
       - name: Run Pyright on Python 3.11
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
@@ -55,7 +56,8 @@ jobs:
           pyenv global 3.11.9
           python --version
 
-          python -m pip install --upgrade pip --user
-          python -m pip install pyright pytest --user
+          pip install --upgrade pip --user
+          pip install pyright pytest --user
+          pip install -e .[dev]
 
           pyright --pythonversion 3.11

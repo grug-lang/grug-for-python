@@ -97,7 +97,9 @@ Alternatively, you can *walk* through the tests and set breakpoints by installin
 
 ## Type checking
 
-Run `pyright` in the terminal to type check the Python code. Pyright can be installed using `sudo npm install -g pyright`.
+1. `pip install -e .[dev]`
+2. `pip install pyright[nodejs]`
+3. `pyright`
 
 ## Updating the pypi package
 
