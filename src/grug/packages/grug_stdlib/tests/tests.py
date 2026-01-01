@@ -19,6 +19,4 @@ def run(dir: GrugDir):
         test.on_run()
 
 
-print(mods)
-
 run(mods)
