@@ -1,4 +1,0 @@
-on_run() {
-    l: ListNumber = list_number()
-    assert_id(l, l)
-}

@@ -1,0 +1,5 @@
+on_run() {
+    l: List = list()
+    l2: List = list_number_copy(l)
+    assert_id(l2, l2)
+}

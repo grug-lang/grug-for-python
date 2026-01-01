@@ -1,5 +1,5 @@
 on_run() {
-    l: ListNumber = list_number()
+    l: List = list()
     list_number_append(l, 1)
     x: number = list_number_pop(l)
     assert_number(x, 1)

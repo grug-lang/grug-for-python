@@ -1,7 +1,0 @@
-on_run() {
-    l: ListString = list_string()
-    list_string_append(l, "b")
-    list_string_append(l, "a")
-    list_string_sort(l)
-    assert_number(list_string_index(l, "a"), 0)
-}

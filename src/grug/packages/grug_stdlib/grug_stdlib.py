@@ -82,6 +82,10 @@ def list_X() -> List[object]:
     return []
 
 
+# This renaming trick allows the Python3 list() to still be used
+list_X.__name__ = "list"
+
+
 def list_append(lst: List[object], val: object):
     lst.append(val)
 
@@ -156,7 +160,6 @@ def make_list_package(type_name: str) -> List[Tuple[str, Callable[..., Any]]]:
         return wrapper
 
     return [
-        (f"list_{type_name}", wrap(list_X)),
         (f"list_{type_name}_append", wrap(list_append)),
         (f"list_{type_name}_len", wrap(list_len)),
         (f"list_{type_name}_extend", wrap(list_extend)),
@@ -182,11 +185,11 @@ def get():
         assert_id,
         assert_number,
         assert_string,
+        list_X,
         print_number,
         print_bool,
         print_string,
         print_id,
-        # register all 4 type-specific print_list functions
         print_list_number,
         print_list_bool,
         print_list_string,

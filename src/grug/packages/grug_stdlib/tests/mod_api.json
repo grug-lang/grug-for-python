@@ -77,7 +77,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "n",
@@ -90,17 +90,17 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },
         "list_number_copy": {
             "description": "Return a shallow copy of the list of numbers.",
-            "return_type": "ListNumber",
+            "return_type": "List",
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },
@@ -110,7 +110,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "n",
@@ -123,11 +123,11 @@
             "arguments": [
                 {
                     "name": "list1",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "list2",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },
@@ -137,7 +137,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "n",
@@ -150,7 +150,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "index",
@@ -168,7 +168,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },
@@ -178,7 +178,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "index",
@@ -192,7 +192,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },
@@ -201,7 +201,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 },
                 {
                     "name": "n",
@@ -214,7 +214,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },
@@ -223,20 +223,20 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },
-        "list_number": {
-            "description": "Creates a list of numbers.",
-            "return_type": "ListNumber"
+        "list": {
+            "description": "Creates a list.",
+            "return_type": "List"
         },
         "list_string_append": {
             "description": "Add a string to the end of the list.",
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 },
                 {
                     "name": "str",
@@ -249,17 +249,17 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 }
             ]
         },
         "list_string_copy": {
             "description": "Return a shallow copy of the list of strings.",
-            "return_type": "ListString",
+            "return_type": "List",
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 }
             ]
         },
@@ -269,7 +269,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 },
                 {
                     "name": "str",
@@ -282,11 +282,11 @@
             "arguments": [
                 {
                     "name": "list1",
-                    "type": "ListString"
+                    "type": "List"
                 },
                 {
                     "name": "list2",
-                    "type": "ListString"
+                    "type": "List"
                 }
             ]
         },
@@ -296,7 +296,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 },
                 {
                     "name": "str",
@@ -309,7 +309,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 },
                 {
                     "name": "index",
@@ -327,7 +327,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 }
             ]
         },
@@ -337,7 +337,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 },
                 {
                     "name": "index",
@@ -351,7 +351,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 }
             ]
         },
@@ -360,7 +360,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 },
                 {
                     "name": "str",
@@ -373,7 +373,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 }
             ]
         },
@@ -382,13 +382,9 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListString"
+                    "type": "List"
                 }
             ]
-        },
-        "list_string": {
-            "description": "Creates a list of strings.",
-            "return_type": "ListString"
         },
         "print_bool": {
             "description": "Prints a bool.",
@@ -413,7 +409,7 @@
             "arguments": [
                 {
                     "name": "list",
-                    "type": "ListNumber"
+                    "type": "List"
                 }
             ]
         },

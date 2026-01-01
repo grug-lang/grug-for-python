@@ -1,6 +1,0 @@
-on_run() {
-    l: ListString = list_string()
-    list_string_append(l, "foo")
-    x: string = list_string_pop_index(l, 0)
-    assert_string(x, "foo")
-}

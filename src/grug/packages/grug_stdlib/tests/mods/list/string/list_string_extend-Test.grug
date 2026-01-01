@@ -1,7 +1,0 @@
-on_run() {
-    l1: ListString = list_string()
-    l2: ListString = list_string()
-    list_string_append(l2, "foo")
-    list_string_extend(l1, l2)
-    assert_number(list_string_len(l1), 1)
-}

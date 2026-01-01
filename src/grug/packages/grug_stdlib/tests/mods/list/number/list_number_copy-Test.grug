@@ -1,5 +1,0 @@
-on_run() {
-    l: ListNumber = list_number()
-    l2: ListNumber = list_number_copy(l)
-    assert_id(l2, l2)
-}

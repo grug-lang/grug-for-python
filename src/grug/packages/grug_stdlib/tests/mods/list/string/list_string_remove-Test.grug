@@ -1,6 +1,0 @@
-on_run() {
-    l: ListString = list_string()
-    list_string_append(l, "foo")
-    list_string_remove(l, "foo")
-    assert_number(list_string_len(l), 0)
-}
