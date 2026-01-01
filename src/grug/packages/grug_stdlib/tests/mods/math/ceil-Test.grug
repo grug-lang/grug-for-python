@@ -1,0 +1,3 @@
+on_run() {
+    assert_number(ceil(1.2), 2)
+}

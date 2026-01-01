@@ -34,7 +34,7 @@ from .frontend import (
 
 
 class Serializer:
-    """Serializes AST to JSON text or Grug source code."""
+    """Serializes AST to JSON text or grug source code."""
 
     @staticmethod
     def _serialize_expr(expr: Expr) -> Dict[str, Any]:
@@ -208,7 +208,7 @@ class Serializer:
 
     @staticmethod
     def ast_to_grug(ast: List[Dict[str, Any]]) -> str:
-        """Convert AST to Grug source code."""
+        """Convert AST to grug source code."""
         output = StringIO()
         indentation = [0]  # Using list to make it mutable in nested functions
 

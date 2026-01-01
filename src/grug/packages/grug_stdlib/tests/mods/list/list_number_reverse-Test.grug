@@ -1,0 +1,7 @@
+on_run() {
+    l: ListNumber = list_number()
+    list_number_append(l, 1)
+    list_number_append(l, 2)
+    list_number_reverse(l)
+    assert_number(list_number_index(l, 1), 1)
+}

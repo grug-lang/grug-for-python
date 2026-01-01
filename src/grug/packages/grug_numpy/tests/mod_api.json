@@ -1,0 +1,37 @@
+{
+    "entities": {
+        "Test": {
+            "description": "A test.",
+            "on_functions": {
+                "on_run": {
+                    "description": "Runs a test."
+                }
+            }
+        }
+    },
+    "game_functions": {
+        "assert_number": {
+            "description": "Asserts that two numbers are equal.",
+            "arguments": [
+                {
+                    "name": "n1",
+                    "type": "number"
+                },
+                {
+                    "name": "n2",
+                    "type": "number"
+                }
+            ]
+        },
+        "np_exp": {
+            "description": "Calculate the exponential of n.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        }
+    }
+}

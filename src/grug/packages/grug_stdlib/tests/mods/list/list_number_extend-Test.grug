@@ -1,0 +1,7 @@
+on_run() {
+    l1: ListNumber = list_number()
+    l2: ListNumber = list_number()
+    list_number_append(l2, 1)
+    list_number_extend(l1, l2)
+    assert_number(list_number_len(l1), 1)
+}

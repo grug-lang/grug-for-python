@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Dict, Sequence
 
 from grug.game_fn import GameFn
+from grug.grug_dir import GrugDir
 from grug.grug_file import GrugFile
 from grug.grug_package import GrugPackage
 
@@ -111,36 +112,6 @@ class GrugState:
             self,
         )
 
-    def update(self):
-        # TODO: Implement hot reloading
-        pass
-
-    # TODO: MOVE EVERYTHING BELOW HERE SOMEWHERE ELSE!
-
-    def dump_file_to_json(self, input_grug_path: str, output_json_path: str):
-        grug_text = Path(input_grug_path).read_text()
-
-        tokens = Tokenizer(grug_text).tokenize()
-
-        ast = Parser(tokens).parse()
-
-        json_text = Serializer.ast_to_json_text(ast)
-
-        Path(output_json_path).write_text(json_text)
-
-        return False
-
-    def generate_file_from_json(self, input_json_path: str, output_grug_path: str):
-        json_text = Path(input_json_path).read_text()
-
-        ast = json.loads(json_text)
-
-        grug_text = Serializer.ast_to_grug(ast)
-
-        Path(output_grug_path).write_text(grug_text)
-
-        return False
-
     def _get_file_entity_type(self, grug_filename: str) -> str:
         """
         Extract and validate the entity type from a grug filename.
@@ -208,13 +179,62 @@ class GrugState:
                     f"which isn't uppercase/lowercase/a digit"
                 )
 
-    # TODO: Implement, to make this API possible:
-    # mods = grug.get_mods()
-    # animals_mod = mods.dirs[0]
-    # labrador_file = animals_mod.files[0]
-    def get_mods(self):
-        assert False
+    def compile_all_mods(self) -> GrugDir:
+        """
+        Compiles all grug mods under self.mods_dir_path recursively.
 
-    # TODO: Implement, possibly updating init_globals_fn_dispatcher_t in tests.h
-    def init_globals_fn_dispatcher(self, path: str):
-        assert False
+        Returns:
+            GrugDir: Root directory representing the entire mods/ folder.
+        """
+        mods_path = Path(self.mods_dir_path)
+
+        def compile_dir(current_path: Path, dir_name: str) -> GrugDir:
+            grug_dir = GrugDir(name=dir_name)
+
+            for entry in current_path.iterdir():
+                if entry.is_dir():
+                    subdir = compile_dir(entry, entry.name)
+                    grug_dir.dirs[entry.name] = subdir
+                elif entry.is_file() and entry.suffix == ".grug":
+                    relative_path = entry.relative_to(mods_path).as_posix()
+                    grug_file = self.compile_grug_file(relative_path)
+                    grug_dir.files[relative_path] = grug_file
+
+            return grug_dir
+
+        root_dir = GrugDir(name="mods")
+        for mod_dir in mods_path.iterdir():
+            if mod_dir.is_dir():
+                root_dir.dirs[mod_dir.name] = compile_dir(mod_dir, mod_dir.name)
+
+        return root_dir
+
+    def update(self):
+        # TODO: Implement hot reloading
+        pass
+
+    # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
+    def dump_file_to_json(self, input_grug_path: str, output_json_path: str):
+        grug_text = Path(input_grug_path).read_text()
+
+        tokens = Tokenizer(grug_text).tokenize()
+
+        ast = Parser(tokens).parse()
+
+        json_text = Serializer.ast_to_json_text(ast)
+
+        Path(output_json_path).write_text(json_text)
+
+        return False
+
+    # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
+    def generate_file_from_json(self, input_json_path: str, output_grug_path: str):
+        json_text = Path(input_json_path).read_text()
+
+        ast = json.loads(json_text)
+
+        grug_text = Serializer.ast_to_grug(ast)
+
+        Path(output_grug_path).write_text(grug_text)
+
+        return False

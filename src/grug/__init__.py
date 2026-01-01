@@ -1,6 +1,7 @@
 from typing import Optional, Sequence
 
 from grug.entity import GameFnError
+from grug.grug_dir import GrugDir
 from grug.grug_package import GrugPackage
 
 from .grug_state import (
@@ -27,4 +28,4 @@ def init(
     )
 
 
-__all__ = ["init", "GameFnError", "GrugPackage"]
+__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir"]

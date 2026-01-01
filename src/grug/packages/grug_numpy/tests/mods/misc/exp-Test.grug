@@ -1,0 +1,4 @@
+on_run() {
+    assert_number(np_exp(0), 1)
+    assert_number(np_exp(1), 2.718281828459045)
+}

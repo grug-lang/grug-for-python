@@ -1,0 +1,5 @@
+on_run() {
+    l: ListNumber = list_number()
+    list_number_append(l, 1)
+    print_list_number(l)
+}

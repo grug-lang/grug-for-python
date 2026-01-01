@@ -1,0 +1,3 @@
+on_run() {
+    print_string("hello")
+}
