@@ -1632,7 +1632,14 @@ class TypePropagator:
                 f"Mods aren't allowed to call their own on_ functions, but '{fn_name}' was called"
             )
 
-        raise TypePropagationError(f"The function '{fn_name}' does not exist")
+        if fn_name.startswith("helper_"):
+            raise TypePropagationError(
+                f"The helper function '{fn_name}' was not defined by this grug file"
+            )
+
+        raise TypePropagationError(
+            f"The game function '{fn_name}' was not declared by mod_api.json"
+        )
 
     def fill_binary_expr(self, expr: BinaryExpr | LogicalExpr):
         left = expr.left_expr
