@@ -298,6 +298,25 @@ class GrugState:
         # TODO: Implement hot reloading
         pass
 
+    def run_all_package_tests(self):
+        mods = self.compile_all_mods()
+
+        tests_ran = 0
+
+        def run(dir: GrugDir):
+            for subdir in dir.dirs.values():
+                run(subdir)
+            for file in dir.files.values():
+                print(f"Testing {file.relative_path}...")
+                test = file.create_entity()
+                test.on_run()
+                nonlocal tests_ran
+                tests_ran += 1
+
+        run(mods)
+
+        print(f"All {tests_ran} tests passed!")
+
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
     def dump_file_to_json(self, input_grug_path: str, output_json_path: str):
         grug_text = Path(input_grug_path).read_text()
