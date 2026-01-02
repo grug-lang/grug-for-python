@@ -93,7 +93,7 @@ def list_append(lst: List[object], val: object):
 
 
 def list_len(lst: List[object]) -> float:
-    return len(lst)
+    return float(len(lst))
 
 
 def list_extend(lst1: List[object], lst2: List[object]):
@@ -117,11 +117,11 @@ def list_pop_index(lst: List[object], index: float):
 
 
 def list_index(lst: List[object], val: object) -> float:
-    return lst.index(val)
+    return float(lst.index(val))
 
 
 def list_count(lst: List[object], val: object) -> float:
-    return lst.count(val)
+    return float(lst.count(val))
 
 
 # Define a Comparable protocol
