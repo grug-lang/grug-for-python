@@ -75,6 +75,8 @@ class Entity:
 
         self.game_fns = file.game_fns
 
+        self.game_fn_return_types = file.game_fn_return_types
+
         self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
 
         self.start_time: float
@@ -133,7 +135,12 @@ class Entity:
 
         self.fn_name = on_fn_name
 
+        # Assign and verify argument types
         for arg, argument in zip(args, on_fn.arguments):
+            assert isinstance(
+                arg, self._get_expected_py_type(argument.type_name)
+            ), f"Argument '{argument.name}' of {on_fn_name}() must be {argument.type_name}, got {type(arg).__name__}"
+
             self.local_variables[argument.name] = arg
 
         old_fn_depth = self.state.fn_depth
@@ -158,6 +165,15 @@ class Entity:
             self.state.fn_depth = old_fn_depth
             self.on_fn_depth = old_on_fn_depth
             self.local_variables = parent_local_variables
+
+    def _get_expected_py_type(self, expected_arg_type_name: str):
+        if expected_arg_type_name == "number":
+            return float
+        elif expected_arg_type_name == "bool":
+            return bool
+        elif expected_arg_type_name in ("string", "resource", "entity"):
+            return str
+        return object
 
     def _run_statements(self, statements: List[Statement]):
         for statement in statements:
@@ -383,5 +399,15 @@ class Entity:
                 self.file.relative_path,
             )
             raise ReraisedGameFnError()
+
+        t = self.game_fn_return_types[name]
+        if t is None:
+            return
+
+        expected_type = self._get_expected_py_type(t)
+
+        assert isinstance(
+            result, expected_type
+        ), f"Return value of game function {name}() must be {expected_type.__name__}, got {type(result).__name__}"
 
         return result

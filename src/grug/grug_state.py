@@ -181,6 +181,11 @@ class GrugState:
 
         helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
 
+        game_fn_return_types = {
+            fn_name: fn.get("return_type")
+            for fn_name, fn in self.mod_api["game_functions"].items()
+        }
+
         return GrugFile(
             grug_file_relative_path,
             mod,
@@ -188,6 +193,7 @@ class GrugState:
             on_fns,
             helper_fns,
             self.game_fns,
+            game_fn_return_types,
             self,
         )
 

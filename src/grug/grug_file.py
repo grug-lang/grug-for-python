@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from grug.frontend import HelperFn, OnFn, VariableStatement
 from grug.game_fn import GameFn
@@ -19,6 +19,7 @@ class GrugFile:
     on_fns: Dict[str, OnFn]
     helper_fns: Dict[str, HelperFn]
     game_fns: Dict[str, GameFn]
+    game_fn_return_types: Dict[str, Optional[str]]
 
     state: GrugState
 
