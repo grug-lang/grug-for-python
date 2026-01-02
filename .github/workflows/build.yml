@@ -50,12 +50,16 @@ jobs:
 
           # Run examples
           for f in examples/*/example.py; do
-            python "$f"
+            cd "$(dirname "$f")"
+            python "$(basename "$f")"
+            cd - > /dev/null
           done
 
           # Run package tests
           for f in src/grug/packages/**/tests/tests.py; do
-            python "$f"
+            cd "$(dirname "$f")"
+            python "$(basename "$f")"
+            cd - > /dev/null
           done
 
       # Run on Python 3.11
@@ -76,10 +80,14 @@ jobs:
 
           # Run examples
           for f in examples/*/example.py; do
-            python "$f"
+            cd "$(dirname "$f")"
+            python "$(basename "$f")"
+            cd - > /dev/null
           done
 
           # Run package tests
           for f in src/grug/packages/**/tests/tests.py; do
-            python "$f"
+            cd "$(dirname "$f")"
+            python "$(basename "$f")"
+            cd - > /dev/null
           done
