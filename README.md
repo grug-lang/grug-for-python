@@ -60,6 +60,8 @@ pip install -e .
 
 ## Tests
 
+Run `python tests.py` to test all examples and package tests.
+
 ### Testing grug-lang changes
 
 Either uninstall grug-lang, if you had it installed:

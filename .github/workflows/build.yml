@@ -48,19 +48,7 @@ jobs:
           # Type check
           pyright --pythonversion 3.7
 
-          # Run examples (timeout 3s, ignore exit code)
-          for f in examples/*/example.py; do
-            cd "$(dirname "$f")"
-            timeout 3s python "$(basename "$f")" || true
-            cd - > /dev/null
-          done
-
-          # Run package tests
-          for f in src/grug/packages/**/tests/tests.py; do
-            cd "$(dirname "$f")"
-            python "$(basename "$f")"
-            cd - > /dev/null
-          done
+          python tests.py
 
       # Run on Python 3.11
       - name: Run Pyright and Examples/Tests on Python 3.11
@@ -78,16 +66,4 @@ jobs:
           # Type check
           pyright --pythonversion 3.11
 
-          # Run examples (timeout 3s, ignore exit code)
-          for f in examples/*/example.py; do
-            cd "$(dirname "$f")"
-            timeout 3s python "$(basename "$f")" || true
-            cd - > /dev/null
-          done
-
-          # Run package tests
-          for f in src/grug/packages/**/tests/tests.py; do
-            cd "$(dirname "$f")"
-            python "$(basename "$f")"
-            cd - > /dev/null
-          done
+          python tests.py
