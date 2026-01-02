@@ -72,8 +72,253 @@
                 }
             ]
         },
+        "dict": {
+            "description": "Creates a dict.",
+            "return_type": "Dict"
+        },
+        "dict_bool_bool_set": {
+            "description": "Associates a bool key with a bool value in a Dict. If the key already exists, its value is overwritten.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "bool"
+                },
+                {
+                    "name": "value",
+                    "type": "bool"
+                }
+            ]
+        },
+        "dict_clear": {
+            "description": "Removes all items from the Dict.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_copy": {
+            "description": "Returns a shallow copy of the Dict.",
+            "return_type": "Dict",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_items": {
+            "description": "Returns a list of key-value pairs in the Dict, where each pair is a list of [key, value].",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_keys": {
+            "description": "Returns a list of all keys in the Dict.",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_len": {
+            "description": "Returns the length of a dict.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_number_fromkeys": {
+            "description": "Creates a Dict from a list of number keys, all set to the given value.",
+            "return_type": "Dict",
+            "arguments": [
+                {
+                    "name": "keys",
+                    "type": "List"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_has_key": {
+            "description": "Returns whether the number key is in the Dict.",
+            "return_type": "bool",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_id_set": {
+            "description": "Associates a number key with an id value in a Dict. If the key already exists, its value is overwritten.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "value",
+                    "type": "id"
+                }
+            ]
+        },
+        "dict_number_number_get": {
+            "description": "Gets the value for a number key in a Dict. This raises a grug runtime error if the key is not present.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_get_default": {
+            "description": "Gets the value for a number key in a Dict. This returns the default value if the key is not present.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "default",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_set": {
+            "description": "Associates a number key with a number value in a Dict. If the key already exists, its value is overwritten.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_set_default": {
+            "description": "Associates a number key with a number value in a Dict only if the key does not already exist. If the key exists, the value is left unchanged.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_pop": {
+            "description": "Removes and returns the value for a number key in a Dict. This raises a grug runtime error if the key is not present.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_popitem": {
+            "description": "Removes and returns an arbitrary key-value pair from the Dict as a list [key, value].",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_string_string_set": {
+            "description": "Associates a string key with a string value in a Dict. If the key already exists, its value is overwritten.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "string"
+                },
+                {
+                    "name": "value",
+                    "type": "string"
+                }
+            ]
+        },
+        "dict_update": {
+            "description": "Updates a Dict with the keys and values from another Dict.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "other",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_values": {
+            "description": "Returns a list of all values in the Dict.",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
         "id_to_list": {
-            "description": "Casts an id to a List. This throws a grug error at runtime if the id isn't a List.",
+            "description": "Casts an id to a List. This raises a grug runtime error if the id isn't a List.",
             "return_type": "List",
             "arguments": [
                 {
@@ -169,7 +414,7 @@
             ]
         },
         "list_bool_remove": {
-            "description": "Remove the first bool from the list whose value is equal to b. Raises an error if not found.",
+            "description": "Remove the first bool from the list whose value is equal to b. This raises a grug runtime error if it is not found.",
             "arguments": [
                 {
                     "name": "list",
@@ -191,7 +436,7 @@
             ]
         },
         "list_copy": {
-            "description": "Return a shallow copy of the list of numbers.",
+            "description": "Return a shallow copy of a list.",
             "return_type": "List",
             "arguments": [
                 {
@@ -296,7 +541,7 @@
             ]
         },
         "list_id_remove": {
-            "description": "Remove the first id from the list whose value is equal to id. Raises an error if not found.",
+            "description": "Remove the first id from the list whose value is equal to id. This raises a grug runtime error if it is not found.",
             "arguments": [
                 {
                     "name": "list",
@@ -309,7 +554,7 @@
             ]
         },
         "list_len": {
-            "description": "Returns the length of a list of numbers.",
+            "description": "Returns the length of a list.",
             "return_type": "number",
             "arguments": [
                 {
@@ -401,7 +646,7 @@
             ]
         },
         "list_number_remove": {
-            "description": "Remove the first number from the list whose value is equal to n. Raises an error if not found.",
+            "description": "Remove the first number from the list whose value is equal to n. This raises a grug runtime error if it is not found.",
             "arguments": [
                 {
                     "name": "list",
@@ -514,7 +759,7 @@
             ]
         },
         "list_string_remove": {
-            "description": "Remove the first string from the list whose value is equal to str. Raises an error if not found.",
+            "description": "Remove the first string from the list whose value is equal to str. This raises a grug runtime error if it is not found.",
             "arguments": [
                 {
                     "name": "list",
@@ -532,6 +777,15 @@
                 {
                     "name": "b",
                     "type": "bool"
+                }
+            ]
+        },
+        "print_dict": {
+            "description": "Prints a Dict.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
                 }
             ]
         },

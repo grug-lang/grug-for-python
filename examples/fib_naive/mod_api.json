@@ -1,0 +1,40 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "on_functions": {
+                "on_run": {
+                    "description": "Called once."
+                }
+            }
+        }
+    },
+    "game_functions": {
+        "list": {
+            "description": "Creates a list.",
+            "return_type": "List"
+        },
+        "list_number_append": {
+            "description": "Add a number to the end of the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "print_list": {
+            "description": "Prints a list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        }
+    }
+}

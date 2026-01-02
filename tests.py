@@ -3,7 +3,6 @@ from pathlib import Path
 
 
 def run_examples():
-    # Run examples (timeout 3s, ignore exit code)
     for example in Path("examples").glob("*/example.py"):
         example_dir = example.parent
         try:
@@ -17,8 +16,7 @@ def run_examples():
             pass
 
 
-def run_tests():
-    # Run package tests
+def run_package_tests():
     for test_file in Path("src/grug/packages").glob("**/tests/tests.py"):
         test_dir = test_file.parent
         subprocess.run(
@@ -30,4 +28,4 @@ def run_tests():
 
 if __name__ == "__main__":
     run_examples()
-    run_tests()
+    run_package_tests()

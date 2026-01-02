@@ -1,0 +1,29 @@
+on_run() {
+    fib_numbers: List = helper_fib_list(100)
+    print_list(fib_numbers)
+}
+
+helper_fib_list(n: number) List {
+    fib_list: List = list()
+    memo: Dict = dict()
+    i: number = 0
+    while i < n {
+        list_number_append(fib_list, helper_fib(i, memo))
+        i = i + 1
+    }
+    return fib_list
+}
+
+helper_fib(n: number, memo: Dict) number {
+    if dict_number_has_key(memo, n) {
+        return dict_number_number_get(memo, n)
+    }
+
+    result: number = n
+    if n > 1 {
+        result = helper_fib(n - 1, memo) + helper_fib(n - 2, memo)
+    }
+
+    dict_number_number_set(memo, n, result)
+    return result
+}

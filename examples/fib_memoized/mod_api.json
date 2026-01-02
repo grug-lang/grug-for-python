@@ -1,0 +1,89 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "on_functions": {
+                "on_run": {
+                    "description": "Called once."
+                }
+            }
+        }
+    },
+    "game_functions": {
+        "dict": {
+            "description": "Creates a dict.",
+            "return_type": "Dict"
+        },
+        "dict_number_has_key": {
+            "description": "Returns whether the number key is in the Dict.",
+            "return_type": "bool",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_get": {
+            "description": "Gets the value for a number key in a Dict. Returns 0 if the key is not present.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_set": {
+            "description": "Associates a number key with a number value in a Dict. If the key already exists, its value is overwritten.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
+        "list": {
+            "description": "Creates a list.",
+            "return_type": "List"
+        },
+        "list_number_append": {
+            "description": "Add a number to the end of the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "print_list": {
+            "description": "Prints a list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        }
+    }
+}

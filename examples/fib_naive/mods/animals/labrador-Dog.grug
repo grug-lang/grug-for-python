@@ -1,0 +1,21 @@
+on_run() {
+    fib_numbers: List = helper_fib_list(10)
+    print_list(fib_numbers)
+}
+
+helper_fib_list(n: number) List {
+    fib_list: List = list()
+    i: number = 0
+    while i < n {
+        list_number_append(fib_list, helper_fib(i))
+        i = i + 1
+    }
+    return fib_list
+}
+
+helper_fib(n: number) number {
+    if n == 0 or n == 1 {
+        return n
+    }
+    return helper_fib(n - 1) + helper_fib(n - 2)
+}

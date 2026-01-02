@@ -1,0 +1,5 @@
+on_run() {
+    d: Dict = dict()
+    dict_number_number_set(d, 1, 10)
+    assert_number(dict_len(d), 1)
+}

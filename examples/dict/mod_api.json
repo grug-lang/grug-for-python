@@ -1,0 +1,247 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "on_functions": {
+                "on_run": {
+                    "description": "Called once."
+                }
+            }
+        }
+    },
+    "game_functions": {
+        "dict": {
+            "description": "Creates a dict.",
+            "return_type": "Dict"
+        },
+        "dict_clear": {
+            "description": "Removes all items from the Dict.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_copy": {
+            "description": "Returns a shallow copy of the Dict.",
+            "return_type": "Dict",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_items": {
+            "description": "Returns a list of key-value pairs in the Dict, where each pair is a list of [key, value].",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_keys": {
+            "description": "Returns a list of all keys in the Dict.",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_len": {
+            "description": "Returns the length of a dict.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_number_fromkeys": {
+            "description": "Creates a Dict from a list of number keys, all set to the given value.",
+            "return_type": "Dict",
+            "arguments": [
+                {
+                    "name": "keys",
+                    "type": "List"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_get": {
+            "description": "Gets the value for a number key in a Dict. Returns 0 if the key is not present.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_get_default": {
+            "description": "Gets the value for a number key in a Dict. This returns the default value if the key is not present.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "default",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_set": {
+            "description": "Associates a number key with a number value in a Dict. If the key already exists, its value is overwritten.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_number_set_default": {
+            "description": "Associates a number key with a number value in a Dict only if the key does not already exist. If the key exists, the value is left unchanged.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_number_pop": {
+            "description": "Removes and returns the value for a number key in a Dict. Returns 0 if the key is not present.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "key",
+                    "type": "number"
+                }
+            ]
+        },
+        "dict_popitem": {
+            "description": "Removes and returns an arbitrary key-value pair from the Dict as a list [key, value].",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_update": {
+            "description": "Updates a Dict with the keys and values from another Dict.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                },
+                {
+                    "name": "other",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "dict_values": {
+            "description": "Returns a list of all values in the Dict.",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "list": {
+            "description": "Creates a list.",
+            "return_type": "List"
+        },
+        "list_number_append": {
+            "description": "Add a number to the end of the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "print_dict": {
+            "description": "Prints a Dict.",
+            "arguments": [
+                {
+                    "name": "dict",
+                    "type": "Dict"
+                }
+            ]
+        },
+        "print_list": {
+            "description": "Prints a list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "print_number": {
+            "description": "Prints a number.",
+            "arguments": [
+                {
+                    "name": "n",
+                    "type": "number"
+                }
+            ]
+        },
+        "print_string": {
+            "description": "Prints a string.",
+            "arguments": [
+                {
+                    "name": "str",
+                    "type": "string"
+                }
+            ]
+        }
+    }
+}

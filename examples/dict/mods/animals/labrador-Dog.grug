@@ -1,0 +1,78 @@
+on_run() {
+    d: Dict = dict()
+
+    dict_number_number_set(d, 1, 10)
+    dict_number_number_set(d, 2, 20)
+    dict_number_number_set(d, 3, 30)
+    helper_print_dict(d, "{1: 10, 2: 20, 3: 30} at the start:")
+
+    helper_print_number(dict_len(d), "3 after len():")
+
+    v: number = dict_number_number_get(d, 2)
+    helper_print_number(v, "20 after get(2):")
+
+    v2: number = dict_number_number_get_default(d, 2, 0)
+    helper_print_number(v2, "20 after get_default(2, 0):")
+
+    v3: number = dict_number_number_get_default(d, 99, 0)
+    helper_print_number(v3, "0 after get_default(99, 0):")
+
+    dict_number_number_set_default(d, 4, 40)
+    helper_print_dict(d, "{1: 10, 2: 20, 3: 30, 4: 40} after set_default(4, 40):")
+
+    dict_number_number_set_default(d, 2, 999)
+    helper_print_dict(d, "{1: 10, 2: 20, 3: 30, 4: 40} after set_default(2, 999):")
+
+    keys: List = dict_keys(d)
+    helper_print_list(keys, "[1, 2, 3, 4] after keys():")
+
+    values: List = dict_values(d)
+    helper_print_list(values, "[10, 20, 30, 40] after values():")
+
+    items: List = dict_items(d)
+    helper_print_list(items, "[[1.0, 10.0], [2.0, 20.0], [3.0, 30.0], [4.0, 40.0]] after items():")
+
+    x: number = dict_number_pop(d, 3)
+    helper_print_dict(d, "{1: 10, 2: 20, 4: 40} after pop(3):")
+
+    pair: List = dict_popitem(d)
+    helper_print_list(pair, "[4, 40] returned from popitem():")
+    helper_print_dict(d, "{1: 10, 2: 20} after the same popitem():")
+
+    d2: Dict = dict()
+    dict_number_number_set(d2, 5, 50)
+    dict_number_number_set(d2, 6, 60)
+    dict_update(d, d2)
+    helper_print_dict(d, "{1: 10, 2: 20, 5: 50, 6: 60} after update({5: 50, 6: 60}):")
+
+    d3: Dict = dict_copy(d)
+    helper_print_dict(d3, "{1: 10, 2: 20, 5: 50, 6: 60} after copy():")
+
+    dict_clear(d)
+    helper_print_dict(d, "{} after clear():")
+
+    fk: List = list()
+    list_number_append(fk, 7)
+    list_number_append(fk, 8)
+
+    d4: Dict = dict_number_fromkeys(fk, 42)
+    helper_print_dict(d4, "{7: 42, 8: 42} after fromkeys([7, 8], 42):")
+}
+
+helper_print_number(n: number, label: string) {
+    print_string(label)
+    print_number(n)
+    print_string("")
+}
+
+helper_print_dict(d: Dict, label: string) {
+    print_string(label)
+    print_dict(d)
+    print_string("")
+}
+
+helper_print_list(l: List, label: string) {
+    print_string(label)
+    print_list(l)
+    print_string("")
+}

@@ -1,0 +1,4 @@
+on_run() {
+    d: Dict = dict()
+    assert_id(d, d)
+}

@@ -24,7 +24,7 @@
             ]
         },
         "list_copy": {
-            "description": "Return a shallow copy of the list of numbers.",
+            "description": "Return a shallow copy of a list.",
             "return_type": "List",
             "arguments": [
                 {
@@ -47,7 +47,7 @@
             ]
         },
         "list_len": {
-            "description": "Returns the length of a list of numbers.",
+            "description": "Returns the length of a list.",
             "return_type": "number",
             "arguments": [
                 {
