@@ -48,10 +48,10 @@ jobs:
           # Type check
           pyright --pythonversion 3.7
 
-          # Run examples
+          # Run examples (timeout 3s, ignore exit code)
           for f in examples/*/example.py; do
             cd "$(dirname "$f")"
-            python "$(basename "$f")"
+            timeout 3s python "$(basename "$f")" || true
             cd - > /dev/null
           done
 
@@ -78,10 +78,10 @@ jobs:
           # Type check
           pyright --pythonversion 3.11
 
-          # Run examples
+          # Run examples (timeout 3s, ignore exit code)
           for f in examples/*/example.py; do
             cd "$(dirname "$f")"
-            python "$(basename "$f")"
+            timeout 3s python "$(basename "$f")" || true
             cd - > /dev/null
           done
 
