@@ -1,5 +1,5 @@
 on_run() {
     l: List = list()
     list_id_append(l, list())
-    assert_number(list_id_len(l), 1)
+    assert_number(list_len(l), 1)
 }

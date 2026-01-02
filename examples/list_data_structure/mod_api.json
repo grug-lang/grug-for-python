@@ -14,6 +14,48 @@
             "description": "Creates a list.",
             "return_type": "List"
         },
+        "list_clear": {
+            "description": "Remove all numbers from the list.",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_copy": {
+            "description": "Return a shallow copy of the list of numbers.",
+            "return_type": "List",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_extend": {
+            "description": "Extend the list by appending all the numbers from another list.",
+            "arguments": [
+                {
+                    "name": "list1",
+                    "type": "List"
+                },
+                {
+                    "name": "list2",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_len": {
+            "description": "Returns the length of a list of numbers.",
+            "return_type": "number",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
             "arguments": [
@@ -24,25 +66,6 @@
                 {
                     "name": "n",
                     "type": "number"
-                }
-            ]
-        },
-        "list_number_clear": {
-            "description": "Remove all numbers from the list.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
-        "list_number_copy": {
-            "description": "Return a shallow copy of the list of numbers.",
-            "return_type": "List",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
                 }
             ]
         },
@@ -57,19 +80,6 @@
                 {
                     "name": "n",
                     "type": "number"
-                }
-            ]
-        },
-        "list_number_extend": {
-            "description": "Extend the list by appending all the numbers from another list.",
-            "arguments": [
-                {
-                    "name": "list1",
-                    "type": "List"
-                },
-                {
-                    "name": "list2",
-                    "type": "List"
                 }
             ]
         },
@@ -88,7 +98,7 @@
             ]
         },
         "list_number_insert": {
-            "description": "Insert a number at a given position. The first argument is the index of the number before which to insert, so list_number_insert(l, 0, n) inserts at the front of the list, and list_number_insert(l, list_number_len(l), n) is equivalent to list_number_append(l, n).",
+            "description": "Insert a number at a given position. The first argument is the index of the number before which to insert, so list_number_insert(l, 0, n) inserts at the front of the list, and list_number_insert(l, list_len(l), n) is equivalent to list_number_append(l, n).",
             "arguments": [
                 {
                     "name": "list",
@@ -101,16 +111,6 @@
                 {
                     "name": "n",
                     "type": "number"
-                }
-            ]
-        },
-        "list_number_len": {
-            "description": "Returns the length of a list of numbers.",
-            "return_type": "number",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
                 }
             ]
         },
@@ -151,7 +151,7 @@
                 }
             ]
         },
-        "list_number_reverse": {
+        "list_reverse": {
             "description": "Reverse the numbers of the list in place.",
             "arguments": [
                 {
@@ -160,7 +160,7 @@
                 }
             ]
         },
-        "list_number_sort": {
+        "list_sort": {
             "description": "Sort the numbers of the list in place.",
             "arguments": [
                 {

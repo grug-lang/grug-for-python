@@ -8,13 +8,13 @@ on_run() {
     helper_print(l, "[1, 2, 3, 4] at the start:")
 
     print_string("4 after len():")
-    print_number(list_number_len(l))
+    print_number(list_len(l))
     print_string("")
 
     l2: List = list()
     list_number_append(l2, 5)
     list_number_append(l2, 6)
-    list_number_extend(l, l2)
+    list_extend(l, l2)
     helper_print(l, "[1, 2, 3, 4, 5, 6] after extend([5, 6]):")
 
     list_number_insert(l, 2, 0)
@@ -39,16 +39,16 @@ on_run() {
     print_number(list_number_count(l, 4))
     print_string("")
 
-    list_number_sort(l)
+    list_sort(l)
     helper_print(l, "[0, 1, 4, 4, 5] after sort():")
 
-    list_number_reverse(l)
+    list_reverse(l)
     helper_print(l, "[5, 4, 4, 1, 0] after reverse():")
 
-    l3: List = list_number_copy(l)
+    l3: List = list_copy(l)
     helper_print(l3, "[5, 4, 4, 1, 0] after copy():")
 
-    list_number_clear(l)
+    list_clear(l)
     helper_print(l, "[] after clear():")
 }
 

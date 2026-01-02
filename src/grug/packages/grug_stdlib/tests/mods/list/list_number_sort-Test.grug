@@ -2,6 +2,6 @@ on_run() {
     l: List = list()
     list_number_append(l, 2)
     list_number_append(l, 1)
-    list_number_sort(l)
+    list_sort(l)
     assert_number(list_number_index(l, 1), 0)
 }

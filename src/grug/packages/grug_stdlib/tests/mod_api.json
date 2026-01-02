@@ -99,25 +99,6 @@
                 }
             ]
         },
-        "list_bool_clear": {
-            "description": "Remove all bools from the list.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
-        "list_bool_copy": {
-            "description": "Return a shallow copy of the list of bools.",
-            "return_type": "List",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
         "list_bool_count": {
             "description": "Return the number of times b appears in the list.",
             "return_type": "number",
@@ -129,19 +110,6 @@
                 {
                     "name": "b",
                     "type": "bool"
-                }
-            ]
-        },
-        "list_bool_extend": {
-            "description": "Extend the list by appending all the bools from another list.",
-            "arguments": [
-                {
-                    "name": "list1",
-                    "type": "List"
-                },
-                {
-                    "name": "list2",
-                    "type": "List"
                 }
             ]
         },
@@ -160,7 +128,7 @@
             ]
         },
         "list_bool_insert": {
-            "description": "Insert a bool at a given position. The first argument is the index of the bool before which to insert, so list_bool_insert(l, 0, b) inserts at the front of the list, and list_bool_insert(l, list_bool_len(l), b) is equivalent to list_bool_append(l, b).",
+            "description": "Insert a bool at a given position. The first argument is the index of the bool before which to insert, so list_bool_insert(l, 0, b) inserts at the front of the list, and list_bool_insert(l, list_len(l), b) is equivalent to list_bool_append(l, b).",
             "arguments": [
                 {
                     "name": "list",
@@ -173,16 +141,6 @@
                 {
                     "name": "b",
                     "type": "bool"
-                }
-            ]
-        },
-        "list_bool_len": {
-            "description": "Returns the length of a list of bools.",
-            "return_type": "number",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
                 }
             ]
         },
@@ -223,8 +181,8 @@
                 }
             ]
         },
-        "list_bool_reverse": {
-            "description": "Reverse the bools of the list in place.",
+        "list_clear": {
+            "description": "Remove all numbers from the list.",
             "arguments": [
                 {
                     "name": "list",
@@ -232,11 +190,25 @@
                 }
             ]
         },
-        "list_bool_sort": {
-            "description": "Sort the bools of the list in place.",
+        "list_copy": {
+            "description": "Return a shallow copy of the list of numbers.",
+            "return_type": "List",
             "arguments": [
                 {
                     "name": "list",
+                    "type": "List"
+                }
+            ]
+        },
+        "list_extend": {
+            "description": "Extend the list by appending all the numbers from another list.",
+            "arguments": [
+                {
+                    "name": "list1",
+                    "type": "List"
+                },
+                {
+                    "name": "list2",
                     "type": "List"
                 }
             ]
@@ -254,25 +226,6 @@
                 }
             ]
         },
-        "list_id_clear": {
-            "description": "Remove all ids from the list.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
-        "list_id_copy": {
-            "description": "Return a shallow copy of the list of ids.",
-            "return_type": "List",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
         "list_id_count": {
             "description": "Return the number of times id appears in the list.",
             "return_type": "number",
@@ -284,19 +237,6 @@
                 {
                     "name": "id",
                     "type": "id"
-                }
-            ]
-        },
-        "list_id_extend": {
-            "description": "Extend the list by appending all the ids from another list.",
-            "arguments": [
-                {
-                    "name": "list1",
-                    "type": "List"
-                },
-                {
-                    "name": "list2",
-                    "type": "List"
                 }
             ]
         },
@@ -315,7 +255,7 @@
             ]
         },
         "list_id_insert": {
-            "description": "Insert an id at a given position. The first argument is the index of the id before which to insert, so list_id_insert(l, 0, id) inserts at the front of the list, and list_id_insert(l, list_id_len(l), id) is equivalent to list_id_append(l, id).",
+            "description": "Insert an id at a given position. The first argument is the index of the id before which to insert, so list_id_insert(l, 0, id) inserts at the front of the list, and list_id_insert(l, list_len(l), id) is equivalent to list_id_append(l, id).",
             "arguments": [
                 {
                     "name": "list",
@@ -328,16 +268,6 @@
                 {
                     "name": "id",
                     "type": "id"
-                }
-            ]
-        },
-        "list_id_len": {
-            "description": "Returns the length of a list of ids.",
-            "return_type": "number",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
                 }
             ]
         },
@@ -378,17 +308,9 @@
                 }
             ]
         },
-        "list_id_reverse": {
-            "description": "Reverse the ids of the list in place.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
-        "list_id_sort": {
-            "description": "Sort the ids of the list in place.",
+        "list_len": {
+            "description": "Returns the length of a list of numbers.",
+            "return_type": "number",
             "arguments": [
                 {
                     "name": "list",
@@ -409,25 +331,6 @@
                 }
             ]
         },
-        "list_number_clear": {
-            "description": "Remove all numbers from the list.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
-        "list_number_copy": {
-            "description": "Return a shallow copy of the list of numbers.",
-            "return_type": "List",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
         "list_number_count": {
             "description": "Return the number of times n appears in the list.",
             "return_type": "number",
@@ -439,19 +342,6 @@
                 {
                     "name": "n",
                     "type": "number"
-                }
-            ]
-        },
-        "list_number_extend": {
-            "description": "Extend the list by appending all the numbers from another list.",
-            "arguments": [
-                {
-                    "name": "list1",
-                    "type": "List"
-                },
-                {
-                    "name": "list2",
-                    "type": "List"
                 }
             ]
         },
@@ -470,7 +360,7 @@
             ]
         },
         "list_number_insert": {
-            "description": "Insert a number at a given position. The first argument is the index of the number before which to insert, so list_number_insert(l, 0, n) inserts at the front of the list, and list_number_insert(l, list_number_len(l), n) is equivalent to list_number_append(l, n).",
+            "description": "Insert a number at a given position. The first argument is the index of the number before which to insert, so list_number_insert(l, 0, n) inserts at the front of the list, and list_number_insert(l, list_len(l), n) is equivalent to list_number_append(l, n).",
             "arguments": [
                 {
                     "name": "list",
@@ -483,16 +373,6 @@
                 {
                     "name": "n",
                     "type": "number"
-                }
-            ]
-        },
-        "list_number_len": {
-            "description": "Returns the length of a list of numbers.",
-            "return_type": "number",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
                 }
             ]
         },
@@ -533,7 +413,7 @@
                 }
             ]
         },
-        "list_number_reverse": {
+        "list_reverse": {
             "description": "Reverse the numbers of the list in place.",
             "arguments": [
                 {
@@ -542,7 +422,7 @@
                 }
             ]
         },
-        "list_number_sort": {
+        "list_sort": {
             "description": "Sort the numbers of the list in place.",
             "arguments": [
                 {
@@ -564,25 +444,6 @@
                 }
             ]
         },
-        "list_string_clear": {
-            "description": "Remove all strings from the list.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
-        "list_string_copy": {
-            "description": "Return a shallow copy of the list of strings.",
-            "return_type": "List",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
         "list_string_count": {
             "description": "Return the number of times str appears in the list.",
             "return_type": "number",
@@ -594,19 +455,6 @@
                 {
                     "name": "str",
                     "type": "string"
-                }
-            ]
-        },
-        "list_string_extend": {
-            "description": "Extend the list by appending all the strings from another list.",
-            "arguments": [
-                {
-                    "name": "list1",
-                    "type": "List"
-                },
-                {
-                    "name": "list2",
-                    "type": "List"
                 }
             ]
         },
@@ -625,7 +473,7 @@
             ]
         },
         "list_string_insert": {
-            "description": "Insert a string at a given position. The first argument is the index of the string before which to insert, so list_string_insert(l, 0, str) inserts at the front of the list, and list_string_insert(l, list_string_len(l), str) is equivalent to list_string_append(l, str).",
+            "description": "Insert a string at a given position. The first argument is the index of the string before which to insert, so list_string_insert(l, 0, str) inserts at the front of the list, and list_string_insert(l, list_len(l), str) is equivalent to list_string_append(l, str).",
             "arguments": [
                 {
                     "name": "list",
@@ -638,16 +486,6 @@
                 {
                     "name": "str",
                     "type": "string"
-                }
-            ]
-        },
-        "list_string_len": {
-            "description": "Returns the length of a list of strings.",
-            "return_type": "number",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
                 }
             ]
         },
@@ -685,24 +523,6 @@
                 {
                     "name": "str",
                     "type": "string"
-                }
-            ]
-        },
-        "list_string_reverse": {
-            "description": "Reverse the strings of the list in place.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
-                }
-            ]
-        },
-        "list_string_sort": {
-            "description": "Sort the strings of the list in place.",
-            "arguments": [
-                {
-                    "name": "list",
-                    "type": "List"
                 }
             ]
         },

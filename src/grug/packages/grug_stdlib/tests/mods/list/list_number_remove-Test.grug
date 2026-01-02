@@ -2,5 +2,5 @@ on_run() {
     l: List = list()
     list_number_append(l, 1)
     list_number_remove(l, 1)
-    assert_number(list_number_len(l), 0)
+    assert_number(list_len(l), 0)
 }

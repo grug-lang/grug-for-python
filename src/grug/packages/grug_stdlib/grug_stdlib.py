@@ -163,18 +163,12 @@ def make_list_package(type_name: str) -> List[Tuple[str, Callable[..., Any]]]:
 
     return [
         (f"list_{type_name}_append", wrap(list_append)),
-        (f"list_{type_name}_len", wrap(list_len)),
-        (f"list_{type_name}_extend", wrap(list_extend)),
+        (f"list_{type_name}_count", wrap(list_count)),
+        (f"list_{type_name}_index", wrap(list_index)),
         (f"list_{type_name}_insert", wrap(list_insert)),
-        (f"list_{type_name}_remove", wrap(list_remove)),
         (f"list_{type_name}_pop", wrap(list_pop)),
         (f"list_{type_name}_pop_index", wrap(list_pop_index)),
-        (f"list_{type_name}_index", wrap(list_index)),
-        (f"list_{type_name}_count", wrap(list_count)),
-        (f"list_{type_name}_sort", wrap(list_sort)),
-        (f"list_{type_name}_reverse", wrap(list_reverse)),
-        (f"list_{type_name}_copy", wrap(list_copy)),
-        (f"list_{type_name}_clear", wrap(list_clear)),
+        (f"list_{type_name}_remove", wrap(list_remove)),
     ]
 
 
@@ -187,14 +181,20 @@ def get():
         assert_id,
         assert_number,
         assert_string,
+        ceil,
         id_to_list,
+        list_clear,
+        list_copy,
+        list_extend,
+        list_len,
+        list_reverse,
+        list_sort,
         list_X,
-        print_number,
         print_bool,
-        print_string,
         print_id,
         print_list,
-        ceil,
+        print_number,
+        print_string,
         sqrt,
     ]
 

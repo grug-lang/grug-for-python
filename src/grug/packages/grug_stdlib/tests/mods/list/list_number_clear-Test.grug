@@ -1,6 +1,6 @@
 on_run() {
     l: List = list()
     list_number_append(l, 1)
-    list_number_clear(l)
-    assert_number(list_number_len(l), 0)
+    list_clear(l)
+    assert_number(list_len(l), 0)
 }
