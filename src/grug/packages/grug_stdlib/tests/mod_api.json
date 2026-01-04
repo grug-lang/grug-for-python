@@ -590,6 +590,20 @@
                 }
             ]
         },
+        "list_number_has": {
+            "description": "Returns whether the number value is in the List.",
+            "return_type": "bool",
+            "arguments": [
+                {
+                    "name": "list",
+                    "type": "List"
+                },
+                {
+                    "name": "value",
+                    "type": "number"
+                }
+            ]
+        },
         "list_number_index": {
             "description": "Return the zero-based index of the first occurrence of n in the list.",
             "return_type": "number",

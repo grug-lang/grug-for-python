@@ -1,0 +1,5 @@
+on_run() {
+    l: List = list()
+    list_number_append(l, 42)
+    assert_bool(list_number_has(l, 42), true)
+}

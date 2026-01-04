@@ -143,6 +143,10 @@ def list_copy(l: List[object]) -> List[object]:
     return l.copy()
 
 
+def list_has(l: List[object], value: object) -> bool:
+    return value in l
+
+
 def list_extend(lst1: List[object], lst2: List[object]):
     lst1.extend(lst2)
 
@@ -345,6 +349,7 @@ def list_fns() -> List[Callable[..., Any]]:
     for value_type in VALUE_TYPES:
         fns.append(wrap(list_append, f"list_{value_type}_append"))
         fns.append(wrap(list_count, f"list_{value_type}_count"))
+        fns.append(wrap(list_has, f"list_{value_type}_has"))
         fns.append(wrap(list_index, f"list_{value_type}_index"))
         fns.append(wrap(list_insert, f"list_{value_type}_insert"))
         fns.append(wrap(list_pop, f"list_{value_type}_pop"))
