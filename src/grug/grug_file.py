@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from grug.frontend import HelperFn, OnFn, VariableStatement
 from grug.game_fn import GameFn
+from grug.parser import HelperFn, OnFn, VariableStatement
 
 if TYPE_CHECKING:
     from grug.grug_state import GrugState

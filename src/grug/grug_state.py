@@ -4,13 +4,14 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Callable, Dict, Sequence, cast
 
-from grug.game_fn import GameFn
-from grug.grug_dir import GrugDir
-from grug.grug_file import GrugFile
-from grug.grug_package import GrugPackage
-
-from .frontend import Frontend, HelperFn, OnFn, Parser, Tokenizer, VariableStatement
+from .game_fn import GameFn
+from .grug_dir import GrugDir
+from .grug_file import GrugFile
+from .grug_package import GrugPackage
+from .parser import HelperFn, OnFn, Parser, VariableStatement
 from .serializer import Serializer
+from .tokenizer import Tokenizer
+from .type_propagator import TypePropagator
 
 
 class GrugRuntimeErrorType(Enum):
@@ -57,8 +58,6 @@ class GrugState:
         self.mods_dir_path = mods_dir_path
 
         self.on_fn_time_limit_ms = on_fn_time_limit_ms
-
-        self.frontend = Frontend(self.mod_api)
 
         self.game_fns: Dict[str, GameFn] = {}
         self._add_game_fns_from_packages(packages)
@@ -165,7 +164,6 @@ class GrugState:
         self.game_fns[name] = fn
 
     def compile_grug_file(self, grug_file_relative_path: str):
-        """Read a file and pass its contents to the frontend."""
         mod = Path(grug_file_relative_path).parts[0]
 
         grug_file_absolute_path = Path(self.mods_dir_path) / grug_file_relative_path
@@ -173,7 +171,11 @@ class GrugState:
 
         entity_type = self._get_file_entity_type(Path(grug_file_relative_path).name)
 
-        ast = self.frontend.compile_grug_file(text, mod, entity_type)
+        tokens = Tokenizer(text).tokenize()
+
+        ast = Parser(tokens).parse()
+
+        TypePropagator(ast, mod, entity_type, self.mod_api).fill()
 
         global_variables = [s for s in ast if isinstance(s, VariableStatement)]
 

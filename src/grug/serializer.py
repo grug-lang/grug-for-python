@@ -2,7 +2,7 @@ import json
 from io import StringIO
 from typing import Any, Dict, List, Union
 
-from .frontend import (
+from .parser import (
     Argument,
     Ast,
     BinaryExpr,

@@ -5,7 +5,7 @@ from grug.grug_file import GrugFile
 from grug.grug_state import GrugRuntimeErrorType
 from grug.grug_value import GrugValue
 
-from .frontend import (
+from .parser import (
     BinaryExpr,
     BreakStatement,
     CallExpr,
