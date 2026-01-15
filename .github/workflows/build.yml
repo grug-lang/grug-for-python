@@ -8,6 +8,10 @@ jobs:
   typecheck:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        python-version: [3.7.17, 3.11.9]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -18,52 +22,52 @@ jobs:
           sudo apt-get install -y \
             build-essential zlib1g-dev libssl-dev libbz2-dev \
             libreadline-dev libsqlite3-dev libffi-dev liblzma-dev \
-            libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev curl
+            libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev \
+            curl cmake
 
           curl https://pyenv.run | bash
 
       # Install Python versions
-      - name: Install Python 3.7.17 and 3.11.9
+      - name: Install Python
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
-          pyenv install -s 3.7.17
-          pyenv install -s 3.11.9
+          pyenv install -s ${{ matrix.python-version }}
 
-      # Run on Python 3.7
-      - name: Run Pyright and Examples/Tests on Python 3.7
+      # Clone and build grug-tests
+      - name: Build grug-tests
+        run: |
+          git clone https://github.com/grug-lang/grug-tests
+          cd grug-tests
+          git checkout development
+          cmake -S . -B build
+          cmake --build build
+
+      # Run tests
+      - name: Run Pyright and Tests (Python ${{ matrix.python-version }})
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
-          pyenv global 3.7.17
+          pyenv global ${{ matrix.python-version }}
           python --version
 
           pip install --upgrade pip --user
           pip install pyright pytest --user
-          pip install tomli importlib-metadata --user
+
+          # Extra deps for 3.7
+          if [[ "${{ matrix.python-version }}" == "3.7.17" ]]; then
+            pip install tomli importlib-metadata --user
+          fi
+
           pip install -e .[dev]
 
           # Type check
-          pyright --pythonversion 3.7
+          pyright --pythonversion ${{ matrix.python-version%%.* }}
 
+          # Existing test runner
           python tests.py
 
-      # Run on Python 3.11
-      - name: Run Pyright and Examples/Tests on Python 3.11
-        run: |
-          export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
-
-          pyenv global 3.11.9
-          python --version
-
-          pip install --upgrade pip --user
-          pip install pyright pytest --user
-          pip install -e .[dev]
-
-          # Type check
-          pyright --pythonversion 3.11
-
-          python tests.py
+          # grug-tests
+          pytest --grug-tests-path=./grug-tests -s -v
