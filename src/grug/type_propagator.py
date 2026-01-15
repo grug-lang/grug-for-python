@@ -131,10 +131,10 @@ class TypePropagator:
 
     def are_incompatible_types(
         self,
-        first_type: Type,
-        first_type_name: str,
-        second_type: Type,
-        second_type_name: str,
+        first_type: Optional[Type],
+        first_type_name: Optional[str],
+        second_type: Optional[Type],
+        second_type_name: Optional[str],
     ): 
         if first_type != second_type:
             return True
@@ -428,8 +428,6 @@ class TypePropagator:
                 raise TypePropagationError(f"The variable '{stmt.name}' already exists")
 
             if self.are_incompatible_types(stmt.type, stmt.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
-            # if not (stmt.type_name == "id" and stmt.expr.result.type ==
-            #         Type.ID) and stmt.type_name != stmt.expr.result.type_name:
                 raise TypePropagationError(
                     f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                 )
@@ -444,9 +442,7 @@ class TypePropagator:
             if stmt.name in self.global_variables and var.type == Type.ID:
                 raise TypePropagationError("Global id variables can't be reassigned")
 
-            # if self.are_incompatible_types(var.type, var.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
-            if not (var.type_name == "id" and stmt.expr.result.type ==
-                    Type.ID) and var.type_name != stmt.expr.result.type_name:
+            if self.are_incompatible_types(var.type, var.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
                 raise TypePropagationError(
                     f"Can't assign {stmt.expr.result.type_name} to '{var.name}', which has type {var.type_name}"
                 )
@@ -480,8 +476,7 @@ class TypePropagator:
                             f"Function '{self.filled_fn_name}' wasn't supposed to return any value"
                         )
 
-                    if not (self.fn_return_type_name == "id" and stmt.value.result.type ==
-                        Type.ID) and self.fn_return_type_name != stmt.value.result.type_name:
+                    if self.are_incompatible_types(self.fn_return_type, self.fn_return_type_name, stmt.value.result.type, stmt.value.result.type_name):
                         raise TypePropagationError(
                             f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name}, not {stmt.value.result.type_name}"
                         )
@@ -619,9 +614,7 @@ class TypePropagator:
                             "Global variables can't be assigned 'me'"
                         )
 
-                # if self.are_incompatible_types(stmt.type, stmt.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
-                if not (stmt.type_name == "id" and stmt.expr.result.type ==
-                    Type.ID) and stmt.type_name != stmt.expr.result.type_name:
+                if self.are_incompatible_types(stmt.type, stmt.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
                     raise TypePropagationError(
                         f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                     )
