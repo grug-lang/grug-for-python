@@ -129,18 +129,19 @@ class TypePropagator:
         var = Variable(name, var_type, type_name)
         self.local_variables[name] = var
 
-    def is_wrong_type(
+    def are_incompatible_types(
         self,
-        a: Optional[Type],
-        b: Optional[Type],
-        a_name: Optional[str],
-        b_name: Optional[str],
-    ):
-        if a != b:
+        first_type: Optional[Type],
+        first_type_name: Optional[str],
+        second_type: Optional[Type],
+        second_type_name: Optional[str],
+    ): 
+        if first_type != second_type:
             return True
-        if a != Type.ID:
+        if (first_type_name == "id" and second_type ==
+            Type.ID) or first_type_name == second_type_name:
             return False
-        return a_name != b_name
+        return True
 
     def validate_entity_string(self, string: str):
         if not string:
@@ -280,12 +281,7 @@ class TypePropagator:
                     f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got a function call that doesn't return anything"
                 )
 
-            if param.type_name != "id" and self.is_wrong_type(
-                arg.result.type,
-                param.type,
-                arg.result.type_name,
-                param.type_name,
-            ):
+            if self.are_incompatible_types(param.type, param.type_name, arg.result.type, arg.result.type_name):
                 raise TypePropagationError(
                     f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got {arg.result.type_name}"
                 )
@@ -344,12 +340,7 @@ class TypePropagator:
                 )
 
         is_id = left.result.type_name == "id" or right.result.type_name == "id"
-        if not is_id and self.is_wrong_type(
-            left.result.type,
-            right.result.type,
-            left.result.type_name,
-            right.result.type_name,
-        ):
+        if not is_id and left.result.type_name != right.result.type_name:
             raise TypePropagationError(
                 f"The left and right operand of a binary expression ('{op_name}') must have the same type, but got {left.result.type_name} and {right.result.type_name}"
             )
@@ -436,12 +427,7 @@ class TypePropagator:
             if var:
                 raise TypePropagationError(f"The variable '{stmt.name}' already exists")
 
-            if stmt.type_name != "id" and self.is_wrong_type(
-                stmt.type,
-                stmt.expr.result.type,
-                stmt.type_name,
-                stmt.expr.result.type_name,
-            ):
+            if self.are_incompatible_types(stmt.type, stmt.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
                 raise TypePropagationError(
                     f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                 )
@@ -456,12 +442,7 @@ class TypePropagator:
             if stmt.name in self.global_variables and var.type == Type.ID:
                 raise TypePropagationError("Global id variables can't be reassigned")
 
-            if var.type_name != "id" and self.is_wrong_type(
-                var.type,
-                stmt.expr.result.type,
-                var.type_name,
-                stmt.expr.result.type_name,
-            ):
+            if self.are_incompatible_types(var.type, var.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
                 raise TypePropagationError(
                     f"Can't assign {stmt.expr.result.type_name} to '{var.name}', which has type {var.type_name}"
                 )
@@ -495,12 +476,7 @@ class TypePropagator:
                             f"Function '{self.filled_fn_name}' wasn't supposed to return any value"
                         )
 
-                    if self.fn_return_type_name != "id" and self.is_wrong_type(
-                        stmt.value.result.type,
-                        self.fn_return_type,
-                        stmt.value.result.type_name,
-                        self.fn_return_type_name,
-                    ):
+                    if self.are_incompatible_types(self.fn_return_type, self.fn_return_type_name, stmt.value.result.type, stmt.value.result.type_name):
                         raise TypePropagationError(
                             f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name}, not {stmt.value.result.type_name}"
                         )
@@ -591,12 +567,7 @@ class TypePropagator:
                         f"Function '{expected_fn_name}' its '{arg.name}' parameter was supposed to be named '{param['name']}'"
                     )
 
-                if self.is_wrong_type(
-                    arg.type,
-                    Parser.parse_type(param["type"]),
-                    arg.type_name,
-                    param["type"],
-                ):
+                if arg.type_name != param["type"]:
                     raise TypePropagationError(
                         f"Function '{expected_fn_name}' its '{param['name']}' parameter was supposed to have the type {param['type']}, but got {arg.type_name}"
                     )
@@ -643,12 +614,7 @@ class TypePropagator:
                             "Global variables can't be assigned 'me'"
                         )
 
-                if stmt.type_name != "id" and self.is_wrong_type(
-                    stmt.type,
-                    stmt.expr.result.type,
-                    stmt.type_name,
-                    stmt.expr.result.type_name,
-                ):
+                if self.are_incompatible_types(stmt.type, stmt.type_name, stmt.expr.result.type, stmt.expr.result.type_name):
                     raise TypePropagationError(
                         f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                     )
