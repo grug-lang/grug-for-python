@@ -56,18 +56,19 @@ jobs:
           pip install --upgrade pip --user
           pip install pyright pytest --user
 
-          # Extra deps for 3.7
           if [[ "${{ matrix.python-version }}" == "3.7.17" ]]; then
             pip install tomli importlib-metadata --user
           fi
 
           pip install -e .[dev]
 
-          # Type check
-          pyright --pythonversion ${{ matrix.python-version%%.* }}
+          PY_MAJOR_MINOR=$(python - <<'EOF'
+          import sys
+          print(f"{sys.version_info.major}.{sys.version_info.minor}")
+          EOF
+          )
 
-          # Existing test runner
+          pyright --pythonversion "$PY_MAJOR_MINOR"
+
           python tests.py
-
-          # grug-tests
           pytest --grug-tests-path=./grug-tests -s -v
