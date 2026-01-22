@@ -389,16 +389,19 @@ class Entity:
         if not game_fn:
             raise KeyError(f"Unknown game function '{name}'")
 
+        parent_fn_name = self.fn_name
         try:
             result = game_fn(*args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
-                self.fn_name,
+                parent_fn_name,
                 self.file.relative_path,
             )
             raise ReraisedGameFnError()
+        finally:
+            self.fn_name = parent_fn_name
 
         t = self.game_fn_return_types[name]
         if t is None:
