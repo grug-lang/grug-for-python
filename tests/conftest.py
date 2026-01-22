@@ -5,6 +5,8 @@ from typing import Optional, cast
 import pytest
 from test_grug import GrugValueUnion
 
+import sys
+
 # Callback type definitions
 compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
 init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None)
@@ -62,9 +64,16 @@ def whitelisted_test(request: pytest.FixtureRequest) -> Optional[str]:
 @pytest.fixture(scope="session")
 def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
     """
-    Loads tests.so and sets argument signatures.
+    Loads tests.so and sets argument signatures
     """
-    lib_path = grug_tests_path / "build/libtests.so"
+    
+    if sys.platform == "win32":
+        lib_path = grug_tests_path / "build/tests.dll"
+    elif sys.platform == "linux":
+        lib_path = grug_tests_path / "build/libtests.so"
+    else:
+        raise Exception("Unknown operating system")
+
     if not lib_path.is_file():
         pytest.exit(f"Error: Shared library not found: {lib_path}")
 
