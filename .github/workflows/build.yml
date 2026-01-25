@@ -89,9 +89,8 @@ jobs:
           mkdir -p in
           echo -n a > in/seed
 
-          # Run fuzzing for 2 minutes
-          # afl-fuzz for some reason doesn't gracefully exit, so we time out its own shell
-          timeout 120s bash -c "afl-fuzz -i in -o out -n -- python3 fuzz.py"
+          # Run AFL++ for 2 minutes, forcibly killed after 10s if it overhangs
+          timeout --kill-after=10s 120s afl-fuzz -i in -o out -n -- python3 fuzz.py || true
 
           # Fail CI if crashes or hangs were found
           CRASH_COUNT=$(ls -1 out/crashes/id:* 2>/dev/null | wc -l)
