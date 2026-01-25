@@ -90,4 +90,4 @@ jobs:
           echo -n a > in/seed
 
           # Run fuzzing for 2 minutes
-          timeout 120 afl-fuzz -i in -o out -n -- python3 fuzz.py
+          afl-fuzz -i in -o out -n -V 120 -- python3 fuzz.py
