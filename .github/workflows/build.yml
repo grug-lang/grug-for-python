@@ -92,13 +92,22 @@ jobs:
           # Run AFL++ for 2 minutes, forcibly killed after 10s if it overhangs
           timeout --kill-after=10s 120s afl-fuzz -i in -o out -n -- python3 fuzz.py || true
 
-          # Fail CI if crashes or hangs were found
+          # Count crashes and hangs
           CRASH_COUNT=$(ls -1 out/crashes/id:* 2>/dev/null | wc -l)
           HANG_COUNT=$(ls -1 out/hangs/id:* 2>/dev/null | wc -l)
 
+          # Upload artifacts if any crashes or hangs exist
           if [ "$CRASH_COUNT" -gt 0 ] || [ "$HANG_COUNT" -gt 0 ]; then
             echo "❌ AFL found crashes or hangs"
             echo "Crashes: $CRASH_COUNT"
             echo "Hangs: $HANG_COUNT"
+
+            # Upload all AFL output as artifact
+            tar -czf afl-results.tar.gz out/
+            echo "Uploading AFL crash/hang artifacts..."
+            echo "name=afl-results" >> $GITHUB_ENV
+            echo "path=afl-results.tar.gz" >> $GITHUB_ENV
+
             exit 1
           fi
+
