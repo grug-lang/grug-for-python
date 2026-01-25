@@ -1,4 +1,4 @@
-name: Type Check
+name: Test
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
             build-essential zlib1g-dev libssl-dev libbz2-dev \
             libreadline-dev libsqlite3-dev libffi-dev liblzma-dev \
             libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev \
-            curl cmake
+            curl cmake git wget
 
           curl https://pyenv.run | bash
 
@@ -74,3 +74,17 @@ jobs:
 
           python tests.py
           pytest --grug-tests-path=./grug-tests -s -v
+
+      # Run AFL++ fuzzing (only on Python 3.7.17)
+      - name: Run AFL++ Fuzzing
+        if: matrix.python-version == '3.7.17'
+        run: |
+          # Install AFL++
+          sudo apt-get install -y afl
+
+          # Create a tiny seed corpus
+          mkdir -p in
+          echo -n a > in/seed
+
+          # Run fuzzing for 2 minutes
+          timeout 120 afl-fuzz -i in -o out -n -- python3 fuzz.py
