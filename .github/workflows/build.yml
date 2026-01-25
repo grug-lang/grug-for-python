@@ -80,7 +80,7 @@ jobs:
         if: matrix.python-version == '3.7.17'
         run: |
           # Install AFL++
-          sudo apt-get install -y afl
+          sudo apt-get install -y afl++
 
           # Create a tiny seed corpus
           mkdir -p in
