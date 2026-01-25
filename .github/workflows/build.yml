@@ -99,9 +99,13 @@ jobs:
           echo "Crashes: $CRASH_COUNT"
           echo "Hangs: $HANG_COUNT"
 
-          # Fail if any crash or hang
+          # If there are any crashes/hangs, fail and create a tarball for upload
           if [ "$CRASH_COUNT" -gt 0 ] || [ "$HANG_COUNT" -gt 0 ]; then
             echo "❌ AFL found crashes or hangs"
+
+            # Create a tarball of the entire AFL output
+            tar -czf afl-results.tar.gz out/
+
             exit 1
           fi
 
@@ -111,4 +115,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: afl-results
-          path: out/
+          path: afl-results.tar.gz
