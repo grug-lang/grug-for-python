@@ -96,18 +96,19 @@ jobs:
           CRASH_COUNT=$(ls -1 out/crashes/id:* 2>/dev/null | wc -l)
           HANG_COUNT=$(ls -1 out/hangs/id:* 2>/dev/null | wc -l)
 
-          # Upload artifacts if any crashes or hangs exist
+          echo "Crashes: $CRASH_COUNT"
+          echo "Hangs: $HANG_COUNT"
+
+          # Fail if any crash or hang
           if [ "$CRASH_COUNT" -gt 0 ] || [ "$HANG_COUNT" -gt 0 ]; then
             echo "❌ AFL found crashes or hangs"
-            echo "Crashes: $CRASH_COUNT"
-            echo "Hangs: $HANG_COUNT"
-
-            # Upload all AFL output as artifact
-            tar -czf afl-results.tar.gz out/
-            echo "Uploading AFL crash/hang artifacts..."
-            echo "name=afl-results" >> $GITHUB_ENV
-            echo "path=afl-results.tar.gz" >> $GITHUB_ENV
-
             exit 1
           fi
 
+      # Upload AFL artifacts only if there were crashes or hangs
+      - name: Upload AFL artifacts
+        if: failure()  # only runs if the previous step failed
+        uses: actions/upload-artifact@v4
+        with:
+          name: afl-results
+          path: out/
