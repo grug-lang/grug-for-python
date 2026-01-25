@@ -82,6 +82,9 @@ jobs:
           # Install AFL++
           sudo apt-get install -y afl++
 
+          # Silences AFL++ core dump notification complaint
+          echo core | sudo tee /proc/sys/kernel/core_pattern
+
           # Create a tiny seed corpus
           mkdir -p in
           echo -n a > in/seed
