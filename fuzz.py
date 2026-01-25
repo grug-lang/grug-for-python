@@ -1,8 +1,12 @@
 import os
 import sys
 
-data = sys.stdin.buffer.read()
+BUF_SIZE = 4096
 
-if data == b"ab":
-    print("python: crash!", file=sys.stderr)
-    os.abort()
+while True:
+    data = sys.stdin.buffer.read(BUF_SIZE)
+    if not data:
+        break
+    if data == b"ab":
+        print("python: crash!", file=sys.stderr)
+        os.abort()
