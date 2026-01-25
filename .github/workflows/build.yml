@@ -90,7 +90,8 @@ jobs:
           echo -n a > in/seed
 
           # Run fuzzing for 2 minutes
-          afl-fuzz -i in -o out -n -V 120 -- python3 fuzz.py
+          # afl-fuzz for some reason doesn't gracefully exit, so we time out its own shell
+          timeout --kill-after=10s 120s bash -c "afl-fuzz -i in -o out -n -- python3 fuzz.py"
 
           # Fail CI if crashes or hangs were found
           CRASH_COUNT=$(ls -1 out/crashes/id:* 2>/dev/null | wc -l)
