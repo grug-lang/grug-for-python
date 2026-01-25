@@ -91,3 +91,14 @@ jobs:
 
           # Run fuzzing for 2 minutes
           afl-fuzz -i in -o out -n -V 120 -- python3 fuzz.py
+
+          # Fail CI if crashes or hangs were found
+          CRASH_COUNT=$(ls -1 out/crashes/id:* 2>/dev/null | wc -l)
+          HANG_COUNT=$(ls -1 out/hangs/id:* 2>/dev/null | wc -l)
+
+          if [ "$CRASH_COUNT" -gt 0 ] || [ "$HANG_COUNT" -gt 0 ]; then
+            echo "❌ AFL found crashes or hangs"
+            echo "Crashes: $CRASH_COUNT"
+            echo "Hangs: $HANG_COUNT"
+            exit 1
+          fi
