@@ -46,6 +46,22 @@ jobs:
           cmake -S . -B build
           cmake --build build
 
+      # Create corpus from grug-tests/tests
+      - name: Build .grug corpus from tests/
+        run: |
+          mkdir -p corpus
+
+          # Collect all .grug files from tests/*/*/*.grug
+          find grug-tests/tests -path "*/results/applied.grug" -prune -o \
+            -path "grug-tests/tests/*/*/*.grug" -type f -print | while read f; do
+              # flatten path into unique filename
+              flat_name=$(echo "$f" | sed 's|/|_|g')
+              cp "$f" "corpus/$flat_name"
+            done
+
+          echo "Corpus size:"
+          ls corpus | wc -l
+
       # Run tests
       - name: Run Pyright and Tests (Python ${{ matrix.python-version }})
         run: |
@@ -85,12 +101,8 @@ jobs:
           # Silences AFL++ core dump notification complaint
           echo core | sudo tee /proc/sys/kernel/core_pattern
 
-          # Create a tiny seed corpus
-          mkdir -p in
-          echo -n a > in/seed
-
           # Run AFL++ for 2 minutes, forcibly killed after 10s if it overhangs
-          timeout --kill-after=10s 120s afl-fuzz -i in -o out -n -- python3 fuzz.py || true
+          timeout --kill-after=10s 600s afl-fuzz -i corpus -o out -n -- python3 fuzz.py || true
 
           # Count crashes and hangs
           CRASH_COUNT=$(ls -1 out/crashes/id:* 2>/dev/null | wc -l)
