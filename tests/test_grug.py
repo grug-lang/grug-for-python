@@ -239,6 +239,7 @@ class GameFnRegistrator:
         self._register_value("has_entity")
         self._register_value("has_string")
         self._register_value_argless("get_opponent")
+        self._register_value_argless("get_os")
         self._register_void("set_d")
         self._register_void("set_opponent")
         self._register_void("motherload")
