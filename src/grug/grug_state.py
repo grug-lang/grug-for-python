@@ -2,7 +2,7 @@ import json
 import sys
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, Sequence, cast, Optional
+from typing import Any, Callable, Dict, Sequence, cast, Optional, List
 from dataclasses import dataclass, field
 from grug.grug_value import GrugValue
 
@@ -21,7 +21,7 @@ GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
 
 class GrugPackage:
-    def __init__(self, *, prefix: str, game_fns: Sequence[GameFn]):
+    def __init__(self, *, prefix: str, game_fns: Sequence["GameFn"]):
         self.prefix = prefix
         self.game_fns = game_fns
 
@@ -41,10 +41,10 @@ class GrugFile:
     global_variables: List[VariableStatement]
     on_fns: Dict[str, OnFn]
     helper_fns: Dict[str, HelperFn]
-    game_fns: Dict[str, GameFn]
+    game_fns: Dict[str, "GameFn"]
     game_fn_return_types: Dict[str, Optional[str]]
 
-    state: GrugState
+    state: "GrugState"
 
     def create_entity(self):
         from grug.entity import Entity
@@ -57,7 +57,7 @@ class GrugDir:
 
     name: str
     files: Dict[str, GrugFile] = field(default_factory=lambda: {})
-    dirs: Dict[str, GrugDir] = field(default_factory=lambda: {})
+    dirs: Dict[str, "GrugDir"] = field(default_factory=lambda: {})
 
 def default_runtime_error_handler(
     reason: str,
@@ -95,7 +95,7 @@ class GrugState:
 
         self.on_fn_time_limit_ms = on_fn_time_limit_ms
 
-        self.game_fns: Dict[str, GameFn] = {}
+        self.game_fns: Dict[str, "GameFn"] = {}
         self._add_game_fns_from_packages(packages)
 
         self.next_id = 0
@@ -191,12 +191,12 @@ class GrugState:
                 )
                 self._register_game_fn(name, game_fn)
 
-    def game_fn(self, fn: GameFn) -> GameFn:
+    def game_fn(self, fn: "GameFn") -> "GameFn":
         """Decorator for game functions."""
         self._register_game_fn(fn.__name__, fn)
         return fn
 
-    def _register_game_fn(self, name: str, fn: GameFn):
+    def _register_game_fn(self, name: str, fn: "GameFn"):
         self.game_fns[name] = fn
 
     def compile_grug_file(self, grug_file_relative_path: str):

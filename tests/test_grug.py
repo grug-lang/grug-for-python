@@ -77,26 +77,28 @@ def test_grug(
     global _g_grug_lib
     _g_grug_lib = grug_lib
 
-    state = None
+    state: Optional[GrugState] = None
 
     grug_file: Optional[GrugFile] = None
     grug_entity: Optional[Entity] = None
 
-    @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p)
-    def compile_grug_file(state_int: int, path: bytes) -> Optional[bytes]:
+    @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p)
+    def compile_grug_file(state_ptr: int, path: bytes) -> Optional[bytes]:
         nonlocal grug_file
         try:
+            assert state
             grug_file = state.compile_grug_file(path.decode())
         except Exception as e:
             return str(e).encode()
         return None
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_size_t)
-    def init_globals_fn_dispatcher(state_int: int) -> None:
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+    def init_globals_fn_dispatcher(state_ptr: int) -> None:
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
 
+            assert state
             state.next_id = 42
 
             nonlocal grug_entity
@@ -111,8 +113,8 @@ def test_grug(
 
     on_fn_name: Optional[str] = None
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_size_t, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion))
-    def on_fn_dispatcher(state_int: int, c_on_fn_name: bytes, c_args: List[GrugValueUnion]) -> None:
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion))
+    def on_fn_dispatcher(state_ptr: int, c_on_fn_name: bytes, c_args: List[GrugValueUnion]) -> None:
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
@@ -142,16 +144,18 @@ def test_grug(
         except Exception:
             traceback.print_exc(file=sys.stderr)
 
-    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p)
-    def dump_file_to_json(state_int: int, input_grug_path: bytes, output_json_path: bytes) -> bool:
+    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
+    def dump_file_to_json(state_ptr: int, input_grug_path: bytes, output_json_path: bytes) -> bool:
+        assert state
         return state.dump_file_to_json(
             input_grug_path.decode(), output_json_path.decode()
         )
 
-    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p)
+    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def generate_file_from_json(
-        state_int: int, input_json_path: bytes, output_grug_path: bytes
+        state_ptr: int, input_json_path: bytes, output_grug_path: bytes
     ) -> bool:
+        assert state
         return state.generate_file_from_json(
             input_json_path.decode(), output_grug_path.decode()
         )
@@ -171,6 +175,7 @@ def test_grug(
         # Raise _game_fn_error_reason if it's not None
         if _game_fn_error_reason is not None:
             reason = _game_fn_error_reason
+            assert state
             self.state.runtime_error_handler(
                 reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
@@ -186,12 +191,12 @@ def test_grug(
     # Patch the method for testing
     Entity._run_game_fn = _test_run_game_fn  # pyright: ignore[reportPrivateUsage]
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_size_t, ctypes.c_char_p)
-    def game_fn_error(state_int: int, reason: bytes) -> None:
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
+    def game_fn_error(state_ptr: int, reason: bytes) -> None:
         nonlocal _game_fn_error_reason
         _game_fn_error_reason = ctypes.string_at(reason).decode()
 
-    @ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p)
+    @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
         nonlocal state
         state = grug.init(
@@ -203,9 +208,10 @@ def test_grug(
 
         return 0
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_size_t)
-    def destroy_grug_state(state_int: int):
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+    def destroy_grug_state(state_ptr: int):
         nonlocal state
+        assert state
         state = None
 
     print("\n")
@@ -310,7 +316,7 @@ class GameFnRegistrator:
     def _register_void(self, name: str):
         c_fn = self._get_c_fn(name)
 
-        c_fn.argtypes = (ctypes.c_size_t, ctypes.POINTER(GrugValueUnion),)
+        c_fn.argtypes = (ctypes.c_void_p, ctypes.POINTER(GrugValueUnion),)
         c_fn.restype = None
 
         def fn(state: GrugState, *args: GrugValue):
@@ -324,7 +330,7 @@ class GameFnRegistrator:
     def _register_void_argless(self, name: str):
         c_fn = self._get_c_fn(name)
 
-        c_fn.argtypes = (ctypes.c_size_t, )
+        c_fn.argtypes = (ctypes.c_void_p, )
         c_fn.restype = None
 
         def fn(state: GrugState ,*args: GrugValue):
@@ -337,7 +343,7 @@ class GameFnRegistrator:
     def _register_value(self, name: str):
         c_fn = self._get_c_fn(name)
 
-        c_fn.argtypes = (ctypes.c_size_t, ctypes.POINTER(GrugValueUnion),)
+        c_fn.argtypes = (ctypes.c_void_p, ctypes.POINTER(GrugValueUnion),)
         c_fn.restype = GrugValueWorkaround
 
         return_type = self._get_return_type(name)
@@ -354,12 +360,12 @@ class GameFnRegistrator:
     def _register_value_argless(self, name: str):
         c_fn = self._get_c_fn(name)
 
-        c_fn.argtypes = (ctypes.c_size_t, )
+        c_fn.argtypes = (ctypes.c_void_p, )
         c_fn.restype = GrugValueWorkaround
 
         return_type = self._get_return_type(name)
 
-        def fn(state_int: int ,*args: GrugValue):
+        def fn(state: GrugState,*args: GrugValue):
             result: GrugValueWorkaround = c_fn(0)
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err

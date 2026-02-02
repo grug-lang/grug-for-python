@@ -8,18 +8,18 @@ from test_grug import GrugValueUnion
 import sys
 
 # Callback type definitions
-create_grug_state_t = ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p)
-destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_size_t)
-compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p)
-init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_size_t)
+create_grug_state_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
+destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p)
+init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 on_fn_dispatcher_t = ctypes.CFUNCTYPE(
-    None, ctypes.c_size_t, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion)
+    None, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion)
 )
-dump_file_to_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p)
+dump_file_to_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
 generate_file_from_json_t = ctypes.CFUNCTYPE(
-    ctypes.c_bool, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p
+    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
 )
-game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_size_t, ctypes.c_char_p)
+game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
