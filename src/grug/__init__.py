@@ -1,8 +1,7 @@
 from typing import Optional, Sequence
 
 from grug.entity import GameFnError
-from grug.grug_dir import GrugDir
-from grug.grug_package import GrugPackage
+from grug.grug_state import GrugDir, GrugPackage
 
 from .grug_state import (
     GrugRuntimeErrorHandler,

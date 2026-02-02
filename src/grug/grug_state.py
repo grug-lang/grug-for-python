@@ -2,12 +2,14 @@ import json
 import sys
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, Sequence, cast
+from typing import Any, Callable, Dict, Sequence, cast, Optional
+from dataclasses import dataclass, field
+from grug.grug_value import GrugValue
 
-from .game_fn import GameFn
-from .grug_dir import GrugDir
-from .grug_file import GrugFile
-from .grug_package import GrugPackage
+# from .game_fn import GameFn
+# from .grug_dir import GrugDir
+# from .grug_file import GrugFile
+# from .grug_package import GrugPackage
 from .parser import HelperFn, OnFn, Parser, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
@@ -19,9 +21,47 @@ class GrugRuntimeErrorType(Enum):
     TIME_LIMIT_EXCEEDED = auto()
     GAME_FN_ERROR = auto()
 
-
 GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
+
+class GrugPackage:
+    def __init__(self, *, prefix: str, game_fns: Sequence[GameFn]):
+        self.prefix = prefix
+        self.game_fns = game_fns
+
+    def no_prefix(self):
+        self.prefix = ""
+        return self
+
+    def set_prefix(self, new_prefix: str):
+        self.prefix = new_prefix
+        return self
+
+@dataclass
+class GrugFile:
+    relative_path: str
+    mod: str
+
+    global_variables: List[VariableStatement]
+    on_fns: Dict[str, OnFn]
+    helper_fns: Dict[str, HelperFn]
+    game_fns: Dict[str, GameFn]
+    game_fn_return_types: Dict[str, Optional[str]]
+
+    state: GrugState
+
+    def create_entity(self):
+        from grug.entity import Entity
+
+        return Entity(self)
+
+@dataclass
+class GrugDir:
+    """Represents a directory of grug files and subdirectories."""
+
+    name: str
+    files: Dict[str, GrugFile] = field(default_factory=lambda: {})
+    dirs: Dict[str, GrugDir] = field(default_factory=lambda: {})
 
 def default_runtime_error_handler(
     reason: str,
@@ -344,3 +384,5 @@ class GrugState:
         Path(output_grug_path).write_text(grug_text)
 
         return False
+
+GameFn = Callable[GrugState, Optional[GrugValue]]
