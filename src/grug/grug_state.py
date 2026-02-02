@@ -6,10 +6,6 @@ from typing import Any, Callable, Dict, Sequence, cast, Optional
 from dataclasses import dataclass, field
 from grug.grug_value import GrugValue
 
-# from .game_fn import GameFn
-# from .grug_dir import GrugDir
-# from .grug_file import GrugFile
-# from .grug_package import GrugPackage
 from .parser import HelperFn, OnFn, Parser, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
@@ -385,4 +381,4 @@ class GrugState:
 
         return False
 
-GameFn = Callable[GrugState, Optional[GrugValue]]
+GameFn = Callable[[GrugState], Optional[GrugValue]]

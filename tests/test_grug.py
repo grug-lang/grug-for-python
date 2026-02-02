@@ -191,8 +191,8 @@ def test_grug(
         nonlocal _game_fn_error_reason
         _game_fn_error_reason = ctypes.string_at(reason).decode()
 
-    @ctypes.CFUNCTYPE(ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p)
-    def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> ctypes.c_size_t:
+    @ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p)
+    def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
         nonlocal state
         state = grug.init(
             runtime_error_handler=custom_runtime_error_handler,
@@ -313,7 +313,7 @@ class GameFnRegistrator:
         c_fn.argtypes = (ctypes.c_size_t, ctypes.POINTER(GrugValueUnion),)
         c_fn.restype = None
 
-        def fn(state: Grugstate, *args: GrugValue):
+        def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
             c_fn(0, c_args)
             if _grug_runtime_err is not None:

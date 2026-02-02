@@ -8,7 +8,7 @@ from test_grug import GrugValueUnion
 import sys
 
 # Callback type definitions
-create_grug_state_t = ctypes.CFUNCTYPE(ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p)
+create_grug_state_t = ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p)
 destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_size_t)
 compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p)
 init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_size_t)
