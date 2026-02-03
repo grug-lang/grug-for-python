@@ -1,9 +1,9 @@
 import numpy
 
-from grug import GrugPackage
+from grug import GrugPackage, GrugState
 
 
-def exp(n: float):
+def exp(state: GrugState, n: float):
     return numpy.exp(n)
 
 

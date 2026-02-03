@@ -1,8 +1,7 @@
 import time
 from typing import Dict, List, Optional
 
-from grug.grug_file import GrugFile
-from grug.grug_state import GrugRuntimeErrorType
+from grug.grug_state import GrugRuntimeErrorType, GrugFile
 from grug.grug_value import GrugValue
 
 from .parser import (
@@ -391,7 +390,7 @@ class Entity:
 
         parent_fn_name = self.fn_name
         try:
-            result = game_fn(*args)
+            result = game_fn(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,

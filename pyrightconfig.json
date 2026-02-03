@@ -2,6 +2,7 @@
     "typeCheckingMode": "strict",
     "pythonVersion": "3.7",
     "exclude": [
-        "build"
+        "build",
+		".venv"
     ]
 }
