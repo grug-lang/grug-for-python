@@ -380,5 +380,5 @@ class GrugState:
         Path(output_grug_path).write_text(grug_text)
 
         return False
-
-GameFn = Callable[[GrugState], Optional[GrugValue]]
+        
+GameFn = Callable[..., Optional[GrugValue]]

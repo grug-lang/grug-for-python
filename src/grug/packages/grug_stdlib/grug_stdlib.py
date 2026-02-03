@@ -1,7 +1,7 @@
 import math
 from typing import Any, Callable, Dict, List, Tuple, TypeVar
 
-from grug import GrugPackage
+from grug import GrugPackage, GrugState
 from grug.entity import GameFnError
 
 try:
@@ -15,19 +15,19 @@ except ImportError:
 # --------------------
 
 
-def assert_bool(b1: bool, b2: bool):
+def assert_bool(state: GrugState, b1: bool, b2: bool):
     assert b1 == b2, f"assert_bool failed: {b1} != {b2}"
 
 
-def assert_id(id1: object, id2: object):
+def assert_id(state: GrugState, id1: object, id2: object):
     assert id1 == id2, f"assert_id failed: {id1} != {id2}"
 
 
-def assert_number(n1: float, n2: float):
+def assert_number(state: GrugState, n1: float, n2: float):
     assert n1 == n2, f"assert_number failed: {n1} != {n2}"
 
 
-def assert_string(s1: str, s2: str):
+def assert_string(state: GrugState, s1: str, s2: str):
     assert s1 == s2, f"assert_string failed: '{s1}' != '{s2}'"
 
 
@@ -36,11 +36,11 @@ def assert_string(s1: str, s2: str):
 # --------------------
 
 
-def ceil(n: float) -> float:
+def ceil(state: GrugState, n: float) -> float:
     return float(math.ceil(n))
 
 
-def sqrt(n: float) -> float:
+def sqrt(state: GrugState, n: float) -> float:
     return math.sqrt(n)
 
 
@@ -49,30 +49,30 @@ def sqrt(n: float) -> float:
 # --------------------
 
 
-def id_to_dict(id_: Dict[object, object]) -> Dict[object, object]:
+def id_to_dict(state: GrugState, id_: Dict[object, object]) -> Dict[object, object]:
     return id_
 
 
-def dict_len(d: Dict[object, object]) -> float:
+def dict_len(state: GrugState, d: Dict[object, object]) -> float:
     return float(len(d))
 
 
-def dict_X() -> Dict[object, object]:
+def dict_X(state: GrugState, ) -> Dict[object, object]:
     return {}
 
 
 dict_X.__name__ = "dict"
 
 
-def dict_set(d: Dict[object, object], key: object, val: object):
+def dict_set(state: GrugState, d: Dict[object, object], key: object, val: object):
     d[key] = val
 
 
-def dict_has_key(d: Dict[object, object], key: object) -> bool:
+def dict_has_key(state: GrugState, d: Dict[object, object], key: object) -> bool:
     return key in d
 
 
-def dict_get(d: Dict[object, object], key: object) -> object:
+def dict_get(state: GrugState, d: Dict[object, object], key: object) -> object:
     value = d.get(key)
     if value is None:
         raise GameFnError(
@@ -81,47 +81,47 @@ def dict_get(d: Dict[object, object], key: object) -> object:
     return value
 
 
-def dict_get_default(d: Dict[object, object], key: object, default: object) -> object:
+def dict_get_default(state: GrugState, d: Dict[object, object], key: object, default: object) -> object:
     return d.get(key, default)
 
 
-def dict_set_default(d: Dict[object, object], key: object, val: object) -> object:
+def dict_set_default(state: GrugState, d: Dict[object, object], key: object, val: object) -> object:
     return d.setdefault(key, val)
 
 
-def dict_pop(d: Dict[object, object], key: object) -> object:
+def dict_pop(state: GrugState, d: Dict[object, object], key: object) -> object:
     return d.pop(key)
 
 
-def dict_update(d: Dict[object, object], other: Dict[object, object]):
+def dict_update(state: GrugState, d: Dict[object, object], other: Dict[object, object]):
     d.update(other)
 
 
-def dict_fromkeys(keys: List[object], val: object) -> Dict[object, object]:
+def dict_fromkeys(state: GrugState, keys: List[object], val: object) -> Dict[object, object]:
     return dict.fromkeys(keys, val)
 
 
-def dict_copy(d: Dict[object, object]) -> Dict[object, object]:
+def dict_copy(state: GrugState, d: Dict[object, object]) -> Dict[object, object]:
     return d.copy()
 
 
-def dict_clear(d: Dict[object, object]):
+def dict_clear(state: GrugState, d: Dict[object, object]):
     d.clear()
 
 
-def dict_keys(d: Dict[object, object]) -> List[object]:
+def dict_keys(state: GrugState, d: Dict[object, object]) -> List[object]:
     return list(d.keys())
 
 
-def dict_values(d: Dict[object, object]) -> List[object]:
+def dict_values(state: GrugState, d: Dict[object, object]) -> List[object]:
     return list(d.values())
 
 
-def dict_items(d: Dict[object, object]) -> List[List[object]]:
+def dict_items(state: GrugState, d: Dict[object, object]) -> List[List[object]]:
     return [[k, v] for k, v in d.items()]
 
 
-def dict_popitem(d: Dict[object, object]) -> List[object]:
+def dict_popitem(state: GrugState, d: Dict[object, object]) -> List[object]:
     k, v = d.popitem()
     return [k, v]
 
@@ -131,31 +131,31 @@ def dict_popitem(d: Dict[object, object]) -> List[object]:
 # --------------------
 
 
-def id_to_list(id_: List[object]) -> List[object]:
+def id_to_list(state: GrugState, id_: List[object]) -> List[object]:
     return id_
 
 
-def list_clear(l: List[object]):
+def list_clear(state: GrugState, l: List[object]):
     l.clear()
 
 
-def list_copy(l: List[object]) -> List[object]:
+def list_copy(state: GrugState, l: List[object]) -> List[object]:
     return l.copy()
 
 
-def list_has(l: List[object], value: object) -> bool:
+def list_has(state: GrugState, l: List[object], value: object) -> bool:
     return value in l
 
 
-def list_extend(lst1: List[object], lst2: List[object]):
+def list_extend(state: GrugState, lst1: List[object], lst2: List[object]):
     lst1.extend(lst2)
 
 
-def list_len(l: List[object]) -> float:
+def list_len(state: GrugState, l: List[object]) -> float:
     return float(len(l))
 
 
-def list_reverse(l: List[object]):
+def list_reverse(state: GrugState, l: List[object]):
     l.reverse()
 
 
@@ -166,42 +166,42 @@ class SupportsLessThan(Protocol):
 T = TypeVar("T", bound=SupportsLessThan)
 
 
-def list_sort(l: List[T]):
+def list_sort(state: GrugState, l: List[T]):
     l.sort()
 
 
-def list_X() -> List[object]:
+def list_X(state: GrugState, ) -> List[object]:
     return []
 
 
 list_X.__name__ = "list"
 
 
-def list_append(l: List[object], val: object):
+def list_append(state: GrugState, l: List[object], val: object):
     l.append(val)
 
 
-def list_count(l: List[object], val: object) -> float:
+def list_count(state: GrugState, l: List[object], val: object) -> float:
     return float(l.count(val))
 
 
-def list_index(l: List[object], val: object) -> float:
+def list_index(state: GrugState, l: List[object], val: object) -> float:
     return float(l.index(val))
 
 
-def list_insert(l: List[object], index: float, val: object):
+def list_insert(state: GrugState, l: List[object], index: float, val: object):
     l.insert(int(index), val)
 
 
-def list_pop(l: List[object]):
+def list_pop(state: GrugState, l: List[object]):
     return l.pop()
 
 
-def list_pop_index(l: List[object], index: float):
+def list_pop_index(state: GrugState, l: List[object], index: float):
     return l.pop(int(index))
 
 
-def list_remove(l: List[object], val: object):
+def list_remove(state: GrugState, l: List[object], val: object):
     l.remove(val)
 
 
@@ -210,11 +210,11 @@ def list_remove(l: List[object], val: object):
 # --------------------
 
 
-def print_bool(b: bool):
+def print_bool(state: GrugState, b: bool):
     print(b)
 
 
-def print_id(id: object):
+def print_id(state: GrugState, id: object):
     print(id)
 
 
@@ -224,19 +224,19 @@ def format_number(x: object) -> object:
     return x
 
 
-def print_list(l: List[object]):
+def print_list(state: GrugState, l: List[object]):
     print([format_number(x) for x in l])
 
 
-def print_dict(d: Dict[object, object]):
+def print_dict(state: GrugState, d: Dict[object, object]):
     print({format_number(k): format_number(v) for k, v in d.items()})
 
 
-def print_number(n: float):
+def print_number(state: GrugState, n: float):
     print(int(n) if n.is_integer() else n)
 
 
-def print_string(s: str):
+def print_string(state: GrugState, s: str):
     print(s)
 
 

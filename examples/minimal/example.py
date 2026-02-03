@@ -6,7 +6,7 @@ state = grug.init()
 
 
 @state.game_fn
-def print_string(string: str):
+def print_string(state: grug.GrugState, string: str):
     print(string)
 
 
