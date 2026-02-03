@@ -1,7 +1,6 @@
 import time
 from typing import Dict, List, Optional
 
-# from grug.grug_file import GrugFile
 from grug.grug_state import GrugRuntimeErrorType, GrugFile
 from grug.grug_value import GrugValue
 

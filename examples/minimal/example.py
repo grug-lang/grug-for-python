@@ -1,12 +1,13 @@
 import time
 
 import grug
+from grug import GrugState
 
 state = grug.init()
 
 
 @state.game_fn
-def print_string(state: grug.GrugState, string: str):
+def print_string(state: GrugState, string: str):
     print(string)
 
 
