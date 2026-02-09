@@ -3,6 +3,7 @@
     "pythonVersion": "3.7",
     "exclude": [
         "build",
-		".venv"
+        ".venv",
+        "grug-tests"
     ]
 }
