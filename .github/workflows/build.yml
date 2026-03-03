@@ -106,14 +106,14 @@ jobs:
           pip install -U coverage-badge --user
 
           # Generate badge
-          coverage-badge -o .github/workflows/coverage.svg
+          coverage-badge -o .github/badges/coverage.svg
 
           # Configure Git for committing changes
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           # Commit & push only if the badge changed
-          git add .github/workflows/coverage.svg
+          git add .github/badges/coverage.svg
           if ! git diff --cached --quiet; then
             git commit -m "Update coverage badge"
             git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/grug-lang/grug-for-python.git HEAD:${{ github.ref_name }}
