@@ -106,7 +106,7 @@ jobs:
           pip install -U coverage-badge --user
 
           # Generate badge
-          coverage-badge -o .github/badges/coverage.svg
+          coverage-badge -f -o .github/badges/coverage.svg
 
           # Configure Git for committing changes
           git config --global user.name "github-actions[bot]"
