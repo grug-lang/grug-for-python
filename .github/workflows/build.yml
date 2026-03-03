@@ -93,6 +93,7 @@ jobs:
           coverage report -m
 
       - name: Coverage Badge
+        if: matrix.python-version == '3.11.9'
         uses: tj-actions/coverage-badge-py@v2.0.4
 
       # Run AFL++ fuzzing (only on Python 3.7.17)
