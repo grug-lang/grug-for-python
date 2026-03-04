@@ -3,12 +3,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 COVERAGE_FILE = ROOT / ".coverage"
+RCFILE = ROOT / ".coveragerc"
 
 COVERAGE_BASE_CMD = [
     "coverage",
     "run",
     "--append",
     f"--data-file={COVERAGE_FILE}",
+    f"--rcfile={RCFILE}",
 ]
 
 
