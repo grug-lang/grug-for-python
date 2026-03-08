@@ -283,9 +283,6 @@ class GameFnRegistrator:
         ):
             self._register_fn(name)
 
-    def _get_c_fn(self, name: str):
-        return self.grug_lib["game_fn_" + name]
-
     def _get_c_args(self, *args: GrugValue):
         c_args = (GrugValueUnion * len(args))()
         keepalive: List[bytes] = []
@@ -319,7 +316,7 @@ class GameFnRegistrator:
         return c_to_py_value(value, return_type)
 
     def _register_fn(self, name: str):
-        c_fn = self._get_c_fn(name)
+        c_fn = self.grug_lib["game_fn_" + name]
 
         c_fn.argtypes = (
             ctypes.c_void_p,
