@@ -173,10 +173,14 @@ class Tokenizer:
                 i += 1
                 start = i
                 while i < len(src) and src[i] != '"':
+                    if src[i] == "\0":
+                        raise TokenizerError(
+                            f"Unexpected null byte on line {self.get_character_line_number(i)}"
+                        )
                     i += 1
                 if i >= len(src):
                     raise TokenizerError(
-                        f'Unclosed " on line {self.get_character_line_number(open_quote_index + 1)}'
+                        f'Unclosed " on line {self.get_character_line_number(open_quote_index)}'
                     )
                 tokens.append(Token(TokenType.STRING_TOKEN, src[start:i]))
                 i += 1
@@ -213,6 +217,10 @@ class Tokenizer:
                 i += 1
                 start = i
                 while i < len(src) and src[i] not in "\r\n":
+                    if src[i] == "\0":
+                        raise TokenizerError(
+                            f"Unexpected null byte on line {self.get_character_line_number(i)}"
+                        )
                     i += 1
 
                 comment_len = i - start
@@ -229,7 +237,7 @@ class Tokenizer:
                 tokens.append(Token(TokenType.COMMENT_TOKEN, src[start:i]))
             else:
                 raise TokenizerError(
-                    f"Unrecognized character '{c}' on line {self.get_character_line_number(i + 1)}"
+                    f"Unrecognized character '{c}' on line {self.get_character_line_number(i)}"
                 )
 
         return tokens
@@ -237,7 +245,8 @@ class Tokenizer:
     def get_character_line_number(self, idx: int):
         """
         Calculate the line number for a given character index.
-        Examples:
+
+        Examples: (the character at the index is inside angle brackets)
         "" => 1
         "<a>" => 1
         "a<b>" => 1
