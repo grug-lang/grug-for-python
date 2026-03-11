@@ -213,10 +213,6 @@ class Tokenizer:
                 i += 1
                 start = i
                 while i < len(src) and src[i] not in "\r\n":
-                    if not src[i].isprintable():
-                        raise TokenizerError(
-                            f"Unexpected unprintable character in comment on line {self.get_character_line_number(i + 1)}"
-                        )
                     i += 1
 
                 comment_len = i - start
