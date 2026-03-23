@@ -6,7 +6,7 @@ from grug.entity import GameFnError
 
 try:
     from typing import Protocol  # Python >= 3.8
-except ImportError:
+except ImportError:  # pragma: no cover
     from typing_extensions import Protocol  # Python 3.7
 
 
