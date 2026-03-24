@@ -160,6 +160,7 @@ def test_grug(
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
     def init_globals(state_ptr: int, file_id: int) -> None:
         nonlocal id_map
+        assert state
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
