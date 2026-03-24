@@ -49,7 +49,7 @@ compile_grug_file_t = ctypes.CFUNCTYPE(
     ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)
 )
 init_globals_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
-call_file_event_fn_t = ctypes.CFUNCTYPE(
+call_export_fn_t = ctypes.CFUNCTYPE(
     None,
     ctypes.c_void_p,
     ctypes.c_void_p,
@@ -76,7 +76,7 @@ class GrugStateVTableStruct(ctypes.Structure):
         ("destroy_grug_state", destroy_grug_state_t),
         ("compile_grug_file", compile_grug_file_t),
         ("init_globals", init_globals_t),
-        ("call_file_event_fn", call_file_event_fn_t),
+        ("call_export_fn", call_export_fn_t),
         ("dump_file_to_json", dump_file_to_json_t),
         ("generate_file_from_json", generate_file_from_json_t),
         ("game_fn_error", game_fn_error_t),
@@ -190,7 +190,7 @@ def test_grug(
         ctypes.POINTER(GrugValueUnion),
         ctypes.c_size_t,
     )
-    def call_file_event_fn(
+    def call_export_fn(
         state_ptr: int,
         file_id: int,
         c_on_fn_name: bytes,
@@ -313,7 +313,7 @@ def test_grug(
         destroy_grug_state,
         compile_grug_file,
         init_globals,
-        call_file_event_fn,
+        call_export_fn,
         dump_file_to_json,
         generate_file_from_json,
         game_fn_error,
