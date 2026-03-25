@@ -199,7 +199,6 @@ assert state
         nonlocal id_map
         nonlocal state
         nonlocal current_entity
-        assert state
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
@@ -230,8 +229,6 @@ assert state
             _grug_runtime_err = e
         except Exception:
             traceback.print_exc(file=sys.stderr)
-        finally:
-            state.next_id -= 1
 
     @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def dump_file_to_json(
