@@ -163,13 +163,12 @@ def test_grug(
     def init_globals(state_ptr: int, file_id: int) -> None:
         nonlocal id_map
         nonlocal current_entity
-        assert state
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
 
+assert state
             state.next_id = 42
-            assert state
             grug_file = id_map[file_id]
             assert grug_file
 
