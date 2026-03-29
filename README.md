@@ -114,3 +114,45 @@ python -m build
 python -m pip install --upgrade twine
 python -m twine upload dist/*
 ```
+
+## Fuzzing
+
+```sh
+sudo pacman -S pypy3
+pypy3 -m ensurepip
+pypy3 -m pip install atheris
+```
+
+```sh
+pip install atheris coverage
+```
+
+```sh
+python fuzz.py -atheris_runs=10000000 -max_len=1000
+```
+
+```sh
+coverage run fuzz.py -atheris_runs=10000000 -max_len=1000
+```
+
+```sh
+coverage report -m
+```
+
+```sh
+coverage html
+```
+
+```sh
+mkdir -p corpus
+
+for f in ../grug-tests/tests/{err,err_runtime,ok}/*/*.grug; do
+  rel="${f#../grug-tests/tests/}"      # strip prefix up to tests/
+  new_name="${rel//\//_}"              # replace / with _
+  cp "$f" "corpus/$new_name"
+done
+```
+
+```sh
+coverage run fuzz.py corpus
+```
