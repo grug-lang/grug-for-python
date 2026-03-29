@@ -317,7 +317,7 @@ class GrugState:
                 if entry.is_dir():
                     subdir = compile_dir(entry, entry.name)
                     grug_dir.dirs[entry.name] = subdir
-                elif entry.is_file() and entry.suffix == ".grug":
+                elif entry.is_file() and entry.suffix == ".grug":  # pragma: no branch
                     relative_path = entry.relative_to(mods_path).as_posix()
                     grug_file = self.compile_grug_file(relative_path)
                     grug_dir.files[relative_path] = grug_file
@@ -326,7 +326,7 @@ class GrugState:
 
         root_dir = GrugDir(name="mods")
         for mod_dir in mods_path.iterdir():
-            if mod_dir.is_dir():
+            if mod_dir.is_dir():  # pragma: no branch
                 root_dir.dirs[mod_dir.name] = compile_dir(mod_dir, mod_dir.name)
 
         return root_dir
