@@ -290,7 +290,7 @@ class GrugState:
         # The first character must always be uppercase
         if not type_name[0].isupper():
             raise ValueError(
-                f"'{type_name}' seems like a custom ID type, but isn't in PascalCase"
+                f"'{type_name}' seems like a custom ID type, but it doesn't start in Uppercase"
             )
 
         # Custom IDs only consist of uppercase, lowercase characters, and digits
