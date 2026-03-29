@@ -238,7 +238,6 @@ class Parser:
         seen_newline = False
         newline_allowed = False
         newline_required = False
-        just_seen_global = False
 
         i = [0]  # Use a list to allow modification by called functions
         while i[0] < len(self.tokens):
@@ -254,10 +253,6 @@ class Parser:
                     raise ParserError(
                         f"Move the global variable '{token.value}' so it is above the on_ functions"
                     )
-                if newline_required and not just_seen_global:
-                    raise ParserError(
-                        f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
-                    )
 
                 self.ast.append(self.parse_global_variable(i))
 
@@ -265,8 +260,6 @@ class Parser:
 
                 newline_allowed = True
                 newline_required = True
-
-                just_seen_global = True
 
                 continue
 
@@ -299,8 +292,6 @@ class Parser:
                 newline_allowed = True
                 newline_required = True
 
-                just_seen_global = False
-
                 continue
 
             elif (
@@ -326,8 +317,6 @@ class Parser:
                 newline_allowed = True
                 newline_required = True
 
-                just_seen_global = False
-
                 continue
 
             elif tname == "NEWLINE_TOKEN":
@@ -340,8 +329,6 @@ class Parser:
 
                 newline_allowed = False
                 newline_required = False
-
-                just_seen_global = False
 
                 self.ast.append(EmptyLineStatement())
                 i[0] += 1
