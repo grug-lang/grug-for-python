@@ -252,10 +252,7 @@ class GrugState:
         dash_index = grug_filename.find("-")
 
         if dash_index == -1 or dash_index + 1 >= len(grug_filename):
-            raise ValueError(
-                f"'{grug_filename}' is missing an entity type in its name; "
-                f"use a dash to specify it, like 'ak47-gun.grug'"
-            )
+            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
 
         # Find the period after the dash
         period_index = grug_filename.find(".", dash_index + 1)
@@ -268,10 +265,7 @@ class GrugState:
 
         # Check if entity type is empty
         if len(entity_type) == 0:
-            raise ValueError(
-                f"'{grug_filename}' is missing an entity type in its name; "
-                f"use a dash to specify it, like 'ak47-gun.grug'"
-            )
+            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
 
         # Validate PascalCase
         self._check_custom_id_is_pascal(entity_type)
