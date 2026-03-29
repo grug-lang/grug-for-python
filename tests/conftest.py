@@ -3,24 +3,9 @@ from pathlib import Path
 from typing import Optional, cast
 
 import pytest
-from test_grug import GrugValueUnion
+from test_grug import GrugStateVTableStruct
 
 import sys
-
-# Callback type definitions
-create_grug_state_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
-destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-compile_grug_file_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p)
-init_globals_fn_dispatcher_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-on_fn_dispatcher_t = ctypes.CFUNCTYPE(
-    None, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion)
-)
-dump_file_to_json_t = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
-generate_file_from_json_t = ctypes.CFUNCTYPE(
-    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
-)
-game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
-
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
@@ -37,7 +22,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         required=False,
         help="A specific test name to run",
     )
-
 
 @pytest.fixture(scope="session")
 def grug_tests_path(request: pytest.FixtureRequest) -> Path:
@@ -92,14 +76,7 @@ def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
     lib.grug_tests_run.argtypes = [
         ctypes.c_char_p,  # tests_dir_path
         ctypes.c_char_p,  # tests_dir_path
-        create_grug_state_t,
-        destroy_grug_state_t,
-        compile_grug_file_t,
-        init_globals_fn_dispatcher_t,
-        on_fn_dispatcher_t,
-        dump_file_to_json_t,
-        generate_file_from_json_t,
-        game_fn_error_t,
+        GrugStateVTableStruct,
         ctypes.c_char_p,  # whitelisted_test
     ]
     lib.grug_tests_run.restype = None

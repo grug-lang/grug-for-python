@@ -40,6 +40,49 @@ class GrugValueWorkaround(ctypes.Structure):
     _fields_ = [("_blob", ctypes.c_uint64)]
 
 
+# Callback type definitions
+create_grug_state_t = ctypes.CFUNCTYPE(
+    ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+)
+destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+compile_grug_file_t = ctypes.CFUNCTYPE(
+    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)
+)
+init_globals_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+call_export_fn_t = ctypes.CFUNCTYPE(
+    None,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+    ctypes.c_char_p,
+    ctypes.POINTER(GrugValueUnion),
+    ctypes.c_size_t,
+)
+dump_file_to_json_t = ctypes.CFUNCTYPE(
+    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+)
+generate_file_from_json_t = ctypes.CFUNCTYPE(
+    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+)
+game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
+
+
+class GrugStateVTableStruct(ctypes.Structure):
+    """
+    Corresponds to struct grug_state_vtable in tests.h
+    """
+
+    _fields_ = [
+        ("create_grug_state", create_grug_state_t),
+        ("destroy_grug_state", destroy_grug_state_t),
+        ("compile_grug_file", compile_grug_file_t),
+        ("init_globals", init_globals_t),
+        ("call_export_fn", call_export_fn_t),
+        ("dump_file_to_json", dump_file_to_json_t),
+        ("generate_file_from_json", generate_file_from_json_t),
+        ("game_fn_error", game_fn_error_t),
+    ]
+
+
 _g_grug_lib: ctypes.PyDLL
 
 _grug_runtime_err: Optional[
@@ -79,67 +122,106 @@ def test_grug(
 
     state: Optional[GrugState] = None
 
-    grug_file: Optional[GrugFile] = None
-    grug_entity: Optional[Entity] = None
+    id_map: dict[int, GrugFile] = {}
+    path_map: dict[str, int] = {}
 
-    @ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p)
-    def compile_grug_file(state_ptr: int, path: bytes) -> Optional[bytes]:
-        nonlocal grug_file
+    current_entity: Optional[Entity] = None
+
+    @ctypes.CFUNCTYPE(
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_char_p),
+    )
+    def compile_grug_file(
+        state_ptr: int,
+        path: bytes,
+        out_err: ctypes.POINTER(ctypes.c_char_p), # type: ignore
+    ) -> int:
+        nonlocal id_map
+        nonlocal path_map
         try:
             assert state
-            grug_file = state.compile_grug_file(path.decode())
-        except Exception as e:
-            return str(e).encode()
-        return None
+            path_str = path.decode()
+            grug_file = state.compile_grug_file(path_str)
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-    def init_globals_fn_dispatcher(state_ptr: int) -> None:
+            if path_str in path_map:
+                file_id = path_map[path_str]
+                id_map[file_id] = grug_file
+            else:
+                file_id = len(path_map) + 1
+                path_map[path_str] = file_id
+                # sanity check
+                assert file_id not in id_map
+                id_map[file_id] = grug_file
+            return file_id
+        except Exception as e:
+            out_err[0] = str(e).encode()
+            return -1
+
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+    def init_globals(state_ptr: int, file_id: int) -> None:
+        nonlocal id_map
+        nonlocal current_entity
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
 
             assert state
             state.next_id = 42
+            grug_file = id_map[file_id]
+            assert grug_file
 
-            nonlocal grug_entity
-            assert grug_file is not None
-            grug_entity = grug_file.create_entity()
+            current_entity = grug_file.create_entity()
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as propagating exceptions from
             # this CFUNCTYPE function doesn't work.
             _grug_runtime_err = e
         except Exception:
             traceback.print_exc(file=sys.stderr)
-
-    on_fn_name: Optional[str] = None
+        
 
     @ctypes.CFUNCTYPE(
-        None, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(GrugValueUnion)
+        None,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_char_p,
+        ctypes.POINTER(GrugValueUnion),
+        ctypes.c_size_t,
     )
-    def on_fn_dispatcher(
-        state_ptr: int, c_on_fn_name: bytes, c_args: List[GrugValueUnion]
+    def call_export_fn(
+        state_ptr: int,
+        file_id: int,
+        c_on_fn_name: bytes,
+        c_args: List[GrugValueUnion],
+        args_len: int,
     ) -> None:
+        nonlocal id_map
+        nonlocal state
+        nonlocal current_entity
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
 
-            nonlocal on_fn_name
-            on_fn_name = c_on_fn_name.decode()
+            on_fn_name: str = c_on_fn_name.decode()
 
+            grug_file = id_map[file_id]
             assert grug_file
+            assert current_entity
             on_fn_decl = grug_file.on_fns.get(on_fn_name)
             if not on_fn_decl:
                 raise RuntimeError(
                     f"The function '{on_fn_name}' is not defined by the file {grug_file.relative_path}"
                 )
 
+            assert len(on_fn_decl.arguments) == args_len
             args = [
                 c_to_py_value(arg, argument.type_name)
                 for arg, argument in zip(c_args or [], on_fn_decl.arguments)
             ]
 
-            assert grug_entity is not None
-            on_fn = getattr(grug_entity, on_fn_name)
+            assert current_entity is not None
+            on_fn = getattr(current_entity, on_fn_name)
             on_fn(*args)
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as propagating exceptions from
@@ -210,6 +292,7 @@ def test_grug(
             mod_api_path=ctypes.string_at(tests_path).decode(),
             mods_dir_path=ctypes.string_at(mod_api_path).decode(),
         )
+        state.next_id = 42
         GameFnRegistrator(state, grug_lib).register_game_fns()
         return 0
 
@@ -221,17 +304,21 @@ def test_grug(
 
     print("\n")
 
-    grug_lib.grug_tests_run(
-        str(grug_tests_path / "tests").encode(),
-        str(grug_tests_path / "mod_api.json").encode(),
+    grug_state_vtable: GrugStateVTableStruct = GrugStateVTableStruct(
         create_grug_state,
         destroy_grug_state,
         compile_grug_file,
-        init_globals_fn_dispatcher,
-        on_fn_dispatcher,
+        init_globals,
+        call_export_fn,
         dump_file_to_json,
         generate_file_from_json,
         game_fn_error,
+    )
+
+    grug_lib.grug_tests_run(
+        str(grug_tests_path / "tests").encode(),
+        str(grug_tests_path / "mod_api.json").encode(),
+        grug_state_vtable,
         whitelisted_test.encode() if whitelisted_test else None,
     )
 
