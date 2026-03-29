@@ -1,7 +1,7 @@
 import time
 from typing import Dict, List, Optional
 
-from grug.grug_state import GrugRuntimeErrorType, GrugFile
+from grug.grug_state import GrugFile, GrugRuntimeErrorType
 from grug.grug_value import GrugValue
 
 from .parser import (
@@ -97,16 +97,11 @@ class Entity:
 
         self.start_time = time.time()
 
-        # TODO: Add a test to grug-tests for this, containing two .grug files,
-        #       where file 1 spawns file 2, and file 2 has a game fn error.
-        #
-        # TODO: Add examples/game_fn_error.py, to show off a Python game fn raising grug.GameFnError
         try:
             for g in global_variables:
                 self.global_variables[g.name] = self._run_expr(g.expr)
         except (StackOverflow, TimeLimitExceeded, ReraisedGameFnError):
-            if self.state.fn_depth > 1:
-                raise  # Propagate exception
+            pass
         finally:
             self.state.fn_depth = old_fn_depth
 
@@ -348,10 +343,7 @@ class Entity:
         raise Continue()
 
     def _run_helper_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
-        helper_fn = self.file.helper_fns.get(name)
-        if not helper_fn:
-            raise KeyError(f"Unknown helper function '{name}'")
-
+        helper_fn = self.file.helper_fns[name]
         parent_local_variables = self.local_variables
         self.local_variables = {}
 
@@ -384,9 +376,7 @@ class Entity:
         return result
 
     def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
-        game_fn = self.game_fns.get(name)
-        if not game_fn:
-            raise KeyError(f"Unknown game function '{name}'")
+        game_fn = self.game_fns[name]
 
         parent_fn_name = self.fn_name
         try:
