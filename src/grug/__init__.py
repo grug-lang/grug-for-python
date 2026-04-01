@@ -8,6 +8,7 @@ from .grug_state import (
     GrugState,
     default_runtime_error_handler,
 )
+from . import visitor
 
 
 def init(
@@ -27,4 +28,4 @@ def init(
     )
 
 
-__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir"]
+__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "visitor"]
