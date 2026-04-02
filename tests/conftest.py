@@ -65,20 +65,4 @@ def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
 
     lib = ctypes.PyDLL(str(lib_path))
 
-    lib.grug_tests_runtime_error_handler.argtypes = [
-        ctypes.c_char_p,  # reason
-        ctypes.c_int,  # grug_runtime_error_type
-        ctypes.c_char_p,  # on_fn_name
-        ctypes.c_char_p,  # on_fn_path
-    ]
-    lib.grug_tests_runtime_error_handler.restype = None
-
-    lib.grug_tests_run.argtypes = [
-        ctypes.c_char_p,  # tests_dir_path
-        ctypes.c_char_p,  # tests_dir_path
-        GrugStateVTableStruct,
-        ctypes.c_char_p,  # whitelisted_test
-    ]
-    lib.grug_tests_run.restype = None
-
     return lib

@@ -10,12 +10,14 @@ from .parser import HelperFn, OnFn, Parser, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
 from .type_propagator import TypePropagator
+from .visitor import Visitor, T
 
 
 class GrugRuntimeErrorType(Enum):
     STACK_OVERFLOW = 0  # Using auto() here would assign 1
     TIME_LIMIT_EXCEEDED = auto()
     GAME_FN_ERROR = auto()
+
 
 GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
@@ -32,6 +34,7 @@ class GrugPackage:
     def set_prefix(self, new_prefix: str):
         self.prefix = new_prefix
         return self
+
 
 @dataclass
 class GrugFile:
@@ -51,6 +54,7 @@ class GrugFile:
 
         return Entity(self)
 
+
 @dataclass
 class GrugDir:
     """Represents a directory of grug files and subdirectories."""
@@ -58,6 +62,7 @@ class GrugDir:
     name: str
     files: Dict[str, GrugFile] = field(default_factory=lambda: {})
     dirs: Dict[str, "GrugDir"] = field(default_factory=lambda: {})
+
 
 def default_runtime_error_handler(
     reason: str,
@@ -71,11 +76,31 @@ def default_runtime_error_handler(
     )
 
 
+class GrugFileVisitor(Visitor[None]):
+    def __init__(self):
+        self.global_variables: List[VariableStatement] = []
+        self.on_fns: Dict[str, OnFn] = {}
+        self.helper_fns: Dict[str, HelperFn] = {}
+
+    def visit_VariableStatement(self, node: VariableStatement):
+        self.global_variables.append(node)
+
+    def visit_OnFn(self, node: OnFn):
+        self.on_fns[node.fn_name] = node
+
+    def visit_HelperFn(self, node: HelperFn):
+        self.helper_fns[node.fn_name] = node
+
+    def visit(self, node: T):
+        # We only care about the top-level statements, so we don't need to visit the children
+        pass
+
+
 class GrugState:
     def __init__(
         self,
         *,
-        runtime_error_handler: GrugRuntimeErrorHandler,
+        runtime_error_handler: GrugRuntimeErrorHandler = default_runtime_error_handler,
         mod_api_path: str,
         mods_dir_path: str,
         on_fn_time_limit_ms: float,
@@ -213,11 +238,9 @@ class GrugState:
 
         TypePropagator(ast, mod, entity_type, self.mod_api).fill()
 
-        global_variables = [s for s in ast if isinstance(s, VariableStatement)]
-
-        on_fns = {s.fn_name: s for s in ast if isinstance(s, OnFn)}
-
-        helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
+        visitor = GrugFileVisitor()
+        for statement in ast:
+            statement.accept(visitor)
 
         game_fn_return_types = {
             fn_name: fn.get("return_type")
@@ -227,9 +250,9 @@ class GrugState:
         return GrugFile(
             grug_file_relative_path,
             mod,
-            global_variables,
-            on_fns,
-            helper_fns,
+            visitor.global_variables,
+            visitor.on_fns,
+            visitor.helper_fns,
             self.game_fns,
             game_fn_return_types,
             self,
@@ -380,5 +403,5 @@ class GrugState:
         Path(output_grug_path).write_text(grug_text)
 
         return False
-        
+
 GameFn = Callable[..., Optional[GrugValue]]
