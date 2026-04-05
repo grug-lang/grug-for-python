@@ -684,8 +684,7 @@ class Parser:
             )
 
     def decrease_parsing_depth(self):
-        if self.parsing_depth <= 0:
-            raise ParserError("Parsing depth underflow")
+        assert self.parsing_depth > 0
         self.parsing_depth -= 1
 
     def parse_local_variable(self, i: List[int]):
@@ -705,11 +704,9 @@ class Parser:
                 )
 
             self.consume_space(i)
+
+            self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             type_token = self.consume_token(i)
-            if type_token.type != TokenType.WORD_TOKEN:
-                raise ParserError(
-                    f"Expected a word token after the colon on line {self.get_token_line_number(name_token_index)}"
-                )
 
             var_type = Parser.parse_type(type_token.value)
             var_type_name = type_token.value
@@ -750,13 +747,10 @@ class Parser:
             )
 
         self.consume_token_type(i, TokenType.COLON_TOKEN)
-
         self.consume_space(i)
+
+        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
         type_token = self.consume_token(i)
-        if type_token.type != TokenType.WORD_TOKEN:
-            raise ParserError(
-                f"Expected a word token after the colon on line {self.get_token_line_number(name_token_index)}"
-            )
 
         global_type = Parser.parse_type(type_token.value)
         global_type_name = type_token.value
@@ -807,8 +801,6 @@ class Parser:
             return expr
 
         if not isinstance(expr, IdentifierExpr):
-            # TODO: I am pretty sure a grug-tests test needs to be added for this,
-            #       but I should add all missing tests at once using a Python line coverage reporting tool.
             raise ParserError(
                 f"Unexpected '(' after non-identifier at line {self.get_token_line_number(i[0])}"
             )
