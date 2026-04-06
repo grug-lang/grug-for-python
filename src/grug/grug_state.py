@@ -91,7 +91,7 @@ class GrugState:
         with open(mod_api_path) as f:
             raw = json.load(f)
         if not isinstance(raw, dict):
-            exit("Error: mod API JSON root must be an object")
+            raise RuntimeError("Error: mod API JSON root must be an object")
         self.mod_api: Dict[str, Any] = cast(Dict[str, Any], raw)
 
         self._assert_mod_api()
@@ -110,14 +110,16 @@ class GrugState:
     def _assert_mod_api(self):
         entities = self.mod_api.get("entities")
         if not isinstance(entities, dict):
-            exit("Error: 'entities' must be a JSON object")
+            raise RuntimeError("Error: 'entities' must be a JSON object")
 
         entities_dict = cast(Dict[str, Any], entities)
         self._assert_entities_sorted(entities_dict)
 
         for entity_name, entity in entities_dict.items():
             if not isinstance(entity, dict):
-                exit(f"Error: entity '{entity_name}' must be a JSON object")
+                raise RuntimeError(
+                    f"Error: entity '{entity_name}' must be a JSON object"
+                )
 
             entity_dict = cast(Dict[str, Any], entity)
             on_functions = entity_dict.get("on_functions")
@@ -125,7 +127,7 @@ class GrugState:
                 continue
 
             if not isinstance(on_functions, dict):
-                exit(
+                raise RuntimeError(
                     f"Error: 'on_functions' for entity '{entity_name}' must be a JSON object"
                 )
 
@@ -134,7 +136,7 @@ class GrugState:
 
         game_functions = self.mod_api.get("game_functions")
         if not isinstance(game_functions, dict):
-            exit("Error: 'game_functions' must be a JSON object")
+            raise RuntimeError("Error: 'game_functions' must be a JSON object")
 
         game_functions_dict = cast(Dict[str, Any], game_functions)
         self._assert_game_functions_sorted(game_functions_dict)
@@ -146,7 +148,7 @@ class GrugState:
         if keys != sorted_keys:
             for actual, expected in zip(keys, sorted_keys):
                 if actual != expected:
-                    exit(
+                    raise RuntimeError(
                         f"Error: Entities must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
                     )
@@ -161,7 +163,7 @@ class GrugState:
         if keys != sorted_keys:
             for actual, expected in zip(keys, sorted_keys):
                 if actual != expected:
-                    exit(
+                    raise RuntimeError(
                         "Error: on_functions for entity "
                         f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
@@ -175,7 +177,7 @@ class GrugState:
         if keys != sorted_keys:
             for actual, expected in zip(keys, sorted_keys):
                 if actual != expected:
-                    exit(
+                    raise RuntimeError(
                         f"Error: Game functions must be sorted alphabetically in mod_api.json, "
                         f"so {expected}() must come before {actual}()"
                     )
@@ -185,7 +187,7 @@ class GrugState:
         for pkg in packages:
             for game_fn in pkg.game_fns:
                 if game_fn.__name__ in self.game_fns:
-                    exit(
+                    raise RuntimeError(
                         f"Error: Game function '{game_fn.__name__}' has already been registered, so you either registered it twice, or its grug package prefix clashes with another grug package"
                     )
 

@@ -207,17 +207,17 @@ class TypePropagator:
                 f"Replace the '//' with '/' in the resource \"{string}\""
             )
 
-        # Dot '.' check
+        # '.' check
         dot_index = string.find(".")
         if dot_index != -1:
-            # Case 1: String starts with "."
+            # String starts with "."
             if dot_index == 0:
                 if len(string) == 1 or string[1] == "/":
                     raise TypePropagationError(
                         f"Remove the '.' from the resource \"{string}\""
                     )
 
-            # Case 2: A path segment begins with "./"
+            # String starts with "./"
             elif string[dot_index - 1] == "/":
                 # Next must not be "/" or end-of-string
                 if dot_index + 1 == len(string) or string[dot_index + 1] == "/":
@@ -225,17 +225,17 @@ class TypePropagator:
                         f"Remove the '.' from the resource \"{string}\""
                     )
 
-        # Dot dot '..' check
+        # '..' check
         dotdot_index = string.find("..")
         if dotdot_index != -1:
-            # Case 1: String starts with ".."
+            # String starts with ".."
             if dotdot_index == 0:
                 if len(string) == 2 or string[2] == "/":
                     raise TypePropagationError(
                         f"Remove the '..' from the resource \"{string}\""
                     )
 
-            # Case 2: Path segment begins with "../"
+            # String starts with "../"
             elif string[dotdot_index - 1] == "/":
                 # Next must not be "/" or end-of-string
                 if dotdot_index + 2 == len(string) or string[dotdot_index + 2] == "/":
@@ -247,7 +247,6 @@ class TypePropagator:
             raise TypePropagationError(f'resource name "{string}" cannot end with .')
 
         if resource_extension and not string.endswith(resource_extension):
-            # TODO: Add an err/ test for this
             raise TypePropagationError(
                 f"The resource '{string}' was supposed to have the extension '{resource_extension}'"
             )
@@ -366,12 +365,14 @@ class TypePropagator:
                 raise TypePropagationError(f"'{op_name}' operator expects bool")
             expr.result.type = Type.BOOL
             expr.result.type_name = "bool"
-        elif op in (
-            TokenType.PLUS_TOKEN,
-            TokenType.MINUS_TOKEN,
-            TokenType.MULTIPLICATION_TOKEN,
-            TokenType.DIVISION_TOKEN,
-        ):
+        else:
+            assert op in (
+                TokenType.PLUS_TOKEN,
+                TokenType.MINUS_TOKEN,
+                TokenType.MULTIPLICATION_TOKEN,
+                TokenType.DIVISION_TOKEN,
+            )
+
             if left.result.type != Type.NUMBER:
                 raise TypePropagationError(f"'{op_name}' operator expects number")
             expr.result.type = left.result.type
@@ -403,7 +404,8 @@ class TypePropagator:
                     raise TypePropagationError(
                         f"Found 'not' before {expr.result.type_name}, but it can only be put before a bool"
                     )
-            elif op == TokenType.MINUS_TOKEN:
+            else:
+                assert op == TokenType.MINUS_TOKEN
                 if expr.result.type != Type.NUMBER:
                     raise TypePropagationError(
                         f"Found '-' before {expr.result.type_name}, but it can only be put before a number"
@@ -426,9 +428,6 @@ class TypePropagator:
 
         if stmt.type:
             assert stmt.type_name
-
-            if var:
-                raise TypePropagationError(f"The variable '{stmt.name}' already exists")
 
             if self.are_incompatible_types(
                 stmt.type,
@@ -498,11 +497,10 @@ class TypePropagator:
                         raise TypePropagationError(
                             f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name}, not {stmt.value.result.type_name}"
                         )
-                else:
-                    if self.fn_return_type:
-                        raise TypePropagationError(
-                            f"Function '{self.filled_fn_name}' is supposed to return a value of type {self.fn_return_type_name}"
-                        )
+                elif self.fn_return_type:
+                    raise TypePropagationError(
+                        f"Function '{self.filled_fn_name}' is supposed to return a value of type {self.fn_return_type_name}"
+                    )
             elif isinstance(stmt, WhileStatement):
                 self.fill_expr(stmt.condition)
                 self.fill_statements(stmt.body_statements)
@@ -526,10 +524,8 @@ class TypePropagator:
             self.fill_statements(fn.body_statements)
 
             if fn.return_type:
-                if not fn.body_statements:
-                    raise TypePropagationError(
-                        f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name} as its last line"
-                    )
+                # grug doesn't allow empty functions
+                assert fn.body_statements
 
                 if not isinstance(fn.body_statements[-1], ReturnStatement):
                     raise TypePropagationError(

@@ -286,11 +286,14 @@ def test_grug(
     @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
         nonlocal state
-        state = grug.init(
-            runtime_error_handler=custom_runtime_error_handler,
-            mod_api_path=ctypes.string_at(tests_path).decode(),
-            mods_dir_path=ctypes.string_at(mod_api_path).decode(),
-        )
+        try:
+            state = grug.init(
+                runtime_error_handler=custom_runtime_error_handler,
+                mod_api_path=ctypes.string_at(tests_path).decode(),
+                mods_dir_path=ctypes.string_at(mod_api_path).decode(),
+            )
+        except Exception as e:
+            print(e, file=sys.stderr)
         state.next_id = 42
         GameFnRegistrator(state, grug_lib).register_game_fns()
         return 0
@@ -346,6 +349,7 @@ class GameFnRegistrator:
             "draw",
             "blocked_alrm",
             "spawn",
+            "spawn_d",
             "has_resource",
             "has_entity",
             "has_string",
@@ -358,6 +362,7 @@ class GameFnRegistrator:
             "offset_32_bit_f32",
             "offset_32_bit_i32",
             "offset_32_bit_string",
+            "print_csv",
             "talk",
             "get_position",
             "set_position",
