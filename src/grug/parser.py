@@ -476,19 +476,16 @@ class Parser:
         self.consume_token_type(i, TokenType.COLON_TOKEN)
 
         self.consume_space(i)
-        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
 
+        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
         type_token = self.consume_token(i)
+
         type_name = type_token.value
         arg_type = Parser.parse_type(type_name)
 
-        if arg_type == Type.RESOURCE:
+        if arg_type in (Type.RESOURCE, Type.ENTITY):
             raise ParserError(
-                f"The argument '{arg_name}' can't have 'resource' as its type"
-            )
-        if arg_type == Type.ENTITY:
-            raise ParserError(
-                f"The argument '{arg_name}' can't have 'entity' as its type"
+                f"The argument '{arg_name}' can't have '{type_name}' as its type"
             )
 
         arguments.append(Argument(arg_name, arg_type, type_name))
@@ -508,18 +505,16 @@ class Parser:
             self.consume_token_type(i, TokenType.COLON_TOKEN)
 
             self.consume_space(i)
+
             self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             type_token = self.consume_token(i)
+
             type_name = type_token.value
             arg_type = Parser.parse_type(type_name)
 
-            if arg_type == Type.RESOURCE:
+            if arg_type in (Type.RESOURCE, Type.ENTITY):
                 raise ParserError(
-                    f"The argument '{arg_name}' can't have 'resource' as its type"
-                )
-            if arg_type == Type.ENTITY:
-                raise ParserError(
-                    f"The argument '{arg_name}' can't have 'entity' as its type"
+                    f"The argument '{arg_name}' can't have '{type_name}' as its type"
                 )
 
             arguments.append(Argument(arg_name, arg_type, type_name))
@@ -550,13 +545,9 @@ class Parser:
             fn.return_type = Parser.parse_type(token.value)
             fn.return_type_name = token.value
 
-            if fn.return_type == Type.RESOURCE:
+            if fn.return_type in (Type.RESOURCE, Type.ENTITY):
                 raise ParserError(
-                    f"The function '{fn.fn_name}' can't have 'resource' as its return type"
-                )
-            if fn.return_type == Type.ENTITY:
-                raise ParserError(
-                    f"The function '{fn.fn_name}' can't have 'entity' as its return type"
+                    f"The function '{fn.fn_name}' can't have '{fn.return_type_name}' as its return type"
                 )
 
         self.indentation = 0
@@ -708,8 +699,8 @@ class Parser:
             self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             type_token = self.consume_token(i)
 
-            var_type = Parser.parse_type(type_token.value)
             var_type_name = type_token.value
+            var_type = Parser.parse_type(var_type_name)
 
             if var_type in (Type.RESOURCE, Type.ENTITY):
                 raise ParserError(
@@ -752,16 +743,12 @@ class Parser:
         self.assert_token_type(i[0], TokenType.WORD_TOKEN)
         type_token = self.consume_token(i)
 
-        global_type = Parser.parse_type(type_token.value)
         global_type_name = type_token.value
+        global_type = Parser.parse_type(global_type_name)
 
-        if global_type == Type.RESOURCE:
+        if global_type in (Type.RESOURCE, Type.ENTITY):
             raise ParserError(
-                f"The global variable '{global_name}' can't have 'resource' as its type"
-            )
-        if global_type == Type.ENTITY:
-            raise ParserError(
-                f"The global variable '{global_name}' can't have 'entity' as its type"
+                f"The global variable '{global_name}' can't have '{global_type_name}' as its type"
             )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
