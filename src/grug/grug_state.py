@@ -50,7 +50,7 @@ class GrugFile:
     state: "GrugState"
 
     def create_entity(self):
-        from grug.entity import Entity
+        from .entity import Entity
 
         return Entity(self)
 

@@ -30,11 +30,11 @@ def grug_tests_path(request: pytest.FixtureRequest) -> Path:
     Returns the path to the grug-tests repository.
     """
     path = cast(Optional[str], request.config.getoption("--grug-tests-path"))
-    if not path:
+    if not path:  # pragma: no cover
         pytest.exit("Error: You must specify --grug-tests-path=path/to/grug-tests")
 
     path_obj = Path(path)
-    if not path_obj.is_dir():
+    if not path_obj.is_dir():  # pragma: no cover
         pytest.exit(f"Error: Directory not found: {path_obj}")
 
     return path_obj
@@ -54,14 +54,14 @@ def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
     Loads tests.so and sets argument signatures
     """
 
-    if sys.platform == "win32":
+    if sys.platform == "win32":  # pragma: no cover
         lib_path = grug_tests_path / "build/tests.dll"
-    elif sys.platform == "linux":
+    elif sys.platform == "linux":  # pragma: no cover
         lib_path = grug_tests_path / "build/libtests.so"
-    else:
+    else:  # pragma: no cover
         raise Exception("Unknown operating system")
 
-    if not lib_path.is_file():
+    if not lib_path.is_file():  # pragma: no cover
         pytest.exit(f"Error: Shared library not found: {lib_path}")
 
     lib = ctypes.PyDLL(str(lib_path))

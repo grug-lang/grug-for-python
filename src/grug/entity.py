@@ -101,7 +101,7 @@ class Entity:
             for g in global_variables:
                 self.global_variables[g.name] = self._run_expr(g.expr)
         except (StackOverflow, TimeLimitExceeded, ReraisedGameFnError):
-            pass
+            raise
         finally:
             self.state.fn_depth = old_fn_depth
 
