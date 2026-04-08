@@ -246,29 +246,12 @@ class Tokenizer:
 
         return tokens
 
-    def get_character_line_number(self, idx: int):
+    def get_character_line_number(self, idx: int) -> int:
         """
         Calculate the line number for a given character index.
-
-        Examples: (the character at the index is inside angle brackets)
-        "" => 1
-        "<a>" => 1
-        "a<b>" => 1
-        "<\\n>" => 1
-        "\\n<a>" => 2
-        "\\n<\\n>" => 2
+        Line numbers are 1-based.
         """
-        line_number = 1
-
-        for i in range(idx):
-            if self.src[i] == "\n" or (
-                self.src[i] == "\r"
-                and i + 1 < len(self.src)
-                and self.src[i + 1] == "\n"
-            ):
-                line_number += 1
-
-        return line_number
+        return self.src[:idx].count("\n") + 1
 
     def is_end_of_word(self, idx: int):
         """Check if position is at end of word (not alphanumeric or underscore)"""
