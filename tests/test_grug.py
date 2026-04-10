@@ -209,7 +209,9 @@ def test_grug(
                 for arg, argument in zip(c_args or [], on_fn_decl.arguments)
             ]
 
-            current_entity._run_on_fn(on_fn_name, *args)
+            current_entity._run_on_fn(  # pyright: ignore[reportPrivateUsage]
+                on_fn_name, *args
+            )
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as propagating exceptions from CFUNCTYPE doesn't work.
             _grug_runtime_err = e
@@ -279,8 +281,9 @@ def test_grug(
                 mod_api_path=ctypes.string_at(tests_path).decode(),
                 mods_dir_path=ctypes.string_at(mod_api_path).decode(),
             )
-        except Exception as e:  # pragma: no cover
-            print(e, file=sys.stderr)
+        except Exception:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return -1
         state.next_id = 42
         GameFnRegistrator(state, grug_lib).register_game_fns()
         return 0
