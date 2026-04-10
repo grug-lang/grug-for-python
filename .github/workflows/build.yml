@@ -57,7 +57,7 @@ jobs:
         run: |
           git clone https://github.com/grug-lang/grug-tests
           cd grug-tests
-          git checkout development
+          git checkout main
           cmake -S . -B build
           cmake --build build
 
@@ -66,7 +66,7 @@ jobs:
         run: |
           git clone https://github.com/grug-lang/grug-tests
           cd grug-tests
-          git checkout development
+          git checkout main
           # Note: cmake build on Windows would need additional setup
           # For now, just clone without building since the tests might not need the binary
 
