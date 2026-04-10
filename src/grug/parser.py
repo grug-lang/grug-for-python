@@ -238,7 +238,6 @@ class Parser:
         seen_newline = False
         newline_allowed = False
         newline_required = False
-        just_seen_global = False
 
         i = [0]  # Use a list to allow modification by called functions
         while i[0] < len(self.tokens):
@@ -254,10 +253,6 @@ class Parser:
                     raise ParserError(
                         f"Move the global variable '{token.value}' so it is above the on_ functions"
                     )
-                if newline_required and not just_seen_global:
-                    raise ParserError(
-                        f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
-                    )
 
                 self.ast.append(self.parse_global_variable(i))
 
@@ -265,8 +260,6 @@ class Parser:
 
                 newline_allowed = True
                 newline_required = True
-
-                just_seen_global = True
 
                 continue
 
@@ -299,8 +292,6 @@ class Parser:
                 newline_allowed = True
                 newline_required = True
 
-                just_seen_global = False
-
                 continue
 
             elif (
@@ -326,8 +317,6 @@ class Parser:
                 newline_allowed = True
                 newline_required = True
 
-                just_seen_global = False
-
                 continue
 
             elif tname == "NEWLINE_TOKEN":
@@ -340,8 +329,6 @@ class Parser:
 
                 newline_allowed = False
                 newline_required = False
-
-                just_seen_global = False
 
                 self.ast.append(EmptyLineStatement())
                 i[0] += 1
@@ -392,10 +379,7 @@ class Parser:
         i[0] += 1
 
     def get_token_line_number(self, token_index: int):
-        if token_index >= len(self.tokens):
-            raise ParserError(
-                f"token_index {token_index} out of bounds in get_token_line_number()"
-            )
+        assert token_index < len(self.tokens)
         line_number = 1
         for idx in range(token_index):
             if self.tokens[idx].type == TokenType.NEWLINE_TOKEN:
@@ -492,19 +476,16 @@ class Parser:
         self.consume_token_type(i, TokenType.COLON_TOKEN)
 
         self.consume_space(i)
-        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
 
+        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
         type_token = self.consume_token(i)
+
         type_name = type_token.value
         arg_type = Parser.parse_type(type_name)
 
-        if arg_type == Type.RESOURCE:
+        if arg_type in (Type.RESOURCE, Type.ENTITY):
             raise ParserError(
-                f"The argument '{arg_name}' can't have 'resource' as its type"
-            )
-        if arg_type == Type.ENTITY:
-            raise ParserError(
-                f"The argument '{arg_name}' can't have 'entity' as its type"
+                f"The argument '{arg_name}' can't have '{type_name}' as its type"
             )
 
         arguments.append(Argument(arg_name, arg_type, type_name))
@@ -524,18 +505,16 @@ class Parser:
             self.consume_token_type(i, TokenType.COLON_TOKEN)
 
             self.consume_space(i)
+
             self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             type_token = self.consume_token(i)
+
             type_name = type_token.value
             arg_type = Parser.parse_type(type_name)
 
-            if arg_type == Type.RESOURCE:
+            if arg_type in (Type.RESOURCE, Type.ENTITY):
                 raise ParserError(
-                    f"The argument '{arg_name}' can't have 'resource' as its type"
-                )
-            if arg_type == Type.ENTITY:
-                raise ParserError(
-                    f"The argument '{arg_name}' can't have 'entity' as its type"
+                    f"The argument '{arg_name}' can't have '{type_name}' as its type"
                 )
 
             arguments.append(Argument(arg_name, arg_type, type_name))
@@ -566,13 +545,9 @@ class Parser:
             fn.return_type = Parser.parse_type(token.value)
             fn.return_type_name = token.value
 
-            if fn.return_type == Type.RESOURCE:
+            if fn.return_type in (Type.RESOURCE, Type.ENTITY):
                 raise ParserError(
-                    f"The function '{fn.fn_name}' can't have 'resource' as its return type"
-                )
-            if fn.return_type == Type.ENTITY:
-                raise ParserError(
-                    f"The function '{fn.fn_name}' can't have 'entity' as its return type"
+                    f"The function '{fn.fn_name}' can't have '{fn.return_type_name}' as its return type"
                 )
 
         self.indentation = 0
@@ -613,9 +588,7 @@ class Parser:
         self.increase_parsing_depth()
         self.consume_space(i)
         self.consume_token_type(i, TokenType.OPEN_BRACE_TOKEN)
-
-        if self.peek_token(i[0]).type == TokenType.NEWLINE_TOKEN:
-            i[0] += 1
+        self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
 
         self.indentation += 1
 
@@ -702,8 +675,7 @@ class Parser:
             )
 
     def decrease_parsing_depth(self):
-        if self.parsing_depth <= 0:
-            raise ParserError("Parsing depth underflow")
+        assert self.parsing_depth > 0
         self.parsing_depth -= 1
 
     def parse_local_variable(self, i: List[int]):
@@ -723,14 +695,12 @@ class Parser:
                 )
 
             self.consume_space(i)
-            type_token = self.consume_token(i)
-            if type_token.type != TokenType.WORD_TOKEN:
-                raise ParserError(
-                    f"Expected a word token after the colon on line {self.get_token_line_number(name_token_index)}"
-                )
 
-            var_type = Parser.parse_type(type_token.value)
+            self.assert_token_type(i[0], TokenType.WORD_TOKEN)
+            type_token = self.consume_token(i)
+
             var_type_name = type_token.value
+            var_type = Parser.parse_type(var_type_name)
 
             if var_type in (Type.RESOURCE, Type.ENTITY):
                 raise ParserError(
@@ -768,24 +738,17 @@ class Parser:
             )
 
         self.consume_token_type(i, TokenType.COLON_TOKEN)
-
         self.consume_space(i)
+
+        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
         type_token = self.consume_token(i)
-        if type_token.type != TokenType.WORD_TOKEN:
-            raise ParserError(
-                f"Expected a word token after the colon on line {self.get_token_line_number(name_token_index)}"
-            )
 
-        global_type = Parser.parse_type(type_token.value)
         global_type_name = type_token.value
+        global_type = Parser.parse_type(global_type_name)
 
-        if global_type == Type.RESOURCE:
+        if global_type in (Type.RESOURCE, Type.ENTITY):
             raise ParserError(
-                f"The global variable '{global_name}' can't have 'resource' as its type"
-            )
-        if global_type == Type.ENTITY:
-            raise ParserError(
-                f"The global variable '{global_name}' can't have 'entity' as its type"
+                f"The global variable '{global_name}' can't have '{global_type_name}' as its type"
             )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
@@ -825,8 +788,6 @@ class Parser:
             return expr
 
         if not isinstance(expr, IdentifierExpr):
-            # TODO: I am pretty sure a grug-tests test needs to be added for this,
-            #       but I should add all missing tests at once using a Python line coverage reporting tool.
             raise ParserError(
                 f"Unexpected '(' after non-identifier at line {self.get_token_line_number(i[0])}"
             )

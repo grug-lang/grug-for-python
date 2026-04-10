@@ -57,7 +57,7 @@ def dict_len(state: GrugState, d: Dict[object, object]) -> float:
     return float(len(d))
 
 
-def dict_X(state: GrugState, ) -> Dict[object, object]:
+def dict_X(state: GrugState) -> Dict[object, object]:
     return {}
 
 
@@ -81,11 +81,15 @@ def dict_get(state: GrugState, d: Dict[object, object], key: object) -> object:
     return value
 
 
-def dict_get_default(state: GrugState, d: Dict[object, object], key: object, default: object) -> object:
+def dict_get_default(
+    state: GrugState, d: Dict[object, object], key: object, default: object
+) -> object:
     return d.get(key, default)
 
 
-def dict_set_default(state: GrugState, d: Dict[object, object], key: object, val: object) -> object:
+def dict_set_default(
+    state: GrugState, d: Dict[object, object], key: object, val: object
+) -> object:
     return d.setdefault(key, val)
 
 
@@ -97,7 +101,9 @@ def dict_update(state: GrugState, d: Dict[object, object], other: Dict[object, o
     d.update(other)
 
 
-def dict_fromkeys(state: GrugState, keys: List[object], val: object) -> Dict[object, object]:
+def dict_fromkeys(
+    state: GrugState, keys: List[object], val: object
+) -> Dict[object, object]:
     return dict.fromkeys(keys, val)
 
 
@@ -170,7 +176,7 @@ def list_sort(state: GrugState, l: List[T]):
     l.sort()
 
 
-def list_X(state: GrugState, ) -> List[object]:
+def list_X(state: GrugState) -> List[object]:
     return []
 
 

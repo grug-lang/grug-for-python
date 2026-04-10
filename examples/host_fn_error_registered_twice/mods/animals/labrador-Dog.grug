@@ -1,0 +1,3 @@
+on_bark(sound: string) {
+    print_string(sound)
+}

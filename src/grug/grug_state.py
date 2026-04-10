@@ -1,9 +1,10 @@
 import json
 import sys
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, Sequence, cast, Optional, List
-from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Sequence, cast
+
 from grug.grug_value import GrugValue
 
 from .parser import HelperFn, OnFn, Parser, VariableStatement
@@ -16,6 +17,7 @@ class GrugRuntimeErrorType(Enum):
     STACK_OVERFLOW = 0  # Using auto() here would assign 1
     TIME_LIMIT_EXCEEDED = auto()
     GAME_FN_ERROR = auto()
+
 
 GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
@@ -33,6 +35,7 @@ class GrugPackage:
         self.prefix = new_prefix
         return self
 
+
 @dataclass
 class GrugFile:
     relative_path: str
@@ -47,9 +50,10 @@ class GrugFile:
     state: "GrugState"
 
     def create_entity(self):
-        from grug.entity import Entity
+        from .entity import Entity
 
         return Entity(self)
+
 
 @dataclass
 class GrugDir:
@@ -58,6 +62,7 @@ class GrugDir:
     name: str
     files: Dict[str, GrugFile] = field(default_factory=lambda: {})
     dirs: Dict[str, "GrugDir"] = field(default_factory=lambda: {})
+
 
 def default_runtime_error_handler(
     reason: str,
@@ -86,7 +91,7 @@ class GrugState:
         with open(mod_api_path) as f:
             raw = json.load(f)
         if not isinstance(raw, dict):
-            exit("Error: mod API JSON root must be an object")
+            raise RuntimeError("Error: mod API JSON root must be an object")
         self.mod_api: Dict[str, Any] = cast(Dict[str, Any], raw)
 
         self._assert_mod_api()
@@ -105,14 +110,16 @@ class GrugState:
     def _assert_mod_api(self):
         entities = self.mod_api.get("entities")
         if not isinstance(entities, dict):
-            exit("Error: 'entities' must be a JSON object")
+            raise RuntimeError("Error: 'entities' must be a JSON object")
 
         entities_dict = cast(Dict[str, Any], entities)
         self._assert_entities_sorted(entities_dict)
 
         for entity_name, entity in entities_dict.items():
             if not isinstance(entity, dict):
-                exit(f"Error: entity '{entity_name}' must be a JSON object")
+                raise RuntimeError(
+                    f"Error: entity '{entity_name}' must be a JSON object"
+                )
 
             entity_dict = cast(Dict[str, Any], entity)
             on_functions = entity_dict.get("on_functions")
@@ -120,7 +127,7 @@ class GrugState:
                 continue
 
             if not isinstance(on_functions, dict):
-                exit(
+                raise RuntimeError(
                     f"Error: 'on_functions' for entity '{entity_name}' must be a JSON object"
                 )
 
@@ -129,7 +136,7 @@ class GrugState:
 
         game_functions = self.mod_api.get("game_functions")
         if not isinstance(game_functions, dict):
-            exit("Error: 'game_functions' must be a JSON object")
+            raise RuntimeError("Error: 'game_functions' must be a JSON object")
 
         game_functions_dict = cast(Dict[str, Any], game_functions)
         self._assert_game_functions_sorted(game_functions_dict)
@@ -141,7 +148,7 @@ class GrugState:
         if keys != sorted_keys:
             for actual, expected in zip(keys, sorted_keys):
                 if actual != expected:
-                    exit(
+                    raise RuntimeError(
                         f"Error: Entities must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
                     )
@@ -156,7 +163,7 @@ class GrugState:
         if keys != sorted_keys:
             for actual, expected in zip(keys, sorted_keys):
                 if actual != expected:
-                    exit(
+                    raise RuntimeError(
                         "Error: on_functions for entity "
                         f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
@@ -170,7 +177,7 @@ class GrugState:
         if keys != sorted_keys:
             for actual, expected in zip(keys, sorted_keys):
                 if actual != expected:
-                    exit(
+                    raise RuntimeError(
                         f"Error: Game functions must be sorted alphabetically in mod_api.json, "
                         f"so {expected}() must come before {actual}()"
                     )
@@ -180,7 +187,7 @@ class GrugState:
         for pkg in packages:
             for game_fn in pkg.game_fns:
                 if game_fn.__name__ in self.game_fns:
-                    exit(
+                    raise RuntimeError(
                         f"Error: Game function '{game_fn.__name__}' has already been registered, so you either registered it twice, or its grug package prefix clashes with another grug package"
                     )
 
@@ -252,10 +259,7 @@ class GrugState:
         dash_index = grug_filename.find("-")
 
         if dash_index == -1 or dash_index + 1 >= len(grug_filename):
-            raise ValueError(
-                f"'{grug_filename}' is missing an entity type in its name; "
-                f"use a dash to specify it, like 'ak47-gun.grug'"
-            )
+            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
 
         # Find the period after the dash
         period_index = grug_filename.find(".", dash_index + 1)
@@ -268,10 +272,7 @@ class GrugState:
 
         # Check if entity type is empty
         if len(entity_type) == 0:
-            raise ValueError(
-                f"'{grug_filename}' is missing an entity type in its name; "
-                f"use a dash to specify it, like 'ak47-gun.grug'"
-            )
+            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
 
         # Validate PascalCase
         self._check_custom_id_is_pascal(entity_type)
@@ -291,7 +292,7 @@ class GrugState:
         # The first character must always be uppercase
         if not type_name[0].isupper():
             raise ValueError(
-                f"'{type_name}' seems like a custom ID type, but isn't in PascalCase"
+                f"'{type_name}' seems like a custom ID type, but it doesn't start in Uppercase"
             )
 
         # Custom IDs only consist of uppercase, lowercase characters, and digits
@@ -318,7 +319,7 @@ class GrugState:
                 if entry.is_dir():
                     subdir = compile_dir(entry, entry.name)
                     grug_dir.dirs[entry.name] = subdir
-                elif entry.is_file() and entry.suffix == ".grug":
+                elif entry.is_file() and entry.suffix == ".grug":  # pragma: no branch
                     relative_path = entry.relative_to(mods_path).as_posix()
                     grug_file = self.compile_grug_file(relative_path)
                     grug_dir.files[relative_path] = grug_file
@@ -327,7 +328,7 @@ class GrugState:
 
         root_dir = GrugDir(name="mods")
         for mod_dir in mods_path.iterdir():
-            if mod_dir.is_dir():
+            if mod_dir.is_dir():  # pragma: no branch
                 root_dir.dirs[mod_dir.name] = compile_dir(mod_dir, mod_dir.name)
 
         return root_dir
@@ -380,5 +381,6 @@ class GrugState:
         Path(output_grug_path).write_text(grug_text)
 
         return False
-        
+
+
 GameFn = Callable[..., Optional[GrugValue]]

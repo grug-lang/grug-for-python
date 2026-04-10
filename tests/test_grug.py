@@ -199,12 +199,18 @@ def test_grug(
             grug_file = id_map[file_id]
             assert grug_file
             assert current_entity
+<<<<<<< main
             
             on_fn_decl = grug_file.on_fns.get(on_fn_name)  # pyright: ignore[reportPrivateUsage]
             if not on_fn_decl:
                 raise RuntimeError(  # pragma: no cover
                     f"The function '{on_fn_name}' is not defined by the file {grug_file.relative_path}"
                 )
+=======
+
+            on_fn_decl = grug_file.on_fns.get(on_fn_name)
+            assert on_fn_decl
+>>>>>>> main
 
             assert len(on_fn_decl.arguments) == args_len
             args = [
@@ -212,7 +218,11 @@ def test_grug(
                 for arg, argument in zip(c_args or [], on_fn_decl.arguments)
             ]
 
+<<<<<<< main
             current_entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
+=======
+            current_entity._run_on_fn(on_fn_name, *args)
+>>>>>>> main
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as propagating exceptions from CFUNCTYPE doesn't work.
             _grug_runtime_err = e
@@ -280,12 +290,23 @@ def test_grug(
     @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
         nonlocal state
+<<<<<<< main
         state = grug.init(
             runtime_error_handler=custom_runtime_error_handler,
             mod_api_path=ctypes.string_at(tests_path).decode(),
             mods_dir_path=ctypes.string_at(mod_api_path).decode(),
         )
         assert state is not None, "grug.init() returned None"
+=======
+        try:
+            state = grug.init(
+                runtime_error_handler=custom_runtime_error_handler,
+                mod_api_path=ctypes.string_at(tests_path).decode(),
+                mods_dir_path=ctypes.string_at(mod_api_path).decode(),
+            )
+        except Exception as e:  # pragma: no cover
+            print(e, file=sys.stderr)
+>>>>>>> main
         state.next_id = 42
         GameFnRegistrator(state, grug_lib).register_game_fns()
         return 0
@@ -421,4 +442,8 @@ class GameFnRegistrator:
 
 # Enables stepping through code with VS Code its Python debugger.
 if __name__ == "__main__":  # pragma: no cover
+<<<<<<< main
     pytest.main(sys.argv)
+=======
+    pytest.main(sys.argv)
+>>>>>>> main

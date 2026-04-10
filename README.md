@@ -87,13 +87,16 @@ pip install -e .
 
 ### Running tests
 
-In this grug-for-python repository, you can run all tests using this command:
+You can run all tests using this command:
 
 ```sh
-coverage run -m pytest --grug-tests-path=../grug-tests -s -v
+coverage run -m pytest --grug-tests-path=../grug-tests -s -v && \
+python tests.py && \
+coverage report -m --skip-covered && \
+coverage html
 ```
 
-It will output a `.coverage` file which you can inspect with `coverage report -m` and `coverage html`.
+Run `python -m http.server` in a different terminal to view the HTML output in your browser.
 
 Pass `--whitelisted-test=f32_too_big` to only run the test called `f32_too_big`.
 

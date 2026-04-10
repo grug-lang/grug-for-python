@@ -16,7 +16,7 @@ COVERAGE_BASE_CMD = [
 
 def run_examples():
     examples_path = ROOT / "examples"
-    for example in examples_path.glob("*/example.py"):
+    for example in sorted(examples_path.glob("*/example.py")):
         example_dir = example.parent
         print(f"\nRunning {example_dir}...")
 
@@ -36,7 +36,7 @@ def run_examples():
 
 def run_package_tests():
     tests_path = ROOT / "src/grug/packages"
-    for test_file in tests_path.glob("**/tests/tests.py"):
+    for test_file in sorted(tests_path.glob("**/tests/tests.py")):
         test_dir = test_file.parent
         print(f"\nRunning {test_dir}...")
         subprocess.run(

@@ -204,7 +204,6 @@ class Serializer:
         """Convert AST to JSON text representation."""
         serialized = [Serializer._serialize_global_statement(node) for node in ast]
         return json.dumps(serialized, separators=(",", ":"))
-        # return json.dumps(serialized, indent=4)  # TODO: Ensure this passes all grug-tests tests too!
 
     @staticmethod
     def ast_to_grug(ast: List[Dict[str, Any]]) -> str:
@@ -241,7 +240,8 @@ class Serializer:
                 operator = expr["operator"]
                 if operator == "MINUS_TOKEN":
                     write("-")
-                elif operator == "NOT_TOKEN":
+                else:
+                    assert operator == "NOT_TOKEN"
                     write("not ")
                 apply_expr(expr["expr"])
             elif expr_type == "BINARY_EXPR":
@@ -251,7 +251,7 @@ class Serializer:
                 apply_expr(expr["right_expr"])
             elif expr_type == "LOGICAL_EXPR":
                 apply_expr(expr["left_expr"])
-                operator = get_logical_operator(expr["operator"])
+                operator = "and" if expr["operator"] == "AND_TOKEN" else "or"
                 write(f" {operator} ")
                 apply_expr(expr["right_expr"])
             elif expr_type == "CALL_EXPR":
@@ -262,22 +262,15 @@ class Serializer:
                             write(", ")
                         apply_expr(arg)
                 write(")")
-            elif expr_type == "PARENTHESIZED_EXPR":
+            else:
+                assert expr_type == "PARENTHESIZED_EXPR"
                 write("(")
                 apply_expr(expr["expr"])
                 write(")")
 
-        def get_logical_operator(token: str) -> str:
-            """Convert token to logical operator."""
-            if token == "AND_TOKEN":
-                return "and"
-            elif token == "OR_TOKEN":
-                return "or"
-            raise ValueError(f"Unknown logical operator: {token}")
-
         def get_binary_operator(token: str) -> str:
             """Convert token to binary operator."""
-            operators = {
+            return {
                 "PLUS_TOKEN": "+",
                 "MINUS_TOKEN": "-",
                 "MULTIPLICATION_TOKEN": "*",
@@ -288,10 +281,7 @@ class Serializer:
                 "GREATER_TOKEN": ">",
                 "LESS_OR_EQUAL_TOKEN": "<=",
                 "LESS_TOKEN": "<",
-            }
-            if token in operators:
-                return operators[token]
-            raise ValueError(f"Unknown binary operator: {token}")
+            }[token]
 
         def try_get_else_if(
             else_statements: List[Dict[str, Any]],
@@ -343,12 +333,11 @@ class Serializer:
                 if "variable_type" in statement:
                     write(f': {statement["variable_type"]}')
 
-                if "assignment" in statement:
-                    write(" = ")
-                    apply_expr(statement["assignment"])
+                write(" = ")
+                assert "assignment" in statement
+                apply_expr(statement["assignment"])
 
                 write("\n")
-
             elif stmt_type == "CALL_STATEMENT":
                 write(f'{statement["name"]}(')
                 if "arguments" in statement:
@@ -357,17 +346,14 @@ class Serializer:
                             write(", ")
                         apply_expr(arg)
                 write(")\n")
-
             elif stmt_type == "IF_STATEMENT":
                 apply_if_statement(statement)
-
             elif stmt_type == "RETURN_STATEMENT":
                 write("return")
                 if "expr" in statement:
                     write(" ")
                     apply_expr(statement["expr"])
                 write("\n")
-
             elif stmt_type == "WHILE_STATEMENT":
                 write("while ")
                 apply_expr(statement["condition"])
@@ -375,14 +361,12 @@ class Serializer:
                 apply_statements(statement["statements"])
                 apply_indentation()
                 write("}\n")
-
             elif stmt_type == "BREAK_STATEMENT":
                 write("break\n")
-
             elif stmt_type == "CONTINUE_STATEMENT":
                 write("continue\n")
-
-            elif stmt_type == "COMMENT_STATEMENT":
+            else:
+                assert stmt_type == "COMMENT_STATEMENT"
                 apply_comment(statement)
 
         def apply_statements(statements: List[Dict[str, Any]]) -> None:
@@ -419,8 +403,8 @@ class Serializer:
 
             write(" {\n")
 
-            if "statements" in statement:
-                apply_statements(statement["statements"])
+            assert "statements" in statement
+            apply_statements(statement["statements"])
 
             write("}\n")
 
@@ -433,8 +417,8 @@ class Serializer:
 
             write(") {\n")
 
-            if "statements" in statement:
-                apply_statements(statement["statements"])
+            assert "statements" in statement
+            apply_statements(statement["statements"])
 
             write("}\n")
 
@@ -457,7 +441,8 @@ class Serializer:
                     apply_helper_fn(statement)
                 elif stmt_type == "GLOBAL_EMPTY_LINE":
                     write("\n")
-                elif stmt_type == "GLOBAL_COMMENT":
+                else:
+                    assert stmt_type == "GLOBAL_COMMENT"
                     apply_comment(statement)
 
         # Main execution

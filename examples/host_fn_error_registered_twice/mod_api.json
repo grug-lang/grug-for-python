@@ -1,0 +1,9 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog."
+        }
+    },
+    "game_functions": {
+    }
+}
