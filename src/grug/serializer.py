@@ -232,6 +232,10 @@ class Serializer:
                 write("false")
             elif expr_type == "STRING_EXPR":
                 write(f'"{expr["str"]}"')
+            elif expr_type == "ENTITY_EXPR":
+                write(f'e"{expr["str"]}"')
+            elif expr_type == "RESOURCE_EXPR":
+                write(f'r"{expr["str"]}"')
             elif expr_type == "IDENTIFIER_EXPR":
                 write(expr["str"])
             elif expr_type == "NUMBER_EXPR":

@@ -222,19 +222,27 @@ def test_grug(
     def dump_file_to_json(
         state_ptr: int, input_grug_path: bytes, output_json_path: bytes
     ) -> bool:
-        assert state
-        return state.dump_file_to_json(
-            input_grug_path.decode(), output_json_path.decode()
-        )
+        try:
+            assert state
+            return state.dump_file_to_json(
+                input_grug_path.decode(), output_json_path.decode()
+            )
+        except Exception:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return True
 
     @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def generate_file_from_json(
         state_ptr: int, input_json_path: bytes, output_grug_path: bytes
     ) -> bool:
-        assert state
-        return state.generate_file_from_json(
-            input_json_path.decode(), output_grug_path.decode()
-        )
+        try:
+            assert state
+            return state.generate_file_from_json(
+                input_json_path.decode(), output_grug_path.decode()
+            )
+        except Exception:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return True
 
     _original_run_game_fn = Entity._run_game_fn  # pyright: ignore[reportPrivateUsage]
 
