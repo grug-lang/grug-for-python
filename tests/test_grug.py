@@ -200,7 +200,6 @@ def test_grug(
             assert grug_file
             assert current_entity
             
-            # RESOLVED CONFLICT 1: Combine both approaches
             on_fn_decl = grug_file.on_fns.get(on_fn_name)  # pyright: ignore[reportPrivateUsage]
             if not on_fn_decl:
                 raise RuntimeError(
@@ -213,7 +212,7 @@ def test_grug(
                 for arg, argument in zip(c_args or [], on_fn_decl.arguments)
             ]
 
-            current_entity._run_on_fn(on_fn_name, *args)
+            current_entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as propagating exceptions from CFUNCTYPE doesn't work.
             _grug_runtime_err = e
@@ -281,7 +280,6 @@ def test_grug(
     @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
         nonlocal state
-        # RESOLVED CONFLICT 2: Use main's assertion but keep error handling
         state = grug.init(
             runtime_error_handler=custom_runtime_error_handler,
             mod_api_path=ctypes.string_at(tests_path).decode(),
