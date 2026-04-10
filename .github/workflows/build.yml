@@ -60,6 +60,7 @@ jobs:
           git checkout main
           cmake -S . -B build
           cmake --build build
+        shell: bash
 
       - name: Clone grug-tests (Windows)
         if: runner.os == 'Windows'
@@ -67,11 +68,12 @@ jobs:
           git clone https://github.com/grug-lang/grug-tests
           cd grug-tests
           git checkout main
-          # Override flags to use MSVC-compatible /W4 instead of GCC's -Wextra
-          cmake -S . -B build -DCMAKE_C_FLAGS="/W4" -DCMAKE_CXX_FLAGS="/W4"
+          (Get-Content CMakeLists.txt) -replace '-Wall', '' -replace '-Wextra', '' | Set-Content CMakeLists.txt
+
+          # Configure and build
+          cmake -S . -B build
           cmake --build build --config Release
-          # Note: cmake build on Windows would need additional setup
-          # For now, just clone without building since the tests might not need the binary
+        shell: pwsh
 
       - name: Build corpus
         run: |
