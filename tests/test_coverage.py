@@ -20,10 +20,10 @@ class TestGrugStateModApiValidation:
         with tempfile.TemporaryDirectory() as tmpdir:
             mod_api_path = os.path.join(tmpdir, "mod_api.json")
             os.makedirs(os.path.join(tmpdir, "mods"), exist_ok=True)
-            
+
             with open(mod_api_path, "w") as f:
                 json.dump(["not", "a", "dict"], f)
-            
+
             with pytest.raises(SystemExit) as exc_info:
                 grug.init(
                     runtime_error_handler=default_runtime_error_handler,
@@ -44,10 +44,10 @@ class TestGrugStateModApiValidation:
                 },
                 "game_functions": {}
             }
-            
+
             with open(mod_api_path, "w") as f:
                 json.dump(mod_api, f)
-            
+
             with pytest.raises(SystemExit) as exc_info:
                 grug.init(
                     runtime_error_handler=default_runtime_error_handler,
@@ -95,7 +95,7 @@ class TestGrugStateModApiValidation:
 
             with open(mod_api_path, "w") as f:
                 json.dump(mod_api, f)
-            
+
             with pytest.raises(SystemExit) as exc_info:
                 grug.init(
                     runtime_error_handler=default_runtime_error_handler,
@@ -109,7 +109,7 @@ class TestGrugStateModApiValidation:
         with tempfile.TemporaryDirectory() as tmpdir:
             mod_api_path = os.path.join(tmpdir, "mod_api.json")
             os.makedirs(os.path.join(tmpdir, "mods"), exist_ok=True)
-            
+
             # 'Zebra' comes before 'Apple' alphabetically - wrong order
             mod_api = {
                 "entities": {
@@ -118,10 +118,10 @@ class TestGrugStateModApiValidation:
                 },
                 "game_functions": {}
             }
-            
+
             with open(mod_api_path, "w") as f:
                 json.dump(mod_api, f)
-            
+
             with pytest.raises(SystemExit) as exc_info:
                 grug.init(
                     runtime_error_handler=default_runtime_error_handler,
@@ -148,10 +148,10 @@ class TestGrugStateModApiValidation:
                 },
                 "game_functions": {}
             }
-            
+
             with open(mod_api_path, "w") as f:
                 json.dump(mod_api, f)
-            
+
             with pytest.raises(SystemExit) as exc_info:
                 grug.init(
                     runtime_error_handler=default_runtime_error_handler,
@@ -165,7 +165,7 @@ class TestGrugStateModApiValidation:
         with tempfile.TemporaryDirectory() as tmpdir:
             mod_api_path = os.path.join(tmpdir, "mod_api.json")
             os.makedirs(os.path.join(tmpdir, "mods"), exist_ok=True)
-            
+
             mod_api = {
                 "entities": {},
                 "game_functions": {
@@ -173,10 +173,10 @@ class TestGrugStateModApiValidation:
                     "aaa_function": {"description": "A function"}
                 }
             }
-            
+
             with open(mod_api_path, "w") as f:
                 json.dump(mod_api, f)
-            
+
             with pytest.raises(SystemExit) as exc_info:
                 grug.init(
                     runtime_error_handler=default_runtime_error_handler,
