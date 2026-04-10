@@ -67,7 +67,7 @@ jobs:
           git clone https://github.com/grug-lang/grug-tests
           cd grug-tests
           git checkout main
-          cmake -S . -B build
+          cmake -S . -B build -DCMAKE_CXX_FLAGS="/W4"
           cmake --build build --config Release
           # Note: cmake build on Windows would need additional setup
           # For now, just clone without building since the tests might not need the binary
