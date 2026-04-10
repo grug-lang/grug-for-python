@@ -145,7 +145,7 @@ class GrugState:
                         f"Error: Entities must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
                     )
-            assert False
+            assert False  # pragma: no cover
 
     def _assert_on_functions_sorted(
         self, entity_name: str, on_functions: Dict[str, Any]
@@ -161,7 +161,7 @@ class GrugState:
                         f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
                     )
-            assert False
+            assert False  # pragma: no cover
 
     def _assert_game_functions_sorted(self, game_functions: Dict[str, Any]):
         keys = list(game_functions.keys())
@@ -174,7 +174,7 @@ class GrugState:
                         f"Error: Game functions must be sorted alphabetically in mod_api.json, "
                         f"so {expected}() must come before {actual}()"
                     )
-            assert False
+            assert False  # pragma: no cover
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:

@@ -202,7 +202,7 @@ def test_grug(
             
             on_fn_decl = grug_file.on_fns.get(on_fn_name)  # pyright: ignore[reportPrivateUsage]
             if not on_fn_decl:
-                raise RuntimeError(
+                raise RuntimeError(  # pragma: no cover
                     f"The function '{on_fn_name}' is not defined by the file {grug_file.relative_path}"
                 )
 
@@ -274,7 +274,7 @@ def test_grug(
         # Handle None case for reason
         if reason:
             _game_fn_error_reason = ctypes.string_at(reason).decode()
-        else:
+        else:  # pragma: no cover
             _game_fn_error_reason = ""
 
     @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
