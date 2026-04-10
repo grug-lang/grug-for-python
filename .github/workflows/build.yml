@@ -79,7 +79,7 @@ jobs:
           git checkout main
 
           # Build using MinGW/GCC as specified in grug-tests README
-          cmake -S . -B build -G "MinGW Makefile" -DCMAKE_C_COMPILER=gcc
+          cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_C_COMPILER=gcc
           cmake --build build
 
           # Verify build succeeded
