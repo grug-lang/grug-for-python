@@ -11,16 +11,23 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        python-version: ["3.7.17", "3.11.9"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.7.17"
+          - os: ubuntu-latest
+            python-version: "3.11.9"
+          - os: windows-latest
+            python-version: "3.11.9"
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pyenv and build dependencies
+      - name: Install pyenv and build dependencies (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -31,53 +38,97 @@ jobs:
 
           curl https://pyenv.run | bash
 
-      - name: Install Python
+      - name: Setup Python (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
           pyenv install -s ${{ matrix.python-version }}
 
-      - name: Clone and build grug-tests
+      - name: Install MinGW (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mingw -y
+          refreshenv
+          echo "MinGW installed successfully"
+          gcc --version
+        shell: pwsh
+
+      - name: Clone and build grug-tests (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
           git clone https://github.com/grug-lang/grug-tests
           cd grug-tests
           git checkout main
           cmake -S . -B build
           cmake --build build
+        shell: bash
+
+      - name: Clone and build grug-tests (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git clone https://github.com/grug-lang/grug-tests
+          cd grug-tests
+          git checkout main
+
+          cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_C_COMPILER=gcc
+          cmake --build build
+
+          if (-not (Test-Path "build/smoketest.exe")) {
+            Write-Error "Build failed - smoketest.exe not created"
+            exit 1
+          }
+          Write-Host "Build successful - smoketest.exe created"
+        shell: pwsh
+
+      - name: Install dependencies
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            export PYENV_ROOT="$HOME/.pyenv"
+            export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+            pyenv global ${{ matrix.python-version }}
+          fi
+
+          pip install --upgrade pip
+          pip install pyright pytest coverage
+
+          if [ "${{ matrix.python-version }}" = "3.7.17" ]; then
+            pip install tomli importlib-metadata
+          fi
+
+          pip install -e .[dev]
+        shell: bash
 
       - name: Build corpus
         run: |
           mkdir -p corpus
 
-          # TODO: Why not just collect the regular .grug files, rather than the applied.grug files?
-          # Collect all .grug files from tests/*/*/*.grug
           find grug-tests/tests -path "*/results/applied.grug" -prune -o \
             -path "grug-tests/tests/*/*/*.grug" -type f -print | while read f; do
-              # flatten path into unique filename
               flat_name=$(echo "$f" | sed 's|/|_|g')
               cp "$f" "corpus/$flat_name"
             done
 
           echo "Corpus size:"
           ls corpus | wc -l
+        shell: bash
 
       - name: Run Pyright (Python ${{ matrix.python-version }})
         run: |
-          export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
-
-          pyenv global ${{ matrix.python-version }}
-          python --version
-
-          pip install --upgrade pip --user
-          pip install pyright pytest coverage --user
-
-          if [[ "${{ matrix.python-version }}" == "3.7.17" ]]; then
-            pip install tomli importlib-metadata --user
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            export PYENV_ROOT="$HOME/.pyenv"
+            export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+            pyenv global ${{ matrix.python-version }}
           fi
 
-          pip install -e .[dev]
+          python --version
 
           PY_MAJOR_MINOR=$(python - <<'EOF'
           import sys
@@ -86,36 +137,55 @@ jobs:
           )
 
           pyright --pythonversion "$PY_MAJOR_MINOR"
+        shell: bash
 
       - name: Run grug-tests tests (Python ${{ matrix.python-version }})
         run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            export PYENV_ROOT="$HOME/.pyenv"
+            export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+            pyenv global ${{ matrix.python-version }}
+          fi
+
           coverage run -m pytest --grug-tests-path=./grug-tests -s -v
+        shell: bash
 
       - name: Run grug-for-python tests (Python ${{ matrix.python-version }})
         run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            export PYENV_ROOT="$HOME/.pyenv"
+            export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+            pyenv global ${{ matrix.python-version }}
+          fi
+
           python tests.py
+        shell: bash
 
       - name: Report coverage (Python ${{ matrix.python-version }})
         run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            export PYENV_ROOT="$HOME/.pyenv"
+            export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
+            pyenv global ${{ matrix.python-version }}
+          fi
+
           coverage report -m --fail-under=100
+        shell: bash
 
       - name: Generate coverage badge
-        if: matrix.python-version == '3.11.9'
+        if: matrix.python-version == '3.11.9' && matrix.os == 'ubuntu-latest'
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$HOME/.local/bin:$PATH"
           pyenv global 3.11.9
 
-          pip install -U coverage-badge --user
+          pip install -U coverage-badge
 
-          # Generate badge
           coverage-badge -f -o .github/badges/coverage.svg
 
-          # Configure Git for committing changes
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Commit & push only if the badge changed
           git add .github/badges/coverage.svg
           if ! git diff --cached --quiet; then
             git commit -m "Update coverage badge"
@@ -123,3 +193,4 @@ jobs:
           else
             echo "No changes to coverage.svg"
           fi
+        shell: bash

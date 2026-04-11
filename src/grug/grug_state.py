@@ -207,7 +207,7 @@ class GrugState:
         self.game_fns[name] = fn
 
     def compile_grug_file(self, grug_file_relative_path: str):
-        mod = Path(grug_file_relative_path).parts[0]
+        mod = Path(grug_file_relative_path).parts[0].replace("\\", "/")
 
         grug_file_absolute_path = Path(self.mods_dir_path) / grug_file_relative_path
         text = grug_file_absolute_path.read_text()
