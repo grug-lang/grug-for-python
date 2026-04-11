@@ -38,7 +38,7 @@ class Variable:
 @dataclass
 class GameFn:
     fn_name: str
-    arguments: List[Argument] = field(default_factory=lambda: [])
+    arguments: List[Argument] = field(default_factory=lambda: [])  # pragma: no cover
     return_type: Optional[Type] = None
     return_type_name: Optional[str] = None
 
@@ -265,16 +265,20 @@ class TypePropagator:
                 f"Function call '{fn_name}' got an unexpected extra argument with type {call_expr.arguments[len(params)].result.type_name}"
             )
 
-        for i, (arg, param) in enumerate(zip(args, params)):
-            # Handle resource/entity string conversions
-            if isinstance(arg, StringExpr) and param.type == Type.RESOURCE:
-                arg = ResourceExpr(arg.string)
-                self.validate_resource_string(arg.string, param.resource_extension)
-                args[i] = arg
-            elif isinstance(arg, StringExpr) and param.type == Type.ENTITY:
-                arg = EntityExpr(arg.string)
+        for arg, param in zip(args, params):
+            if isinstance(arg, StringExpr) and param.type == Type.ENTITY:
+                raise TypePropagationError(
+                    f"The host function '{fn_name}' expects an entity string, so put an 'e' in front of string \"{arg.string}\""
+                )
+            elif isinstance(arg, StringExpr) and param.type == Type.RESOURCE:
+                raise TypePropagationError(
+                    f"The host function '{fn_name}' expects a resource string, so put an 'r' in front of string \"{arg.string}\""
+                )
+
+            if isinstance(arg, EntityExpr):
                 self.validate_entity_string(arg.string)
-                args[i] = arg
+            elif isinstance(arg, ResourceExpr):
+                self.validate_resource_string(arg.string, param.resource_extension)
 
             if not arg.result.type:
                 raise TypePropagationError(

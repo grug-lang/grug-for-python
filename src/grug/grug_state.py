@@ -343,9 +343,9 @@ class GrugState:
         tests_ran = 0
 
         def run(dir: GrugDir):
-            for subdir in dir.dirs.values():
+            for subdir in sorted(dir.dirs.values(), key=lambda d: d.name):
                 run(subdir)
-            for file in dir.files.values():
+            for file in sorted(dir.files.values(), key=lambda f: f.relative_path):
                 print(f"Testing {file.relative_path}...")
                 test = file.create_entity()
                 test.on_run()
