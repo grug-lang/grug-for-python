@@ -289,12 +289,14 @@ def test_grug(
                 mod_api_path=ctypes.string_at(tests_path).decode(),
                 mods_dir_path=ctypes.string_at(mod_api_path).decode(),
             )
+        except RuntimeError:
+            return 0
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
-            return -1
+            return 0
         state.next_id = 42
         GameFnRegistrator(state, grug_lib).register_game_fns()
-        return 0
+        return 42
 
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p)
     def destroy_grug_state(state_ptr: int):

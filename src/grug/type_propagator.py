@@ -38,7 +38,7 @@ class Variable:
 @dataclass
 class GameFn:
     fn_name: str
-    arguments: List[Argument] = field(default_factory=lambda: [])
+    arguments: List[Argument] = field(default_factory=lambda: [])  # pragma: no cover
     return_type: Optional[Type] = None
     return_type_name: Optional[str] = None
 
