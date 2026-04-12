@@ -110,10 +110,10 @@ jobs:
           # MERGE: Pick only the best files from staging and original tests 
           # and put them into the now-empty minimized_corpus
           chmod +x fuzz.py
-          ./fuzz.py -merge=1 minimized_corpus staging_area original_corpus
+          ./fuzz.py --mod-api-path=grug-tests/mod_api.json -merge=1 minimized_corpus staging_area original_corpus
 
           # FUZZ: Run the actual fuzzer to find new coverage
-          ./fuzz.py minimized_corpus -max_len=1000 -atheris_runs=100000
+          ./fuzz.py --mod-api-path=grug-tests/mod_api.json minimized_corpus -max_len=1000 -atheris_runs=100000
 
           echo "New corpus size:"
           ls -1 minimized_corpus | wc -l
@@ -126,7 +126,7 @@ jobs:
           pyenv global ${{ matrix.python-version }}
           python -m pip install atheris --user
 
-          coverage run fuzz.py --coverage
+          coverage run fuzz.py --mod-api-path=grug-tests/mod_api.json --coverage
 
           coverage report -m
 

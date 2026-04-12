@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import argparse
+import json
 import os
 import sys
 
@@ -8,6 +10,9 @@ import atheris  # type: ignore
 with atheris.instrument_imports():  # type: ignore
     from grug.parser import Parser, ParserError
     from grug.tokenizer import Tokenizer, TokenizerError
+    from grug.type_propagator import TypePropagationError, TypePropagator
+
+mod_api = None
 
 
 @atheris.instrument_func  # type: ignore
@@ -20,8 +25,10 @@ def test_one_input(input_bytes: bytes):
     try:
         tokens = Tokenizer(text).tokenize()
         ast = Parser(tokens).parse()
-        _ = ast
-    except (TokenizerError, ParserError):
+        assert mod_api
+        TypePropagator(ast, "mymod", "D", mod_api).fill()
+        # TODO: Call on_a()
+    except (TokenizerError, ParserError, TypePropagationError):
         pass
 
 
@@ -42,13 +49,30 @@ def run_coverage():
 
 
 def main():
-    # Check for our custom coverage flag
-    if "--coverage" in sys.argv:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--mod-api-path",
+        required=True,
+        help="Path to mod_api.json",
+    )
+
+    parser.add_argument(
+        "--coverage",
+        action="store_true",
+        help="Run coverage instead of fuzzing",
+    )
+
+    args, _ = parser.parse_known_args()
+
+    with open(args.mod_api_path) as f:
+        global mod_api
+        mod_api = json.load(f)
+
+    if args.coverage:
         run_coverage()
         return
 
-    # Otherwise, proceed with standard Atheris fuzzing
-    # Note: Atheris consumes arguments it recognizes from sys.argv
     atheris.Setup(sys.argv, test_one_input)  # type: ignore
     atheris.Fuzz()  # type: ignore
 
