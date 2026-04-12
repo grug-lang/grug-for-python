@@ -6,6 +6,7 @@ import sys
 import atheris  # type: ignore
 
 with atheris.instrument_imports():  # type: ignore
+    from grug.parser import Parser, ParserError
     from grug.tokenizer import Tokenizer, TokenizerError
 
 
@@ -18,8 +19,9 @@ def test_one_input(input_bytes: bytes):
 
     try:
         tokens = Tokenizer(text).tokenize()
-        _ = tokens
-    except TokenizerError:
+        ast = Parser(tokens).parse()
+        _ = ast
+    except (TokenizerError, ParserError):
         pass
 
 
