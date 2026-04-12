@@ -87,23 +87,32 @@ jobs:
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$HOME/.local/bin:$PATH"
-
           pyenv global ${{ matrix.python-version }}
-
           python -m pip install atheris --user
 
+          # Prepare the source directories
           mkdir -p original_corpus
-
           for f in grug-tests/tests/{err,err_runtime,ok}/*/*.grug; do
             rel="${f#grug-tests/tests/}"         # strip prefix up to tests/
             new_name="${rel//\//_}"              # replace / with _
             cp "$f" "original_corpus/$new_name"
           done
 
-          chmod +x fuzz.py
-          mkdir -p minimized_corpus
-          ./fuzz.py -merge=1 minimized_corpus original_corpus
+          # Move existing (cached) corpus to a temporary staging area
+          # If no cache was restored, we just make an empty directory
+          mkdir -p staging_area
+          if [ -d "minimized_corpus" ]; then
+            mv minimized_corpus/* staging_area/ 2>/dev/null || true
+            rm -rf minimized_corpus
+          fi
+          mkdir minimized_corpus
 
+          # MERGE: Pick only the best files from staging and original tests 
+          # and put them into the now-empty minimized_corpus
+          chmod +x fuzz.py
+          ./fuzz.py -merge=1 minimized_corpus staging_area original_corpus
+
+          # FUZZ: Run the actual fuzzer to find new coverage
           ./fuzz.py minimized_corpus -max_len=1000 -atheris_runs=100000
 
       - name: Run grug-tests tests (Python ${{ matrix.python-version }})
