@@ -119,6 +119,7 @@ jobs:
           ls -1 minimized_corpus | wc -l
 
       - name: Generate Fuzz Coverage Report
+        if: matrix.python-version == '3.11.9'
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$HOME/.local/bin:$PATH"
