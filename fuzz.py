@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 import os
 import sys
+import tempfile
 
 import atheris  # type: ignore
 
 with atheris.instrument_imports():  # type: ignore
-    from grug.parser import Parser, ParserError
-    from grug.tokenizer import Tokenizer, TokenizerError
-    from grug.type_propagator import TypePropagationError, TypePropagator
+    import grug
+    from grug.parser import ParserError
+    from grug.tokenizer import TokenizerError
+    from grug.type_propagator import TypePropagationError
 
-mod_api = None
+mod_api_path = None
 
 
 @atheris.instrument_func  # type: ignore
@@ -22,14 +23,31 @@ def test_one_input(input_bytes: bytes):
     except UnicodeDecodeError:
         return
 
-    try:
-        tokens = Tokenizer(text).tokenize()
-        ast = Parser(tokens).parse()
-        assert mod_api
-        TypePropagator(ast, "mymod", "D", mod_api).fill()
-        # TODO: Call on_a()
-    except (TokenizerError, ParserError, TypePropagationError):
-        pass
+    # Create temporary mods directory (auto-cleaned up)
+    with tempfile.TemporaryDirectory() as temp_mods_dir_path:
+        # Create subdirectory <temp_mods_dir_path>/mymod
+        mod_dir = os.path.join(temp_mods_dir_path, "mymod")
+        os.makedirs(mod_dir)
+
+        # Put `text` into <temp_mods_dir_path>/mymod/foo-D.grug
+        file_path = os.path.join(mod_dir, "foo-D.grug")
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(text)
+
+        try:
+            assert mod_api_path
+            state = grug.init(
+                mod_api_path=mod_api_path,
+                mods_dir_path=temp_mods_dir_path,
+            )
+
+            file = state.compile_grug_file("mymod/foo-D.grug")
+
+            _ = file
+
+            # TODO: call state.on_a()
+        except (TokenizerError, ParserError, TypePropagationError):
+            pass
 
 
 def run_coverage():
@@ -65,9 +83,8 @@ def main():
 
     args, _ = parser.parse_known_args()
 
-    with open(args.mod_api_path) as f:
-        global mod_api
-        mod_api = json.load(f)
+    global mod_api_path
+    mod_api_path = args.mod_api_path
 
     if args.coverage:
         run_coverage()
