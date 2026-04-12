@@ -115,6 +115,9 @@ jobs:
           # FUZZ: Run the actual fuzzer to find new coverage
           ./fuzz.py minimized_corpus -max_len=1000 -atheris_runs=100000
 
+          echo "New corpus size:"
+          ls -1 minimized_corpus | wc -l
+
       - name: Run grug-tests tests (Python ${{ matrix.python-version }})
         run: |
           coverage run -m pytest --grug-tests-path=./grug-tests -s -v
