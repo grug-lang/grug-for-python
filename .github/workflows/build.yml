@@ -46,22 +46,6 @@ jobs:
           cmake -S . -B build
           cmake --build build
 
-      - name: Build corpus
-        run: |
-          mkdir -p corpus
-
-          # TODO: Why not just collect the regular .grug files, rather than the applied.grug files?
-          # Collect all .grug files from tests/*/*/*.grug
-          find grug-tests/tests -path "*/results/applied.grug" -prune -o \
-            -path "grug-tests/tests/*/*/*.grug" -type f -print | while read f; do
-              # flatten path into unique filename
-              flat_name=$(echo "$f" | sed 's|/|_|g')
-              cp "$f" "corpus/$flat_name"
-            done
-
-          echo "Corpus size:"
-          ls corpus | wc -l
-
       - name: Run Pyright (Python ${{ matrix.python-version }})
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
