@@ -2,11 +2,12 @@
     "entities": {
         "Test": {
             "description": "A test.",
-            "on_functions": {
-                "on_run": {
+            "on_functions": [
+                {
+                    "name": "on_run",
                     "description": "Runs a test."
                 }
-            }
+            ]
         }
     },
     "game_functions": {

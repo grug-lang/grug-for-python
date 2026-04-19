@@ -95,6 +95,7 @@ class GrugState:
         self.mod_api: Dict[str, Any] = cast(Dict[str, Any], raw)
 
         self._assert_mod_api()
+        self._convert_on_functions_to_dicts()
 
         self.mods_dir_path = mods_dir_path
 
@@ -126,13 +127,13 @@ class GrugState:
             if on_functions is None:
                 continue
 
-            if not isinstance(on_functions, dict):
+            if not isinstance(on_functions, list):
                 raise RuntimeError(
-                    f"Error: 'on_functions' for entity '{entity_name}' must be a JSON object"
+                    f"Error: 'on_functions' for entity '{entity_name}' must be a JSON array"
                 )
 
-            on_functions_dict = cast(Dict[str, Any], on_functions)
-            self._assert_on_functions_sorted(entity_name, on_functions_dict)
+            on_functions_list = cast(List[Any], on_functions)
+            self._assert_on_functions_sorted(entity_name, on_functions_list)
 
         game_functions = self.mod_api.get("game_functions")
         if not isinstance(game_functions, dict):
@@ -154,10 +155,8 @@ class GrugState:
                     )
             assert False  # pragma: no cover
 
-    def _assert_on_functions_sorted(
-        self, entity_name: str, on_functions: Dict[str, Any]
-    ):
-        keys = list(on_functions.keys())
+    def _assert_on_functions_sorted(self, entity_name: str, on_functions: List[Any]):
+        keys = [fn["name"] for fn in on_functions]
         sorted_keys = sorted(keys)
 
         if keys != sorted_keys:
@@ -182,6 +181,16 @@ class GrugState:
                         f"so {expected}() must come before {actual}()"
                     )
             assert False  # pragma: no cover
+
+    def _convert_on_functions_to_dicts(self):
+        for entity in self.mod_api["entities"].values():
+            on_functions = entity.get("on_functions")
+            if on_functions is None:
+                continue
+            entity["on_functions"] = {
+                fn["name"]: {k: v for k, v in fn.items() if k != "name"}
+                for fn in on_functions
+            }
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:
