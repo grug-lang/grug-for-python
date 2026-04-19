@@ -2,11 +2,12 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": {
-                "on_tick": {
+            "on_functions": [
+                {
+                    "name": "on_tick",
                     "description": "Called every tick."
                 }
-            }
+            ]
         }
     },
     "game_functions": {

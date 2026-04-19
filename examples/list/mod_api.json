@@ -2,11 +2,12 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": {
-                "on_run": {
+            "on_functions": [
+                {
+                    "name": "on_run",
                     "description": "Called once."
                 }
-            }
+            ]
         }
     },
     "game_functions": {

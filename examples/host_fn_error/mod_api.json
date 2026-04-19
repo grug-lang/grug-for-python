@@ -2,8 +2,9 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": {
-                "on_bark": {
+            "on_functions": [
+                {
+                    "name": "on_bark",
                     "description": "Called when the dog barks.",
                     "arguments": [
                         {
@@ -12,7 +13,7 @@
                         }
                     ]
                 }
-            }
+            ]
         }
     },
     "game_functions": {
