@@ -346,8 +346,6 @@ class GrugState:
 
         Path(output_json_path).write_text(json_text)
 
-        return False
-
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
     def generate_file_from_json(self, input_json_path: str, output_grug_path: str):
         json_text = Path(input_json_path).read_text()
@@ -357,8 +355,6 @@ class GrugState:
         grug_text = Serializer.ast_to_grug(ast)
 
         Path(output_grug_path).write_text(grug_text)
-
-        return False
 
 
 GameFn = Callable[..., Optional[GrugValue]]

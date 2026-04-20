@@ -224,9 +224,8 @@ def test_grug(
     ) -> bool:
         try:
             assert state
-            return state.dump_file_to_json(
-                input_grug_path.decode(), output_json_path.decode()
-            )
+            state.dump_file_to_json(input_grug_path.decode(), output_json_path.decode())
+            return False
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return True
@@ -237,9 +236,10 @@ def test_grug(
     ) -> bool:
         try:
             assert state
-            return state.generate_file_from_json(
+            state.generate_file_from_json(
                 input_json_path.decode(), output_grug_path.decode()
             )
+            return False
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return True
