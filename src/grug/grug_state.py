@@ -114,8 +114,6 @@ class GrugState:
             raise RuntimeError("Error: 'entities' must be a JSON object")
 
         entities_dict = cast(Dict[str, Any], entities)
-        self._assert_entities_sorted(entities_dict)
-
         for entity_name, entity in entities_dict.items():
             if not isinstance(entity, dict):
                 raise RuntimeError(
@@ -139,22 +137,6 @@ class GrugState:
         if not isinstance(game_functions, dict):
             raise RuntimeError("Error: 'game_functions' must be a JSON object")
 
-        game_functions_dict = cast(Dict[str, Any], game_functions)
-        self._assert_game_functions_sorted(game_functions_dict)
-
-    def _assert_entities_sorted(self, entities: Dict[str, Any]):
-        keys = list(entities.keys())
-        sorted_keys = sorted(keys)
-
-        if keys != sorted_keys:
-            for actual, expected in zip(keys, sorted_keys):
-                if actual != expected:
-                    raise RuntimeError(
-                        f"Error: Entities must be sorted alphabetically in mod_api.json, "
-                        f"so '{expected}' must come before '{actual}'"
-                    )
-            assert False  # pragma: no cover
-
     def _assert_on_functions_sorted(self, entity_name: str, on_functions: List[Any]):
         keys = [fn["name"] for fn in on_functions]
         sorted_keys = sorted(keys)
@@ -166,19 +148,6 @@ class GrugState:
                         "Error: on_functions for entity "
                         f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
-                    )
-            assert False  # pragma: no cover
-
-    def _assert_game_functions_sorted(self, game_functions: Dict[str, Any]):
-        keys = list(game_functions.keys())
-        sorted_keys = sorted(keys)
-
-        if keys != sorted_keys:
-            for actual, expected in zip(keys, sorted_keys):
-                if actual != expected:
-                    raise RuntimeError(
-                        f"Error: Game functions must be sorted alphabetically in mod_api.json, "
-                        f"so {expected}() must come before {actual}()"
                     )
             assert False  # pragma: no cover
 
