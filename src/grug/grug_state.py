@@ -335,26 +335,15 @@ class GrugState:
         print(f"All {tests_ran} tests passed!")
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
-    def dump_file_to_json(self, input_grug_path: str, output_json_path: str):
-        grug_text = Path(input_grug_path).read_text()
-
-        tokens = Tokenizer(grug_text).tokenize()
-
+    def dump_file_to_json(self, input_grug_text: str):
+        tokens = Tokenizer(input_grug_text).tokenize()
         ast = Parser(tokens).parse()
-
-        json_text = Serializer.ast_to_json_text(ast)
-
-        Path(output_json_path).write_text(json_text)
+        return Serializer.ast_to_json_text(ast)
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
-    def generate_file_from_json(self, input_json_path: str, output_grug_path: str):
-        json_text = Path(input_json_path).read_text()
-
-        ast = json.loads(json_text)
-
-        grug_text = Serializer.ast_to_grug(ast)
-
-        Path(output_grug_path).write_text(grug_text)
+    def generate_file_from_json(self, input_json_text: str):
+        ast = json.loads(input_json_text)
+        return Serializer.ast_to_grug(ast)
 
 
 GameFn = Callable[..., Optional[GrugValue]]

@@ -58,10 +58,10 @@ call_export_fn_t = ctypes.CFUNCTYPE(
     ctypes.c_size_t,
 )
 dump_file_to_json_t = ctypes.CFUNCTYPE(
-    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
 )
 generate_file_from_json_t = ctypes.CFUNCTYPE(
-    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
 )
 game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
 
@@ -218,28 +218,86 @@ def test_grug(
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
 
-    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
+    @ctypes.CFUNCTYPE(
+        ctypes.c_bool,
+        ctypes.c_void_p,
+        ctypes.c_char_p,
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+    )
     def dump_file_to_json(
-        state_ptr: int, input_grug_path: bytes, output_json_path: bytes
+        state_ptr: int,
+        input_grug_buffer: bytes,
+        output_json_buffer: int,
+        output_buffer_len: int,
     ) -> bool:
         try:
+            input_text = input_grug_buffer.decode()
+
             assert state
-            state.dump_file_to_json(input_grug_path.decode(), output_json_path.decode())
+            output_text = state.dump_file_to_json(input_text)
+
+            output_bytes = output_text.encode()
+            required_len = len(output_bytes) + 1  # null terminator
+
+            if required_len > output_buffer_len:  # pragma: no cover
+                print(
+                    f"dump_file_to_json: output buffer too small "
+                    f"(need {required_len} bytes, have {output_buffer_len})",
+                    file=sys.stderr,
+                )
+                return True
+
+            # Treat buffer as writable char array
+            buf = (ctypes.c_char * output_buffer_len).from_address(output_json_buffer)
+
+            buf[: len(output_bytes)] = output_bytes
+            buf[len(output_bytes)] = b"\0"
+
             return False
+
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return True
 
-    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
+    @ctypes.CFUNCTYPE(
+        ctypes.c_bool,
+        ctypes.c_void_p,
+        ctypes.c_char_p,
+        ctypes.c_void_p,
+        ctypes.c_size_t,
+    )
     def generate_file_from_json(
-        state_ptr: int, input_json_path: bytes, output_grug_path: bytes
+        state_ptr: int,
+        input_json_buffer: bytes,
+        output_grug_buffer: int,
+        output_buffer_len: int,
     ) -> bool:
         try:
+            input_text = input_json_buffer.decode()
+
             assert state
-            state.generate_file_from_json(
-                input_json_path.decode(), output_grug_path.decode()
-            )
+            output_text = state.generate_file_from_json(input_text)
+
+            output_bytes = output_text.encode()
+            required_len = len(output_bytes) + 1  # null terminator
+
+            if required_len > output_buffer_len:  # pragma: no cover
+                print(
+                    f"generate_file_from_json: output buffer too small "
+                    f"(need {required_len} bytes, have {output_buffer_len})",
+                    file=sys.stderr,
+                )
+                return True
+
+            # Treat buffer as writable char array
+            buf = (ctypes.c_char * output_buffer_len).from_address(output_grug_buffer)
+
+            buf[: len(output_bytes)] = output_bytes
+            buf[len(output_bytes)] = b"\0"
+
             return False
+
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return True
@@ -259,8 +317,9 @@ def test_grug(
         # Raise _game_fn_error_reason if it's not None
         if _game_fn_error_reason is not None:
             reason = _game_fn_error_reason
+
             assert state
-            self.state.runtime_error_handler(
+            state.runtime_error_handler(
                 reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
                 self.fn_name,
@@ -294,7 +353,6 @@ def test_grug(
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return 0
-        state.next_id = 42
         GameFnRegistrator(state, grug_lib).register_game_fns()
         return 42
 
