@@ -423,13 +423,13 @@ class GrugState:
         print(f"All {tests_ran} tests passed!")
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
-    def dump_file_to_json(self, input_grug_text: str):
+    def grug_to_json(self, input_grug_text: str):
         tokens = Tokenizer(input_grug_text).tokenize()
         ast = Parser(tokens).parse()
         return Serializer.ast_to_json_text(ast)
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
-    def generate_file_from_json(self, input_json_text: str):
+    def json_to_grug(self, input_json_text: str):
         ast = json.loads(input_json_text)
         return Serializer.ast_to_grug(ast)
 

@@ -48,8 +48,12 @@ destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 compile_grug_file_t = ctypes.CFUNCTYPE(
     ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)
 )
+destroy_grug_file_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+create_entity_t = ctypes.CFUNCTYPE(
+    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p)
+)
+destroy_entity_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 update_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p))
-init_globals_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 call_export_fn_t = ctypes.CFUNCTYPE(
     None,
     ctypes.c_void_p,
@@ -58,10 +62,10 @@ call_export_fn_t = ctypes.CFUNCTYPE(
     ctypes.POINTER(GrugValueUnion),
     ctypes.c_size_t,
 )
-dump_file_to_json_t = ctypes.CFUNCTYPE(
+grug_to_json_t = ctypes.CFUNCTYPE(
     ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
 )
-generate_file_from_json_t = ctypes.CFUNCTYPE(
+json_to_grug_t = ctypes.CFUNCTYPE(
     ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
 )
 game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
@@ -76,11 +80,13 @@ class GrugStateVTableStruct(ctypes.Structure):
         ("create_grug_state", create_grug_state_t),
         ("destroy_grug_state", destroy_grug_state_t),
         ("compile_grug_file", compile_grug_file_t),
+        ("destroy_grug_file", destroy_grug_file_t),
+        ("create_entity", create_entity_t),
+        ("destroy_entity", destroy_entity_t),
         ("update", update_t),
-        ("init_globals", init_globals_t),
         ("call_export_fn", call_export_fn_t),
-        ("dump_file_to_json", dump_file_to_json_t),
-        ("generate_file_from_json", generate_file_from_json_t),
+        ("grug_to_json", grug_to_json_t),
+        ("json_to_grug", json_to_grug_t),
         ("game_fn_error", game_fn_error_t),
     ]
 
@@ -123,10 +129,8 @@ def test_grug(
     _g_grug_lib = grug_lib
 
     states: dict[int, GrugState] = {}
-
     files: dict[int, GrugFile] = {}
-
-    current_entity: Optional[Entity] = None
+    entities: dict[int, Entity] = {}
 
     @ctypes.CFUNCTYPE(
         ctypes.c_void_p,
@@ -153,10 +157,56 @@ def test_grug(
 
             file_id = len(files) + 1
             files[file_id] = file
+            out_err[0] = None
             return file_id
         except Exception as e:
             out_err[0] = str(e).encode()
             return -1
+
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+    def destroy_grug_file(state_ptr: int, file_id: int):
+        del files[file_id]
+
+    @ctypes.CFUNCTYPE(
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_char_p),
+    )
+    def create_entity(
+        state_ptr: int,
+        file_id: int,
+        out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
+    ) -> int:
+        try:
+            global _grug_runtime_err
+            _grug_runtime_err = None
+
+            state = states[state_ptr]
+            state.next_id = 42  # TODO: Try to remove
+
+            file = files[file_id]
+            assert file
+
+            entity = file.create_entity()
+
+            entity_id = len(entities) + 1
+            entities[entity_id] = entity
+            out_err[0] = None
+            return entity_id
+        except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
+            out_err[0] = str(e).encode()
+            # Necessary, as propagating exceptions from
+            # this CFUNCTYPE function doesn't work.
+            _grug_runtime_err = e
+            return -1
+        except Exception as e:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return -1
+
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+    def destroy_entity(state_ptr: int, entity_id: int):
+        del entities[entity_id]
 
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p))
     def update(
@@ -175,27 +225,6 @@ def test_grug(
         except Exception as e:  # pragma: no cover
             out_err[0] = str(e).encode()
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
-    def init_globals(state_ptr: int, file_id: int) -> None:
-        nonlocal current_entity
-        try:
-            global _grug_runtime_err
-            _grug_runtime_err = None
-
-            state = states[state_ptr]
-            state.next_id = 42
-
-            file = files[file_id]
-            assert file
-
-            current_entity = file.create_entity()
-        except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
-            # Necessary, as propagating exceptions from
-            # this CFUNCTYPE function doesn't work.
-            _grug_runtime_err = e
-        except Exception:  # pragma: no cover
-            traceback.print_exc(file=sys.stderr)
-
     @ctypes.CFUNCTYPE(
         None,
         ctypes.c_void_p,
@@ -206,7 +235,7 @@ def test_grug(
     )
     def call_export_fn(
         state_ptr: int,
-        file_id: int,
+        entity_id: int,
         c_on_fn_name: bytes,
         c_args: List[GrugValueUnion],
         args_len: int,
@@ -217,9 +246,9 @@ def test_grug(
 
             on_fn_name: str = c_on_fn_name.decode()
 
-            file = files[file_id]
-            assert file
-            assert current_entity
+            entity = entities[entity_id]
+
+            file = entity.file
 
             on_fn_decl = file.on_fns.get(on_fn_name)
             assert on_fn_decl
@@ -230,9 +259,7 @@ def test_grug(
                 for arg, argument in zip(c_args or [], on_fn_decl.arguments)
             ]
 
-            current_entity._run_on_fn(  # pyright: ignore[reportPrivateUsage]
-                on_fn_name, *args
-            )
+            entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as propagating exceptions from CFUNCTYPE doesn't work.
             _grug_runtime_err = e
@@ -246,7 +273,7 @@ def test_grug(
         ctypes.c_void_p,
         ctypes.c_size_t,
     )
-    def dump_file_to_json(
+    def grug_to_json(
         state_ptr: int,
         input_grug_buffer: bytes,
         output_json_buffer: int,
@@ -256,14 +283,14 @@ def test_grug(
             input_text = input_grug_buffer.decode()
 
             state = states[state_ptr]
-            output_text = state.dump_file_to_json(input_text)
+            output_text = state.grug_to_json(input_text)
 
             output_bytes = output_text.encode()
             required_len = len(output_bytes) + 1  # null terminator
 
             if required_len > output_buffer_len:  # pragma: no cover
                 print(
-                    f"dump_file_to_json: output buffer too small "
+                    f"grug_to_json: output buffer too small "
                     f"(need {required_len} bytes, have {output_buffer_len})",
                     file=sys.stderr,
                 )
@@ -288,7 +315,7 @@ def test_grug(
         ctypes.c_void_p,
         ctypes.c_size_t,
     )
-    def generate_file_from_json(
+    def json_to_grug(
         state_ptr: int,
         input_json_buffer: bytes,
         output_grug_buffer: int,
@@ -298,14 +325,14 @@ def test_grug(
             input_text = input_json_buffer.decode()
 
             state = states[state_ptr]
-            output_text = state.generate_file_from_json(input_text)
+            output_text = state.json_to_grug(input_text)
 
             output_bytes = output_text.encode()
             required_len = len(output_bytes) + 1  # null terminator
 
             if required_len > output_buffer_len:  # pragma: no cover
                 print(
-                    f"generate_file_from_json: output buffer too small "
+                    f"json_to_grug: output buffer too small "
                     f"(need {required_len} bytes, have {output_buffer_len})",
                     file=sys.stderr,
                 )
@@ -389,11 +416,13 @@ def test_grug(
         create_grug_state,
         destroy_grug_state,
         compile_grug_file,
+        destroy_grug_file,
+        create_entity,
+        destroy_entity,
         update,
-        init_globals,
         call_export_fn,
-        dump_file_to_json,
-        generate_file_from_json,
+        grug_to_json,
+        json_to_grug,
         game_fn_error,
     )
 
@@ -403,6 +432,10 @@ def test_grug(
         grug_state_vtable,
         whitelisted_test.encode() if whitelisted_test else None,
     )
+
+    assert len(states) == 0
+    assert len(files) == 0
+    assert len(entities) == 0
 
 
 class GameFnRegistrator:
