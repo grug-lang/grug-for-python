@@ -28,6 +28,10 @@ from .type_propagator import TypePropagator
 if TYPE_CHECKING:
     from .entity import Entity
 
+    EntitiesSet = weakref.WeakSet["Entity"]
+else:
+    EntitiesSet = weakref.WeakSet
+
 
 class GrugRuntimeErrorType(Enum):
     STACK_OVERFLOW = 0  # Using auto() here would assign 1
@@ -66,9 +70,7 @@ class GrugFile:
     state: "GrugState"
     mtime: float
 
-    entities: weakref.WeakSet["Entity"] = field(
-        default_factory=weakref.WeakSet["Entity"]
-    )
+    entities: EntitiesSet = field(default_factory=EntitiesSet)
 
     def create_entity(self):
         from .entity import Entity
