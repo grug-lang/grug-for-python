@@ -1,9 +1,22 @@
+from __future__ import annotations
+
 import json
 import sys
+import weakref
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    cast,
+)
 
 from grug.grug_value import GrugValue
 
@@ -11,6 +24,9 @@ from .parser import HelperFn, OnFn, Parser, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
 from .type_propagator import TypePropagator
+
+if TYPE_CHECKING:
+    from .entity import Entity
 
 
 class GrugRuntimeErrorType(Enum):
@@ -48,11 +64,22 @@ class GrugFile:
     game_fn_return_types: Dict[str, Optional[str]]
 
     state: "GrugState"
+    mtime: float
+
+    entities: weakref.WeakSet["Entity"] = field(
+        default_factory=weakref.WeakSet["Entity"]
+    )
 
     def create_entity(self):
         from .entity import Entity
 
         return Entity(self)
+
+    def __getitem__(self, key: str):
+        """Files are not indexable; this exists to satisfy the type checker for chained lookups."""
+        raise TypeError(
+            f"GrugFile '{self.relative_path}' is not a directory and cannot be indexed"
+        )
 
 
 @dataclass
@@ -62,6 +89,20 @@ class GrugDir:
     name: str
     files: Dict[str, GrugFile] = field(default_factory=lambda: {})
     dirs: Dict[str, "GrugDir"] = field(default_factory=lambda: {})
+
+    def create_entity(self):
+        """
+        Satisfies the type checker for GrugDir | GrugFile unions.
+        Raises TypeError if you actually try to treat a directory as a single entity.
+        """
+        raise TypeError(f"'{self.name}' is a directory, not a file")
+
+    def __getitem__(self, key: str):
+        if key in self.dirs:
+            return self.dirs[key]
+        if key in self.files:
+            return self.files[key]
+        raise KeyError(f"{key} not found. Available: {list(self.files.keys())}")
 
 
 def default_runtime_error_handler(
@@ -97,7 +138,7 @@ class GrugState:
         self._assert_mod_api()
         self._convert_on_functions_to_dicts()
 
-        self.mods_dir_path = mods_dir_path
+        self.mods_dir_path = Path(mods_dir_path)
 
         self.on_fn_time_limit_ms = on_fn_time_limit_ms
 
@@ -107,6 +148,15 @@ class GrugState:
         self.next_id = 0
 
         self.fn_depth = 0
+
+        self._mods: Optional[GrugDir] = None
+
+    @property
+    def mods(self) -> GrugDir:
+        if self._mods is None:
+            self.update()
+        assert self._mods
+        return self._mods
 
     def _assert_mod_api(self):
         entities = self.mod_api.get("entities")
@@ -184,11 +234,12 @@ class GrugState:
     def _register_game_fn(self, name: str, fn: "GameFn"):
         self.game_fns[name] = fn
 
-    def compile_grug_file(self, grug_file_relative_path: str):
+    def _compile_grug_file(self, grug_file_relative_path: str):
         mod = Path(grug_file_relative_path).parts[0]
 
-        grug_file_absolute_path = Path(self.mods_dir_path) / grug_file_relative_path
+        grug_file_absolute_path = self.mods_dir_path / grug_file_relative_path
         text = grug_file_absolute_path.read_text()
+        mtime = grug_file_absolute_path.stat().st_mtime
 
         entity_type = self._get_file_entity_type(Path(grug_file_relative_path).name)
 
@@ -218,6 +269,7 @@ class GrugState:
             self.game_fns,
             game_fn_return_types,
             self,
+            mtime,
         )
 
     def _get_file_entity_type(self, grug_filename: str) -> str:
@@ -281,42 +333,76 @@ class GrugState:
                     f"which isn't uppercase/lowercase/a digit"
                 )
 
-    def compile_all_mods(self) -> GrugDir:
-        """
-        Compiles all grug mods under self.mods_dir_path recursively.
+    def update(self):
+        """This (re)compiles grug files using mark-and-sweep."""
+        if self._mods is None:
+            self._mods = GrugDir(name="mods")
 
-        Returns:
-            GrugDir: Root directory representing the entire mods/ folder.
-        """
-        mods_path = Path(self.mods_dir_path)
+        seen_files: Set[str] = set()
+        seen_dirs: Set[str] = set()
 
-        def compile_dir(current_path: Path, dir_name: str) -> GrugDir:
-            grug_dir = GrugDir(name=dir_name)
+        def update_dir(current_path: Path, grug_dir: GrugDir):
+            seen_dirs.add(str(current_path))
 
+            # Scan disk
             for entry in current_path.iterdir():
                 if entry.is_dir():
-                    subdir = compile_dir(entry, entry.name)
-                    grug_dir.dirs[entry.name] = subdir
-                elif entry.is_file() and entry.suffix == ".grug":  # pragma: no branch
-                    relative_path = entry.relative_to(mods_path).as_posix()
-                    grug_file = self.compile_grug_file(relative_path)
-                    grug_dir.files[relative_path] = grug_file
+                    sub = grug_dir.dirs.get(entry.name)
+                    if sub is None:
+                        sub = GrugDir(name=entry.name)
+                        grug_dir.dirs[entry.name] = sub
+                    update_dir(entry, sub)
 
-            return grug_dir
+                elif entry.is_file() and entry.suffix == ".grug":
+                    rel = entry.relative_to(self.mods_dir_path).as_posix()
+                    seen_files.add(rel)
 
-        root_dir = GrugDir(name="mods")
-        for mod_dir in mods_path.iterdir():
-            if mod_dir.is_dir():  # pragma: no branch
-                root_dir.dirs[mod_dir.name] = compile_dir(mod_dir, mod_dir.name)
+                    current_mtime = entry.stat().st_mtime
+                    existing = grug_dir.files.get(entry.name)
 
-        return root_dir
+                    if existing is None or existing.mtime < current_mtime:
+                        new_file = self._compile_grug_file(rel)
 
-    def update(self):
-        # TODO: Implement hot reloading
-        pass
+                        # Transfer entities from the old file to the new file
+                        if existing is not None:
+                            for entity in existing.entities:
+                                entity.file = new_file
+                                entity._init_globals(new_file.global_variables)  # type: ignore
+                                new_file.entities.add(entity)
+
+                        grug_dir.files[entry.name] = new_file
+
+            # Sweep files
+            for name, file in list(grug_dir.files.items()):
+                rel = file.relative_path
+                abs_path = self.mods_dir_path / rel
+
+                if rel not in seen_files or not abs_path.exists():
+                    del grug_dir.files[name]  # pragma: no cover
+
+            # Sweep dirs
+            for name in list(grug_dir.dirs.keys()):
+                sub_path = current_path / name
+                if not sub_path.exists():
+                    del grug_dir.dirs[name]  # pragma: no cover
+
+        root = self._mods
+
+        for mod_dir in self.mods_dir_path.iterdir():
+            if mod_dir.is_dir():  # pragma: no cover
+                sub = root.dirs.get(mod_dir.name)
+                if sub is None:
+                    sub = GrugDir(name=mod_dir.name)
+                    root.dirs[mod_dir.name] = sub
+                update_dir(mod_dir, sub)
+
+        # Sweep removed top-level dirs
+        for name in list(root.dirs.keys()):
+            if not (self.mods_dir_path / name).exists():
+                del root.dirs[name]  # pragma: no cover
 
     def run_all_package_tests(self):
-        mods = self.compile_all_mods()
+        self.update()
 
         tests_ran = 0
 
@@ -330,7 +416,7 @@ class GrugState:
                 nonlocal tests_ran
                 tests_ran += 1
 
-        run(mods)
+        run(self.mods)
 
         print(f"All {tests_ran} tests passed!")
 

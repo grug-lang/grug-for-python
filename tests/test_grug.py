@@ -48,6 +48,7 @@ destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 compile_grug_file_t = ctypes.CFUNCTYPE(
     ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)
 )
+update_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p))
 init_globals_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 call_export_fn_t = ctypes.CFUNCTYPE(
     None,
@@ -75,6 +76,7 @@ class GrugStateVTableStruct(ctypes.Structure):
         ("create_grug_state", create_grug_state_t),
         ("destroy_grug_state", destroy_grug_state_t),
         ("compile_grug_file", compile_grug_file_t),
+        ("update", update_t),
         ("init_globals", init_globals_t),
         ("call_export_fn", call_export_fn_t),
         ("dump_file_to_json", dump_file_to_json_t),
@@ -120,9 +122,9 @@ def test_grug(
     global _g_grug_lib
     _g_grug_lib = grug_lib
 
-    state: Optional[GrugState] = None
+    states: dict[int, GrugState] = {}
 
-    id_map: dict[int, GrugFile] = {}
+    files: dict[int, GrugFile] = {}
 
     current_entity: Optional[Entity] = None
 
@@ -137,34 +139,56 @@ def test_grug(
         path: bytes,
         out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
     ) -> int:
-        nonlocal id_map
         try:
-            assert state
-            path_str = path.decode()
-            grug_file = state.compile_grug_file(path_str)
+            state = states[state_ptr]
 
-            file_id = len(id_map) + 1
-            id_map[file_id] = grug_file
+            path_str = path.decode()
+
+            if path_str == "hot_reloading/code_reloading-D.grug":
+                state.update()
+                file = state.mods["hot_reloading"]["code_reloading-D.grug"]
+                assert isinstance(file, GrugFile)
+            else:
+                file = state._compile_grug_file(path_str)  # type: ignore
+
+            file_id = len(files) + 1
+            files[file_id] = file
             return file_id
         except Exception as e:
             out_err[0] = str(e).encode()
             return -1
 
+    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p))
+    def update(
+        state_ptr: int,
+        out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
+    ) -> None:
+        try:
+            state = states[state_ptr]
+            state.update()
+
+            file = state.mods["hot_reloading"]["code_reloading-D.grug"]
+            assert isinstance(file, GrugFile)
+
+            last_file_id = list(files.keys())[-1]
+            files[last_file_id] = file
+        except Exception as e:  # pragma: no cover
+            out_err[0] = str(e).encode()
+
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
     def init_globals(state_ptr: int, file_id: int) -> None:
-        nonlocal id_map
         nonlocal current_entity
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
 
-            assert state
+            state = states[state_ptr]
             state.next_id = 42
 
-            grug_file = id_map[file_id]
-            assert grug_file
+            file = files[file_id]
+            assert file
 
-            current_entity = grug_file.create_entity()
+            current_entity = file.create_entity()
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as propagating exceptions from
             # this CFUNCTYPE function doesn't work.
@@ -187,20 +211,17 @@ def test_grug(
         c_args: List[GrugValueUnion],
         args_len: int,
     ) -> None:
-        nonlocal id_map
-        nonlocal state
-        nonlocal current_entity
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
 
             on_fn_name: str = c_on_fn_name.decode()
 
-            grug_file = id_map[file_id]
-            assert grug_file
+            file = files[file_id]
+            assert file
             assert current_entity
 
-            on_fn_decl = grug_file.on_fns.get(on_fn_name)
+            on_fn_decl = file.on_fns.get(on_fn_name)
             assert on_fn_decl
 
             assert len(on_fn_decl.arguments) == args_len
@@ -234,7 +255,7 @@ def test_grug(
         try:
             input_text = input_grug_buffer.decode()
 
-            assert state
+            state = states[state_ptr]
             output_text = state.dump_file_to_json(input_text)
 
             output_bytes = output_text.encode()
@@ -276,7 +297,7 @@ def test_grug(
         try:
             input_text = input_json_buffer.decode()
 
-            assert state
+            state = states[state_ptr]
             output_text = state.generate_file_from_json(input_text)
 
             output_bytes = output_text.encode()
@@ -318,8 +339,7 @@ def test_grug(
         if _game_fn_error_reason is not None:
             reason = _game_fn_error_reason
 
-            assert state
-            state.runtime_error_handler(
+            self.state.runtime_error_handler(
                 reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
                 self.fn_name,
@@ -341,7 +361,6 @@ def test_grug(
 
     @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
     def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
-        nonlocal state
         try:
             state = grug.init(
                 runtime_error_handler=custom_runtime_error_handler,
@@ -353,14 +372,16 @@ def test_grug(
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return 0
+
         GameFnRegistrator(state, grug_lib).register_game_fns()
-        return 42
+
+        state_id = len(states) + 1
+        states[state_id] = state
+        return state_id
 
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p)
     def destroy_grug_state(state_ptr: int):
-        nonlocal state
-        assert state
-        state = None
+        del states[state_ptr]
 
     print("\n")
 
@@ -368,6 +389,7 @@ def test_grug(
         create_grug_state,
         destroy_grug_state,
         compile_grug_file,
+        update,
         init_globals,
         call_export_fn,
         dump_file_to_json,
