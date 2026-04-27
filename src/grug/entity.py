@@ -72,11 +72,7 @@ class Entity:
         self.file = file
         self.state = file.state
 
-        self.game_fns = file.game_fns
-
-        self.game_fn_return_types = file.game_fn_return_types
-
-        self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
+        self.file.entities.add(self)
 
         self.start_time: float
 
@@ -327,9 +323,10 @@ class Entity:
             pass
 
     def _check_time_limit_exceeded(self):
-        if time.time() - self.start_time > self.on_fn_time_limit_sec:
+        limit_sec = self.file.state.on_fn_time_limit_ms / 1000
+        if time.time() - self.start_time > limit_sec:
             self.state.runtime_error_handler(
-                f"Took longer than {self.on_fn_time_limit_sec * 1000:g} milliseconds to run",
+                f"Took longer than {limit_sec * 1000:g} milliseconds to run",
                 GrugRuntimeErrorType.TIME_LIMIT_EXCEEDED,
                 self.fn_name,
                 self.file.relative_path,
@@ -376,7 +373,7 @@ class Entity:
         return result
 
     def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
-        game_fn = self.game_fns[name]
+        game_fn = self.file.game_fns[name]
 
         parent_fn_name = self.fn_name
         try:
@@ -392,7 +389,7 @@ class Entity:
         finally:
             self.fn_name = parent_fn_name
 
-        t = self.game_fn_return_types[name]
+        t = self.file.game_fn_return_types[name]
         if t is None:
             return
 
