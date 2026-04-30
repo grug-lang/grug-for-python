@@ -195,9 +195,10 @@ def test_grug(
             return entity_id
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             out_err[0] = str(e).encode()
-            # Necessary, as propagating exceptions from
-            # this CFUNCTYPE function doesn't work.
+
+            # Necessary, as C doesn't propagate exceptions.
             _grug_runtime_err = e
+
             return -1
         except Exception as e:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
@@ -263,7 +264,7 @@ def test_grug(
 
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
-            # Necessary, as propagating exceptions from CFUNCTYPE doesn't work.
+            # Necessary, as C doesn't propagate exceptions.
             _grug_runtime_err = e
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
