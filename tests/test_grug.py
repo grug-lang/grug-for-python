@@ -222,6 +222,7 @@ def test_grug(
 
             last_file_id = list(files.keys())[-1]
             files[last_file_id] = file
+            out_err[0] = None
         except Exception as e:  # pragma: no cover
             out_err[0] = str(e).encode()
 
