@@ -186,7 +186,6 @@ def test_grug(
             state.next_id = 42
 
             file = files[file_id]
-            assert file
 
             entity = file.create_entity()
 
@@ -254,8 +253,7 @@ def test_grug(
 
             file = entity.file
 
-            on_fn_decl = file.on_fns.get(on_fn_name)
-            assert on_fn_decl
+            on_fn_decl = file.on_fns[on_fn_name]
 
             assert len(on_fn_decl.arguments) == args_len
             args = [
