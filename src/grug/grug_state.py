@@ -344,9 +344,10 @@ class GrugState:
         seen_dirs: Set[str] = set()
 
         def update_dir(current_path: Path, grug_dir: GrugDir):
-            seen_dirs.add(str(current_path))
+            # Mark this directory as visited
+            seen_dirs.add(current_path.as_posix())
 
-            # Scan disk
+            # --- Mark Phase: Scan disk ---
             for entry in current_path.iterdir():
                 if entry.is_dir():
                     sub = grug_dir.dirs.get(entry.name)
@@ -374,22 +375,20 @@ class GrugState:
 
                         grug_dir.files[entry.name] = new_file
 
-            # Sweep files
+            # Sweep files in this directory
             for name, file in list(grug_dir.files.items()):
-                rel = file.relative_path
-                abs_path = self.mods_dir_path / rel
-
-                if rel not in seen_files or not abs_path.exists():
+                if file.relative_path not in seen_files:
                     del grug_dir.files[name]  # pragma: no cover
 
-            # Sweep dirs
+            # Sweep subdirectories in this directory
             for name in list(grug_dir.dirs.keys()):
-                sub_path = current_path / name
-                if not sub_path.exists():
+                sub_path_str = (current_path / name).as_posix()
+                if sub_path_str not in seen_dirs:
                     del grug_dir.dirs[name]  # pragma: no cover
 
         root = self._mods
 
+        # Process each top-level mod directory
         for mod_dir in self.mods_dir_path.iterdir():
             if mod_dir.is_dir():  # pragma: no cover
                 sub = root.dirs.get(mod_dir.name)
@@ -400,7 +399,8 @@ class GrugState:
 
         # Sweep removed top-level dirs
         for name in list(root.dirs.keys()):
-            if not (self.mods_dir_path / name).exists():
+            root_path_str = (self.mods_dir_path / name).as_posix()
+            if root_path_str not in seen_dirs:
                 del root.dirs[name]  # pragma: no cover
 
     def run_all_package_tests(self):
