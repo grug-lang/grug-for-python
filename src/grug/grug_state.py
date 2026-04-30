@@ -347,7 +347,7 @@ class GrugState:
             # Mark this directory as visited
             seen_dirs.add(current_path.as_posix())
 
-            # --- Mark Phase: Scan disk ---
+            # Mark phase: scan disk
             for entry in current_path.iterdir():
                 if entry.is_dir():
                     sub = grug_dir.dirs.get(entry.name)
@@ -375,12 +375,12 @@ class GrugState:
 
                         grug_dir.files[entry.name] = new_file
 
-            # Sweep files in this directory
+            # Sweep files
             for name, file in list(grug_dir.files.items()):
                 if file.relative_path not in seen_files:
                     del grug_dir.files[name]  # pragma: no cover
 
-            # Sweep subdirectories in this directory
+            # Sweep subdirectories
             for name in list(grug_dir.dirs.keys()):
                 sub_path_str = (current_path / name).as_posix()
                 if sub_path_str not in seen_dirs:
