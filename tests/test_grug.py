@@ -220,8 +220,11 @@ def test_grug(
             file = state.mods["hot_reloading"]["code_reloading-D.grug"]
             assert isinstance(file, GrugFile)
 
+            # We have to manually overwrite the old file in the files list,
+            # purely because test_grug.py tries to emulate the grug implementation.
             last_file_id = list(files.keys())[-1]
             files[last_file_id] = file
+
             out_err[0] = None
         except Exception as e:  # pragma: no cover
             out_err[0] = str(e).encode()
