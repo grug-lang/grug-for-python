@@ -183,7 +183,7 @@ def test_grug(
             _grug_runtime_err = None
 
             state = states[state_ptr]
-            state.next_id = 42  # TODO: Try to remove
+            state.next_id = 42
 
             file = files[file_id]
             assert file
