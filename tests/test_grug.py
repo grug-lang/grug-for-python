@@ -1,4 +1,5 @@
 import ctypes
+import gc
 import sys
 import traceback
 from pathlib import Path
@@ -165,6 +166,17 @@ def test_grug(
 
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
     def destroy_grug_file(state_ptr: int, file_id: int):
+        # Clear any lingering runtime errors that hold tracebacks to local entities
+        global _grug_runtime_err
+        _grug_runtime_err = None
+
+        # Not strictly required by ref-counting,
+        # but ensures deterministic cleanup of reference cycles
+        gc.collect()
+
+        # Asserts that file.entities has weak values
+        assert len(files[file_id].entities) == 0
+
         del files[file_id]
 
     @ctypes.CFUNCTYPE(
