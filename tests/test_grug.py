@@ -146,9 +146,9 @@ def test_grug(
 
             path_str = path.decode()
 
-            if path_str == "hot_reloading/code_reloading-D.grug":
+            if path_str == "code_reloading/input-D.grug":
                 state.update()
-                file = state.mods["hot_reloading"]["code_reloading-D.grug"]
+                file = state.mods["code_reloading"]["input-D.grug"]
                 assert isinstance(file, GrugFile)
             else:
                 file = state._compile_grug_file(path_str)  # type: ignore
@@ -230,7 +230,7 @@ def test_grug(
             state = states[state_ptr]
             state.update()
 
-            file = state.mods["hot_reloading"]["code_reloading-D.grug"]
+            file = state.mods["code_reloading"]["input-D.grug"]
             assert isinstance(file, GrugFile)
 
             # We have to manually overwrite the old file in the files list,

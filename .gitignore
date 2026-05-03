@@ -1,4 +1,5 @@
 __pycache__
+.grug_tmp*
 build
 dist
 .coverage
