@@ -150,7 +150,7 @@ def test_grug(
             path_str = path.decode()
 
             if path_str == "code_reloading/input-D.grug":
-                state.update()
+                state._update()  # pyright: ignore[reportPrivateUsage]
                 file = state.mods["code_reloading"]["input-D.grug"]
                 assert isinstance(file, GrugFile)
             else:
@@ -227,7 +227,7 @@ def test_grug(
     ) -> None:
         try:
             state = states[state_ptr]
-            state.update()
+            state._update()  # pyright: ignore[reportPrivateUsage]
 
             file = state.mods["code_reloading"]["input-D.grug"]
             assert isinstance(file, GrugFile)
