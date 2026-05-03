@@ -240,7 +240,11 @@ class GrugState:
         mod = Path(grug_file_relative_path).parts[0]
 
         grug_file_absolute_path = self.mods_dir_path / grug_file_relative_path
+
         text = grug_file_absolute_path.read_text()
+        if len(text) == 0:
+            raise RuntimeError("File is empty")
+
         mtime = grug_file_absolute_path.stat().st_mtime
 
         entity_type = self._get_file_entity_type(Path(grug_file_relative_path).name)
