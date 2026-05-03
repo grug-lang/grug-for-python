@@ -156,7 +156,7 @@ class GrugState:
     @property
     def mods(self) -> GrugDir:
         if self._mods is None:
-            self.update()
+            self._update()
         assert self._mods
         return self._mods
 
@@ -325,6 +325,13 @@ class GrugState:
                 )
 
     def update(self):
+        """This (re)compiles grug files using mark-and-sweep, and prints any error."""
+        try:
+            self._update()
+        except Exception as e:
+            print(e)
+
+    def _update(self):
         """This (re)compiles grug files using mark-and-sweep."""
         if self._mods is None:
             self._mods = GrugDir(name="mods")
@@ -393,7 +400,7 @@ class GrugState:
                 del root.dirs[name]  # pragma: no cover
 
     def run_all_package_tests(self):
-        self.update()
+        self._update()
 
         tests_ran = 0
 
