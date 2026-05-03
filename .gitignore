@@ -1,5 +1,6 @@
 __pycache__
 .grug_tmp*
+.vscode/settings.json
 build
 dist
 .coverage
