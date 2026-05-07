@@ -153,6 +153,9 @@ class GrugState:
 
         self._mods: Optional[GrugDir] = None
 
+        self.executed_file: Optional[GrugFile] = None
+        self.executed_entity: Optional[Entity] = None
+
     @property
     def mods(self) -> GrugDir:
         if self._mods is None:

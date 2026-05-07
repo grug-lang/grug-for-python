@@ -98,6 +98,8 @@ _grug_runtime_err: Optional[
     Union[TimeLimitExceeded, StackOverflow, ReraisedGameFnError]
 ] = None
 
+_game_fn_error_reason: Optional[str] = None
+
 
 def custom_runtime_error_handler(
     reason: str,
@@ -365,40 +367,9 @@ def test_grug(
             traceback.print_exc(file=sys.stderr)
             return True
 
-    _original_run_game_fn = Entity._run_game_fn  # pyright: ignore[reportPrivateUsage]
-
-    _game_fn_error_reason: Optional[str] = None
-
-    def _test_run_game_fn(
-        self: Entity, name: str, *args: GrugValue
-    ) -> Optional[GrugValue]:
-        nonlocal _game_fn_error_reason
-
-        # Call the original method
-        result = _original_run_game_fn(self, name, *args)
-
-        # Raise _game_fn_error_reason if it's not None
-        if _game_fn_error_reason is not None:
-            reason = _game_fn_error_reason
-
-            self.state.runtime_error_handler(
-                reason,
-                GrugRuntimeErrorType.GAME_FN_ERROR,
-                self.fn_name,
-                self.file.relative_path,
-            )
-
-            _game_fn_error_reason = None
-            raise ReraisedGameFnError(reason)
-
-        return result
-
-    # Patch the method for testing
-    Entity._run_game_fn = _test_run_game_fn  # pyright: ignore[reportPrivateUsage]
-
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
     def game_fn_error(state_ptr: int, reason: bytes) -> None:
-        nonlocal _game_fn_error_reason
+        global _game_fn_error_reason
         _game_fn_error_reason = ctypes.string_at(reason).decode()
 
     @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
@@ -534,6 +505,27 @@ class GameFnRegistrator:
         )
         return c_to_py_value(value, return_type)
 
+    def _raise_game_fn_error_if_needed(self, state: GrugState):
+        global _game_fn_error_reason
+
+        if _game_fn_error_reason is None:
+            return
+
+        reason = _game_fn_error_reason
+        _game_fn_error_reason = None
+
+        assert state.executed_file
+        assert state.executed_entity
+
+        state.runtime_error_handler(
+            reason,
+            GrugRuntimeErrorType.GAME_FN_ERROR,
+            state.executed_entity.fn_name,
+            state.executed_file.relative_path,
+        )
+
+        raise ReraisedGameFnError(reason)
+
     def _register_fn(self, name: str):
         c_fn = self.grug_lib["game_fn_" + name]
 
@@ -547,9 +539,14 @@ class GameFnRegistrator:
 
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
+
             result: GrugValueWorkaround = c_fn(0, c_args)
+
+            self._raise_game_fn_error_if_needed(state)
+
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
+
             return self._unpack_workaround(result, return_type)
 
         self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]

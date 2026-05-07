@@ -83,6 +83,11 @@ class Entity:
         self._init_globals(file.global_variables)
 
     def _init_globals(self, global_variables: List[VariableStatement]):
+        old_executed_file = self.state.executed_file
+        self.state.executed_file = self.file
+        old_executed_entity = self.state.executed_entity
+        self.state.executed_entity = self
+
         self.fn_name = "init_globals"
 
         self.global_variables: Dict[str, GrugValue] = {}
@@ -101,6 +106,9 @@ class Entity:
         finally:
             self.state.fn_depth = old_fn_depth
 
+            self.state.executed_entity = old_executed_entity
+            self.state.executed_file = old_executed_file
+
     def __getattr__(self, name: str):
         """
         This function lets `dog.spawn(42)` call `dog._run_on_fn("spawn", 42)`.
@@ -118,12 +126,17 @@ class Entity:
                 f"The function '{on_fn_name}' is not defined by the file {self.file.relative_path}"
             )
 
+        old_executed_file = self.state.executed_file
+        self.state.executed_file = self.file
+        old_executed_entity = self.state.executed_entity
+        self.state.executed_entity = self
+
+        self.fn_name = on_fn_name
+
         # TODO: Add an ok/ test that verifies that the local vars of a single entity its on_a()
         #       isn't overwritten when it calls on_b().
         parent_local_variables = self.local_variables
         self.local_variables = {}
-
-        self.fn_name = on_fn_name
 
         # Assign and verify argument types
         for arg, argument in zip(args, on_fn.arguments):
@@ -155,6 +168,9 @@ class Entity:
             self.state.fn_depth = old_fn_depth
             self.on_fn_depth = old_on_fn_depth
             self.local_variables = parent_local_variables
+
+            self.state.executed_entity = old_executed_entity
+            self.state.executed_file = old_executed_file
 
     def _get_expected_py_type(self, expected_arg_type_name: str):
         if expected_arg_type_name == "number":
