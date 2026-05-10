@@ -126,12 +126,13 @@ class Entity:
                 f"The function '{on_fn_name}' is not defined by the file {self.file.relative_path}"
             )
 
+        old_fn_name = self.fn_name
+        self.fn_name = on_fn_name
+
         old_executed_file = self.state.executed_file
         self.state.executed_file = self.file
         old_executed_entity = self.state.executed_entity
         self.state.executed_entity = self
-
-        self.fn_name = on_fn_name
 
         # TODO: Add an ok/ test that verifies that the local vars of a single entity its on_a()
         #       isn't overwritten when it calls on_b().
@@ -168,6 +169,8 @@ class Entity:
             self.state.fn_depth = old_fn_depth
             self.on_fn_depth = old_on_fn_depth
             self.local_variables = parent_local_variables
+
+            self.fn_name = old_fn_name
 
             self.state.executed_entity = old_executed_entity
             self.state.executed_file = old_executed_file
@@ -391,19 +394,16 @@ class Entity:
     def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
         game_fn = self.file.game_fns[name]
 
-        parent_fn_name = self.fn_name
         try:
             result = game_fn(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
-                parent_fn_name,
+                self.fn_name,
                 self.file.relative_path,
             )
             raise ReraisedGameFnError()
-        finally:
-            self.fn_name = parent_fn_name
 
         t = self.file.game_fn_return_types[name]
         if t is None:
