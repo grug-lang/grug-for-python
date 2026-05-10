@@ -107,7 +107,7 @@ Alternatively, you can *walk* through the tests and set breakpoints by installin
 After building the grug benchmark library, run the Python benchmark harness with:
 
 ```sh
-python benchmarks.py --grug-bench-path=../grug-bench --headless
+python benchmarks.py --grug-bench-path=../grug-bench 
 ```
 
 ## Type checking
