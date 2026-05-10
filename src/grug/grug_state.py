@@ -131,14 +131,10 @@ class GrugState:
                 )
 
             on_functions_list = cast(List[Any], on_functions)
-            self._assert_on_functions_sorted(entity_name, on_functions_list)
 
         game_functions = self.mod_api.get("game_functions")
         if not isinstance(game_functions, dict):
             raise RuntimeError("Error: 'game_functions' must be a JSON object")
-
-    def _assert_on_functions_sorted(self, entity_name: str, on_functions: List[Any]):
-        return 
 
     def _convert_on_functions_to_dicts(self):
         for entity in self.mod_api["entities"].values():
