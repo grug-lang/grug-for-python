@@ -46,6 +46,14 @@ jobs:
           cmake -S . -B build
           cmake --build build
 
+      - name: Clone and build grug-bench
+        run: |
+          git clone https://github.com/grug-lang/grug-bench
+          cd grug-bench
+          git checkout main
+          cmake -S . -B build
+          cmake --build build
+
       - name: Run Pyright (Python ${{ matrix.python-version }})
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
@@ -74,6 +82,10 @@ jobs:
       - name: Run grug-tests tests (Python ${{ matrix.python-version }})
         run: |
           coverage run -m pytest --grug-tests-path=./grug-tests -s -v
+
+      - name: Run grug-bench tests (Python ${{ matrix.python-version }})
+        run: |
+          coverage run benchmarks.py --grug-tests-path=./grug-tests -s -v
 
       - name: Run grug-for-python tests (Python ${{ matrix.python-version }})
         run: |
