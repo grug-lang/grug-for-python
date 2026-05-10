@@ -69,7 +69,6 @@ class BenchmarkStateVTableStruct(ctypes.Structure):
 
 class BenchmarkArgs(NamedTuple):
     grug_bench_path: Path
-    headless: bool
 
 
 def load_benchmark_lib(lib_path: Path) -> ctypes.PyDLL:
@@ -118,7 +117,6 @@ def normalized_mod_api_path(mod_api_path: Path) -> Path:
 
     return Path(temp_file.name)
 
-
 def parse_args() -> BenchmarkArgs:
     parser = argparse.ArgumentParser(description="Run grug benchmark harness for Python.")
     parser.add_argument(
@@ -129,17 +127,10 @@ def parse_args() -> BenchmarkArgs:
         type=Path,
         help="Path to the grug-bench repository",
     )
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Disable interactive benchmark rendering where the C benchmark supports it.",
-    )
     parsed_args = vars(parser.parse_args())
     return BenchmarkArgs(
         grug_bench_path=cast(Path, parsed_args["grug_bench_path"]),
-        headless=cast(bool, parsed_args["headless"]),
     )
-
 
 def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.PyDLL):
     benchmark_lib = benchmark_lib
