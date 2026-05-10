@@ -50,7 +50,7 @@ jobs:
         run: |
           git clone https://github.com/grug-lang/grug-bench
           cd grug-bench
-          git checkout main
+          git checkout master
           cmake -S . -B build
           cmake --build build
 
