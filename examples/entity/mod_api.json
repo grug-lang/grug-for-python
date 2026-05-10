@@ -1,0 +1,24 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "on_functions": [
+                {
+                    "name": "on_tick",
+                    "description": "Called once per tick."
+                }
+            ]
+        }
+    },
+    "game_functions": {
+        "spawn": {
+            "description": "Spawns an entity.",
+            "arguments": [
+                {
+                    "name": "name",
+                    "type": "entity"
+                }
+            ]
+        }
+    }
+}

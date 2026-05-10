@@ -1,0 +1,8 @@
+on_bark(sound: string) {
+    print_string(sound)
+
+    # Print "arf" a second time
+    if sound == "arf" {
+        print_string(sound)
+    }
+}

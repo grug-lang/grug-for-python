@@ -13,10 +13,11 @@ import time
 state = grug.init()
 
 @state.game_fn
-def print_string(string: str):
+def print_string(state: GrugState, string: str):
     print(string)
 
-file = state.compile_grug_file("animals/labrador-Dog.grug")
+file = state.mods["animals"]["labrador-Dog.grug"]
+
 dog1 = file.create_entity()
 dog2 = file.create_entity()
 

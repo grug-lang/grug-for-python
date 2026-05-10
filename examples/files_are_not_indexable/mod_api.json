@@ -1,0 +1,30 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "on_functions": [
+                {
+                    "name": "on_bark",
+                    "description": "Called when the dog barks.",
+                    "arguments": [
+                        {
+                            "name": "sound",
+                            "type": "string"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "game_functions": {
+        "print_string": {
+            "description": "Prints a string.",
+            "arguments": [
+                {
+                    "name": "str",
+                    "type": "string"
+                }
+            ]
+        }
+    }
+}

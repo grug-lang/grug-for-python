@@ -1,0 +1,3 @@
+on_tick() {
+    open_file(r"foo.txt")
+}

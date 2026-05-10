@@ -72,11 +72,7 @@ class Entity:
         self.file = file
         self.state = file.state
 
-        self.game_fns = file.game_fns
-
-        self.game_fn_return_types = file.game_fn_return_types
-
-        self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
+        self.file.entities.add(self)
 
         self.start_time: float
 
@@ -87,6 +83,11 @@ class Entity:
         self._init_globals(file.global_variables)
 
     def _init_globals(self, global_variables: List[VariableStatement]):
+        old_executed_file = self.state.executed_file
+        self.state.executed_file = self.file
+        old_executed_entity = self.state.executed_entity
+        self.state.executed_entity = self
+
         self.fn_name = "init_globals"
 
         self.global_variables: Dict[str, GrugValue] = {}
@@ -105,6 +106,9 @@ class Entity:
         finally:
             self.state.fn_depth = old_fn_depth
 
+            self.state.executed_entity = old_executed_entity
+            self.state.executed_file = old_executed_file
+
     def __getattr__(self, name: str):
         """
         This function lets `dog.spawn(42)` call `dog._run_on_fn("spawn", 42)`.
@@ -122,12 +126,18 @@ class Entity:
                 f"The function '{on_fn_name}' is not defined by the file {self.file.relative_path}"
             )
 
+        old_fn_name = self.fn_name
+        self.fn_name = on_fn_name
+
+        old_executed_file = self.state.executed_file
+        self.state.executed_file = self.file
+        old_executed_entity = self.state.executed_entity
+        self.state.executed_entity = self
+
         # TODO: Add an ok/ test that verifies that the local vars of a single entity its on_a()
         #       isn't overwritten when it calls on_b().
         parent_local_variables = self.local_variables
         self.local_variables = {}
-
-        self.fn_name = on_fn_name
 
         # Assign and verify argument types
         for arg, argument in zip(args, on_fn.arguments):
@@ -159,6 +169,11 @@ class Entity:
             self.state.fn_depth = old_fn_depth
             self.on_fn_depth = old_on_fn_depth
             self.local_variables = parent_local_variables
+
+            self.fn_name = old_fn_name
+
+            self.state.executed_entity = old_executed_entity
+            self.state.executed_file = old_executed_file
 
     def _get_expected_py_type(self, expected_arg_type_name: str):
         if expected_arg_type_name == "number":
@@ -327,9 +342,10 @@ class Entity:
             pass
 
     def _check_time_limit_exceeded(self):
-        if time.time() - self.start_time > self.on_fn_time_limit_sec:
+        limit_sec = self.file.state.on_fn_time_limit_ms / 1000
+        if time.time() - self.start_time > limit_sec:
             self.state.runtime_error_handler(
-                f"Took longer than {self.on_fn_time_limit_sec * 1000:g} milliseconds to run",
+                f"Took longer than {limit_sec * 1000:g} milliseconds to run",
                 GrugRuntimeErrorType.TIME_LIMIT_EXCEEDED,
                 self.fn_name,
                 self.file.relative_path,
@@ -376,23 +392,20 @@ class Entity:
         return result
 
     def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
-        game_fn = self.game_fns[name]
+        game_fn = self.file.game_fns[name]
 
-        parent_fn_name = self.fn_name
         try:
             result = game_fn(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
-                parent_fn_name,
+                self.fn_name,
                 self.file.relative_path,
             )
             raise ReraisedGameFnError()
-        finally:
-            self.fn_name = parent_fn_name
 
-        t = self.game_fn_return_types[name]
+        t = self.file.game_fn_return_types[name]
         if t is None:
             return
 
