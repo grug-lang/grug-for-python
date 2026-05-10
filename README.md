@@ -102,6 +102,14 @@ Pass `--whitelisted-test=f32_too_big` to only run the test called `f32_too_big`.
 
 Alternatively, you can *walk* through the tests and set breakpoints by installing the [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) VS Code extension. Hit `F5` to run all tests. You can edit `.vscode/launch.json` to pass `--whitelisted-test=f32_too_big`.
 
+## Benchmarks
+
+After building the grug benchmark library, run the Python benchmark harness with:
+
+```sh
+python benchmarks.py --grug-bench-path=../grug-bench --headless
+```
+
 ## Type checking
 
 1. `pip install -e .[dev]`

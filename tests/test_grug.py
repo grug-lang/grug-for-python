@@ -82,7 +82,6 @@ class GrugStateVTableStruct(ctypes.Structure):
         ("game_fn_error", game_fn_error_t),
     ]
 
-
 _g_grug_lib: ctypes.PyDLL
 
 _grug_runtime_err: Optional[
@@ -103,7 +102,6 @@ def custom_runtime_error_handler(
         on_fn_path.encode(),
     )
 
-
 def c_to_py_value(value: GrugValueUnion, typ: str):
     if typ == "number":
         return float(value._number)
@@ -112,7 +110,6 @@ def c_to_py_value(value: GrugValueUnion, typ: str):
     if typ == "string":
         return ctypes.string_at(value._string).decode()
     return int(value._id)
-
 
 def test_grug(
     grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.PyDLL

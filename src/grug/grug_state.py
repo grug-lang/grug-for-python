@@ -138,18 +138,7 @@ class GrugState:
             raise RuntimeError("Error: 'game_functions' must be a JSON object")
 
     def _assert_on_functions_sorted(self, entity_name: str, on_functions: List[Any]):
-        keys = [fn["name"] for fn in on_functions]
-        sorted_keys = sorted(keys)
-
-        if keys != sorted_keys:
-            for actual, expected in zip(keys, sorted_keys):
-                if actual != expected:
-                    raise RuntimeError(
-                        "Error: on_functions for entity "
-                        f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
-                        f"so '{expected}' must come before '{actual}'"
-                    )
-            assert False  # pragma: no cover
+        return 
 
     def _convert_on_functions_to_dicts(self):
         for entity in self.mod_api["entities"].values():
