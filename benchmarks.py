@@ -1,12 +1,10 @@
 import argparse
 import ctypes
-import json
 import sys
 import os
-import tempfile
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
+from typing import Dict, List, NamedTuple, Optional, cast
 
 ROOT = Path(__file__).resolve().parent
 SRC_DIR = ROOT / "src"
@@ -18,7 +16,7 @@ import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
 from grug.grug_value import GrugValue
-from test_grug import (  # pyright: ignore[reportMissingImports]
+from tests.test_grug import (  
     GrugValueUnion,
     GrugValueWorkaround,
     c_to_py_value,
@@ -95,28 +93,6 @@ def load_benchmark_lib(lib_path: Path) -> ctypes.PyDLL:
     lib.grug_bench_run.restype = None
 
     return lib
-
-
-def normalized_mod_api_path(mod_api_path: Path) -> Path:
-    with mod_api_path.open() as f:
-        mod_api = json.load(f)
-
-    entities = cast(Dict[str, Dict[str, Any]], mod_api.get("entities", {}))
-    for entity in entities.values():
-        on_functions = entity.get("on_functions")
-        if isinstance(on_functions, list):
-            entity["on_functions"] = sorted(on_functions, key=lambda fn: fn["name"])
-
-    temp_file = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        suffix=".json",
-        delete=False,
-    )
-    with temp_file:
-        json.dump(mod_api, temp_file)
-
-    return Path(temp_file.name)
 
 def parse_args() -> BenchmarkArgs:
     parser = argparse.ArgumentParser(description="Run grug benchmark harness for Python.")
@@ -341,8 +317,8 @@ def main() -> None:
 
     benchmark_lib = load_benchmark_lib(lib_path)
     run_benchmarks(
-        grug_bench_path / "mod_api.json",
-        grug_bench_path / "mods",
+        str(grug_bench_path / "mod_api.json"),
+        str(grug_bench_path / "mods"),
         benchmark_lib,
     )
 
