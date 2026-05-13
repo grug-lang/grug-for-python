@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Union
 
-from .tokenizer import SPACES_PER_INDENT, Token, TokenType
+from .tokenizer import SPACES_PER_INDENT, SourceSpan, Token, TokenType
 
 MAX_PARSING_DEPTH = 100
 
@@ -36,35 +36,41 @@ class Result:
 @dataclass
 class TrueExpr:
     result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class FalseExpr:
     result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class StringExpr:
     string: str
     result: Result = field(default_factory=lambda: Result(Type.STRING, "string"))
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class ResourceExpr:
     string: str
     result: Result = field(default_factory=lambda: Result(Type.RESOURCE, "resource"))
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class EntityExpr:
     string: str
     result: Result = field(default_factory=lambda: Result(Type.ENTITY, "entity"))
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class IdentifierExpr:
     name: str
     result: Result = field(default_factory=Result)
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -72,6 +78,7 @@ class NumberExpr:
     value: float
     string: str
     result: Result = field(default_factory=lambda: Result(Type.NUMBER, "number"))
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -79,6 +86,8 @@ class UnaryExpr:
     operator: TokenType
     expr: Expr
     result: Result = field(default_factory=Result)
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    op_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -87,6 +96,8 @@ class BinaryExpr:
     operator: TokenType
     right_expr: Expr
     result: Result = field(default_factory=Result)
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    op_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -95,6 +106,8 @@ class LogicalExpr:
     operator: TokenType
     right_expr: Expr
     result: Result = field(default_factory=Result)
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    op_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -102,12 +115,15 @@ class CallExpr:
     fn_name: str
     arguments: List[Expr] = field(default_factory=lambda: [])
     result: Result = field(default_factory=Result)
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    name_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class ParenthesizedExpr:
     expr: Expr
     result: Result = field(default_factory=Result)
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 Expr = Union[
@@ -132,6 +148,7 @@ class VariableStatement:
     type: Optional[Type]
     type_name: Optional[str]
     expr: Expr
+    name_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -149,6 +166,7 @@ class IfStatement:
 @dataclass
 class ReturnStatement:
     value: Optional[Expr] = None
+    return_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -159,12 +177,12 @@ class WhileStatement:
 
 @dataclass
 class BreakStatement:
-    pass
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class ContinueStatement:
-    pass
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -175,6 +193,7 @@ class EmptyLineStatement:
 @dataclass
 class CommentStatement:
     string: str
+    comment_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 Statement = Union[
@@ -197,6 +216,8 @@ class Argument:
     type_name: str
     resource_extension: Optional[str] = None
     entity_type: Optional[str] = None
+    name_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    type_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -204,6 +225,7 @@ class OnFn:
     fn_name: str
     arguments: List[Argument] = field(default_factory=lambda: [])
     body_statements: List[Statement] = field(default_factory=lambda: [])
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -213,6 +235,7 @@ class HelperFn:
     return_type: Optional[Type] = None
     return_type_name: Optional[str] = None
     body_statements: List[Statement] = field(default_factory=lambda: [])
+    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 Ast = List[
@@ -335,7 +358,7 @@ class Parser:
 
             elif token.type == TokenType.COMMENT_TOKEN:
                 newline_allowed = True
-                self.ast.append(CommentStatement(token.value))
+                self.ast.append(CommentStatement(token.value, token.span))
                 i[0] += 1
                 self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
                 continue
@@ -414,11 +437,11 @@ class Parser:
             i[0] += 1
             token = self.peek_token(i[0])
             if token.type == TokenType.NEWLINE_TOKEN:
-                statement = ReturnStatement()
+                statement = ReturnStatement(return_span=switch_token.span)
             else:
                 self.consume_space(i)
                 expr = self.parse_expression(i)
-                statement = ReturnStatement(expr)
+                statement = ReturnStatement(expr, switch_token.span)
         elif switch_token.type == TokenType.WHILE_TOKEN:
             i[0] += 1
             statement = self.parse_while_statement(i)
@@ -428,20 +451,20 @@ class Parser:
                     f"There is a break statement that isn't inside of a while loop"
                 )
             i[0] += 1
-            statement = BreakStatement()
+            statement = BreakStatement(switch_token.span)
         elif switch_token.type == TokenType.CONTINUE_TOKEN:
             if self.loop_depth == 0:
                 raise ParserError(
                     f"There is a continue statement that isn't inside of a while loop"
                 )
             i[0] += 1
-            statement = ContinueStatement()
+            statement = ContinueStatement(switch_token.span)
         elif switch_token.type == TokenType.NEWLINE_TOKEN:
             i[0] += 1
             statement = EmptyLineStatement()
         elif switch_token.type == TokenType.COMMENT_TOKEN:
             i[0] += 1
-            statement = CommentStatement(switch_token.value)
+            statement = CommentStatement(switch_token.value, switch_token.span)
         else:
             raise ParserError(
                 f"Expected a statement token, but got token type {switch_token.type.name} on line {self.get_token_line_number(i[0])}"
@@ -486,7 +509,15 @@ class Parser:
                 f"The argument '{arg_name}' can't have '{type_name}' as its type"
             )
 
-        arguments.append(Argument(arg_name, arg_type, type_name))
+        arguments.append(
+            Argument(
+                arg_name,
+                arg_type,
+                type_name,
+                name_span=name_token.span,
+                type_span=type_token.span,
+            )
+        )
 
         # Every argument after the first one starts with a comma
         while True:
@@ -515,13 +546,21 @@ class Parser:
                     f"The argument '{arg_name}' can't have '{type_name}' as its type"
                 )
 
-            arguments.append(Argument(arg_name, arg_type, type_name))
+            arguments.append(
+                Argument(
+                    arg_name,
+                    arg_type,
+                    type_name,
+                    name_span=name_token.span,
+                    type_span=type_token.span,
+                )
+            )
 
         return arguments
 
     def parse_helper_fn(self, i: List[int]):
         fn_name = self.consume_token(i)
-        fn = HelperFn(fn_name.value)
+        fn = HelperFn(fn_name.value, span=fn_name.span)
 
         if fn.fn_name not in self.called_helper_fn_names:
             raise ParserError(
@@ -562,7 +601,7 @@ class Parser:
 
     def parse_on_fn(self, i: List[int]):
         fn_token = self.consume_token(i)
-        fn = OnFn(fn_token.value)
+        fn = OnFn(fn_token.value, span=fn_token.span)
 
         self.consume_token_type(i, TokenType.OPEN_PARENTHESIS_TOKEN)
         next_tok = self.peek_token(i[0])
@@ -723,7 +762,7 @@ class Parser:
 
         expr = self.parse_expression(i)
 
-        return VariableStatement(var_name, var_type, var_type_name, expr)
+        return VariableStatement(var_name, var_type, var_type_name, expr, var_token.span)
 
     def parse_global_variable(self, i: List[int]):
         name_token_index = i[0]
@@ -760,7 +799,9 @@ class Parser:
         self.consume_space(i)
         expr = self.parse_expression(i)
 
-        return VariableStatement(global_name, global_type, global_type_name, expr)
+        return VariableStatement(
+            global_name, global_type, global_type_name, expr, name_token.span
+        )
 
     def parse_unary(self, i: List[int]):
         self.increase_parsing_depth()
@@ -769,7 +810,12 @@ class Parser:
             i[0] += 1
             if token.type == TokenType.NOT_TOKEN:
                 self.consume_space(i)
-            expr = UnaryExpr(token.type, self.parse_unary(i))
+            expr = UnaryExpr(
+                token.type,
+                self.parse_unary(i),
+                span=token.span,
+                op_span=token.span,
+            )
             self.decrease_parsing_depth()
             return expr
         self.decrease_parsing_depth()
@@ -791,7 +837,7 @@ class Parser:
             )
 
         fn_name = expr.name
-        expr = CallExpr(fn_name)
+        expr = CallExpr(fn_name, span=expr.span, name_span=expr.span)
 
         if fn_name.startswith("helper_"):
             self.called_helper_fn_names.add(fn_name)
@@ -846,29 +892,31 @@ class Parser:
 
         if token.type == TokenType.OPEN_PARENTHESIS_TOKEN:
             i[0] += 1
-            expr = ParenthesizedExpr(self.parse_expression(i))
+            expr = ParenthesizedExpr(self.parse_expression(i), span=token.span)
             self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
         elif token.type == TokenType.TRUE_TOKEN:
             i[0] += 1
-            expr = TrueExpr()
+            expr = TrueExpr(span=token.span)
         elif token.type == TokenType.FALSE_TOKEN:
             i[0] += 1
-            expr = FalseExpr()
+            expr = FalseExpr(span=token.span)
         elif token.type == TokenType.STRING_TOKEN:
             i[0] += 1
-            expr = StringExpr(token.value)
+            expr = StringExpr(token.value, span=token.span)
         elif token.type == TokenType.ENTITY_TOKEN:
             i[0] += 1
-            expr = EntityExpr(token.value)
+            expr = EntityExpr(token.value, span=token.span)
         elif token.type == TokenType.RESOURCE_TOKEN:
             i[0] += 1
-            expr = ResourceExpr(token.value)
+            expr = ResourceExpr(token.value, span=token.span)
         elif token.type == TokenType.WORD_TOKEN:
             i[0] += 1
-            expr = IdentifierExpr(token.value)
+            expr = IdentifierExpr(token.value, span=token.span)
         elif token.type == TokenType.NUMBER_TOKEN:
             i[0] += 1
-            expr = NumberExpr(self.str_to_number(token.value), token.value)
+            expr = NumberExpr(
+                self.str_to_number(token.value), token.value, span=token.span
+            )
         else:
             raise ParserError(
                 f"Expected a primary expression token, but got token type {token.type.name} on line {self.get_token_line_number(i[0])}"
@@ -888,10 +936,13 @@ class Parser:
                 in (TokenType.MULTIPLICATION_TOKEN, TokenType.DIVISION_TOKEN)
             ):
                 i[0] += 1
-                op = self.consume_token(i).type
+                op_token = self.consume_token(i)
+                op = op_token.type
                 self.consume_space(i)
                 right_expr = self.parse_unary(i)
-                expr = BinaryExpr(expr, op, right_expr)
+                expr = BinaryExpr(
+                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                )
             else:
                 break
         return expr
@@ -910,10 +961,13 @@ class Parser:
                 )
             ):
                 i[0] += 1
-                op = self.consume_token(i).type
+                op_token = self.consume_token(i)
+                op = op_token.type
                 self.consume_space(i)
                 right_expr = self.parse_factor(i)
-                expr = BinaryExpr(expr, op, right_expr)
+                expr = BinaryExpr(
+                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                )
             else:
                 break
         return expr
@@ -934,10 +988,13 @@ class Parser:
                 )
             ):
                 i[0] += 1
-                op = self.consume_token(i).type
+                op_token = self.consume_token(i)
+                op = op_token.type
                 self.consume_space(i)
                 right_expr = self.parse_term(i)
-                expr = BinaryExpr(expr, op, right_expr)
+                expr = BinaryExpr(
+                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                )
             else:
                 break
         return expr
@@ -956,10 +1013,13 @@ class Parser:
                 )
             ):
                 i[0] += 1
-                op = self.consume_token(i).type
+                op_token = self.consume_token(i)
+                op = op_token.type
                 self.consume_space(i)
                 right_expr = self.parse_comparison(i)
-                expr = BinaryExpr(expr, op, right_expr)
+                expr = BinaryExpr(
+                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                )
             else:
                 break
         return expr
@@ -974,10 +1034,13 @@ class Parser:
                 and self.peek_token(i[0] + 1).type == TokenType.AND_TOKEN
             ):
                 i[0] += 1
-                op = self.consume_token(i).type
+                op_token = self.consume_token(i)
+                op = op_token.type
                 self.consume_space(i)
                 right_expr = self.parse_equality(i)
-                expr = LogicalExpr(expr, op, right_expr)
+                expr = LogicalExpr(
+                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                )
             else:
                 break
         return expr
@@ -992,10 +1055,13 @@ class Parser:
                 and self.peek_token(i[0] + 1).type == TokenType.OR_TOKEN
             ):
                 i[0] += 1
-                op = self.consume_token(i).type
+                op_token = self.consume_token(i)
+                op = op_token.type
                 self.consume_space(i)
                 right_expr = self.parse_and(i)
-                expr = LogicalExpr(expr, op, right_expr)
+                expr = LogicalExpr(
+                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                )
             else:
                 break
         return expr

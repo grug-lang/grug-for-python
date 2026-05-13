@@ -25,7 +25,7 @@ from .parser import (
     VariableStatement,
     WhileStatement,
 )
-from .tokenizer import TokenType
+from .tokenizer import SourceSpan, TokenType
 
 
 @dataclass
@@ -78,6 +78,9 @@ class TypePropagator:
                     obj["type"],
                     obj.get("resource_extension"),
                     obj.get("entity_type"),
+                    # Dummy span locations
+                    SourceSpan(0, 0),
+                    SourceSpan(0, 0),
                 )
                 for obj in lst
             ]
