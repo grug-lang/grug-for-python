@@ -2,6 +2,7 @@ import argparse
 import ctypes
 import json
 import sys
+import os
 import tempfile
 import traceback
 from pathlib import Path
@@ -177,7 +178,8 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             return 1
         except Exception:  
             traceback.print_exc(file=sys.stderr)
-            sys.exit(2)
+            os._exit(2)
+        return 0
 
     @destroy_grug_state_t
     def destroy_grug_state(state_ptr: int) -> None:
@@ -203,7 +205,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             return file_id
         except Exception:  
             traceback.print_exc(file=sys.stderr)
-            sys.exit(2)
+            os._exit(2)
 
     @create_entity_t
     def create_entity(state_ptr: int, grug_script_id: int) -> int:
@@ -215,7 +217,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             return entity_id
         except Exception:  
             traceback.print_exc(file=sys.stderr)
-            sys.exit(2)
+            os._exit(2)
 
     @get_on_fn_id_t
     def get_on_fn_id(state_ptr: int, entity_type: bytes, function_name: bytes) -> int:
@@ -245,7 +247,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             ]
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError):
-            sys.exit(2)
+            os._exit(2)
 
     @destroy_entity_t
     def destroy_entity(state_ptr: int, entity_id: int) -> None:

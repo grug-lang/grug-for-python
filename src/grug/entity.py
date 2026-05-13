@@ -305,10 +305,16 @@ class Entity:
             return self._run_game_fn(call_expr.fn_name, *args)
 
     def _run_if_statement(self, statement: IfStatement):
-        if self._run_expr(statement.condition):
-            self._run_statements(statement.if_body)
-        else:
-            self._run_statements(statement.else_body)
+        while True:
+            if self._run_expr(statement.condition):
+                self._run_statements(statement.if_body)
+                break
+            elif len(statement.else_body) == 1 and isinstance(statement.else_body[0], IfStatement):
+                statement = statement.else_body[0]
+                continue
+            else:
+                self._run_statements(statement.else_body)
+                break
 
     def _run_return_statement(self, statement: ReturnStatement):
         if statement.value:
