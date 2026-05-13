@@ -44,11 +44,16 @@ class TokenType(Enum):
     NUMBER_TOKEN = auto()
     COMMENT_TOKEN = auto()
 
+@dataclass
+class SourceSpan:
+    line: int
+    offset: int
 
 @dataclass
 class Token:
     type: TokenType
     value: str
+    span: SourceSpan
 
 
 class TokenizerError(Exception):
@@ -63,98 +68,112 @@ class Tokenizer:
         tokens: List[Token] = []
         src = self.src
         i = 0
+        current_line = 1
+
+        def current_span(start: int) -> SourceSpan:
+            return SourceSpan(current_line, start)
+
+        def add_token(token_type: TokenType, value: str, start: int) -> None:
+            tokens.append(Token(token_type, value, current_span(start)))
+
         while i < len(src):
             c = src[i]
             if c == "(":
-                tokens.append(Token(TokenType.OPEN_PARENTHESIS_TOKEN, c))
+                add_token(TokenType.OPEN_PARENTHESIS_TOKEN, c, i)
                 i += 1
             elif c == ")":
-                tokens.append(Token(TokenType.CLOSE_PARENTHESIS_TOKEN, c))
+                add_token(TokenType.CLOSE_PARENTHESIS_TOKEN, c, i)
                 i += 1
             elif c == "{":
-                tokens.append(Token(TokenType.OPEN_BRACE_TOKEN, c))
+                add_token(TokenType.OPEN_BRACE_TOKEN, c, i)
                 i += 1
             elif c == "}":
-                tokens.append(Token(TokenType.CLOSE_BRACE_TOKEN, c))
+                add_token(TokenType.CLOSE_BRACE_TOKEN, c, i)
                 i += 1
             elif c == "+":
-                tokens.append(Token(TokenType.PLUS_TOKEN, c))
+                add_token(TokenType.PLUS_TOKEN, c, i)
                 i += 1
             elif c == "-":
-                tokens.append(Token(TokenType.MINUS_TOKEN, c))
+                add_token(TokenType.MINUS_TOKEN, c, i)
                 i += 1
             elif c == "*":
-                tokens.append(Token(TokenType.MULTIPLICATION_TOKEN, c))
+                add_token(TokenType.MULTIPLICATION_TOKEN, c, i)
                 i += 1
             elif c == "/":
-                tokens.append(Token(TokenType.DIVISION_TOKEN, c))
+                add_token(TokenType.DIVISION_TOKEN, c, i)
                 i += 1
             elif c == ",":
-                tokens.append(Token(TokenType.COMMA_TOKEN, c))
+                add_token(TokenType.COMMA_TOKEN, c, i)
                 i += 1
             elif c == ":":
-                tokens.append(Token(TokenType.COLON_TOKEN, c))
+                add_token(TokenType.COLON_TOKEN, c, i)
                 i += 1
+            elif src.startswith("\r\n", i):
+                add_token(TokenType.NEWLINE_TOKEN, "\r\n", i)
+                current_line += 1
+                i += 2
             elif c == "\n":
-                tokens.append(Token(TokenType.NEWLINE_TOKEN, c))
+                add_token(TokenType.NEWLINE_TOKEN, c, i)
+                current_line += 1
                 i += 1
             elif c == "=" and i + 1 < len(src) and src[i + 1] == "=":
-                tokens.append(Token(TokenType.EQUALS_TOKEN, "=="))
+                add_token(TokenType.EQUALS_TOKEN, "==", i)
                 i += 2
             elif c == "!" and i + 1 < len(src) and src[i + 1] == "=":
-                tokens.append(Token(TokenType.NOT_EQUALS_TOKEN, "!="))
+                add_token(TokenType.NOT_EQUALS_TOKEN, "!=", i)
                 i += 2
             elif c == "=":
-                tokens.append(Token(TokenType.ASSIGNMENT_TOKEN, c))
+                add_token(TokenType.ASSIGNMENT_TOKEN, c, i)
                 i += 1
             elif c == ">" and i + 1 < len(src) and src[i + 1] == "=":
-                tokens.append(Token(TokenType.GREATER_OR_EQUAL_TOKEN, ">="))
+                add_token(TokenType.GREATER_OR_EQUAL_TOKEN, ">=", i)
                 i += 2
             elif c == ">":
-                tokens.append(Token(TokenType.GREATER_TOKEN, ">"))
+                add_token(TokenType.GREATER_TOKEN, ">", i)
                 i += 1
             elif c == "<" and i + 1 < len(src) and src[i + 1] == "=":
-                tokens.append(Token(TokenType.LESS_OR_EQUAL_TOKEN, "<="))
+                add_token(TokenType.LESS_OR_EQUAL_TOKEN, "<=", i)
                 i += 2
             elif c == "<":
-                tokens.append(Token(TokenType.LESS_TOKEN, "<"))
+                add_token(TokenType.LESS_TOKEN, "<", i)
                 i += 1
             elif src.startswith("and", i) and self.is_end_of_word(i + 3):
-                tokens.append(Token(TokenType.AND_TOKEN, "and"))
+                add_token(TokenType.AND_TOKEN, "and", i)
                 i += 3
             elif src.startswith("or", i) and self.is_end_of_word(i + 2):
-                tokens.append(Token(TokenType.OR_TOKEN, "or"))
+                add_token(TokenType.OR_TOKEN, "or", i)
                 i += 2
             elif src.startswith("not", i) and self.is_end_of_word(i + 3):
-                tokens.append(Token(TokenType.NOT_TOKEN, "not"))
+                add_token(TokenType.NOT_TOKEN, "not", i)
                 i += 3
             elif src.startswith("true", i) and self.is_end_of_word(i + 4):
-                tokens.append(Token(TokenType.TRUE_TOKEN, "true"))
+                add_token(TokenType.TRUE_TOKEN, "true", i)
                 i += 4
             elif src.startswith("false", i) and self.is_end_of_word(i + 5):
-                tokens.append(Token(TokenType.FALSE_TOKEN, "false"))
+                add_token(TokenType.FALSE_TOKEN, "false", i)
                 i += 5
             elif src.startswith("if", i) and self.is_end_of_word(i + 2):
-                tokens.append(Token(TokenType.IF_TOKEN, "if"))
+                add_token(TokenType.IF_TOKEN, "if", i)
                 i += 2
             elif src.startswith("else", i) and self.is_end_of_word(i + 4):
-                tokens.append(Token(TokenType.ELSE_TOKEN, "else"))
+                add_token(TokenType.ELSE_TOKEN, "else", i)
                 i += 4
             elif src.startswith("while", i) and self.is_end_of_word(i + 5):
-                tokens.append(Token(TokenType.WHILE_TOKEN, "while"))
+                add_token(TokenType.WHILE_TOKEN, "while", i)
                 i += 5
             elif src.startswith("break", i) and self.is_end_of_word(i + 5):
-                tokens.append(Token(TokenType.BREAK_TOKEN, "break"))
+                add_token(TokenType.BREAK_TOKEN, "break", i)
                 i += 5
             elif src.startswith("return", i) and self.is_end_of_word(i + 6):
-                tokens.append(Token(TokenType.RETURN_TOKEN, "return"))
+                add_token(TokenType.RETURN_TOKEN, "return", i)
                 i += 6
             elif src.startswith("continue", i) and self.is_end_of_word(i + 8):
-                tokens.append(Token(TokenType.CONTINUE_TOKEN, "continue"))
+                add_token(TokenType.CONTINUE_TOKEN, "continue", i)
                 i += 8
+            # spaces and indentation
             elif c == " ":
                 if i + 1 >= len(src) or src[i + 1] != " ":
-                    tokens.append(Token(TokenType.SPACE_TOKEN, " "))
+                    add_token(TokenType.SPACE_TOKEN, " ", i)
                     i += 1
                     continue
 
@@ -169,26 +188,34 @@ class Tokenizer:
                         f"Encountered {spaces} spaces, while indentation expects multiples of {SPACES_PER_INDENT} spaces, on line {self.get_character_line_number(i)}"
                     )
 
-                tokens.append(Token(TokenType.INDENTATION_TOKEN, " " * spaces))
+                add_token(TokenType.INDENTATION_TOKEN, " " * spaces, old_i)
+            # Strings
             elif c == '"':
-                string, i = self.tokenize_string(i)
-                tokens.append(Token(TokenType.STRING_TOKEN, string))
+                token_span = current_span(i)
+                string, i, current_line = self.tokenize_string(i, current_line)
+                tokens.append(Token(TokenType.STRING_TOKEN, string, token_span))
                 i += 1
+            # Entity strings
             elif c == "e" and i + 1 < len(src) and src[i + 1] == '"':
+                token_span = current_span(i)
                 i += 1
-                string, i = self.tokenize_string(i)
-                tokens.append(Token(TokenType.ENTITY_TOKEN, string))
+                string, i, current_line = self.tokenize_string(i, current_line)
+                tokens.append(Token(TokenType.ENTITY_TOKEN, string, token_span))
                 i += 1
+            # Resource strings
             elif c == "r" and i + 1 < len(src) and src[i + 1] == '"':
+                token_span = current_span(i)
                 i += 1
-                string, i = self.tokenize_string(i)
-                tokens.append(Token(TokenType.RESOURCE_TOKEN, string))
+                string, i, current_line = self.tokenize_string(i, current_line)
+                tokens.append(Token(TokenType.RESOURCE_TOKEN, string, token_span))
                 i += 1
+            # words
             elif c.isalpha() or c == "_":
                 start = i
                 while i < len(src) and (src[i].isalnum() or src[i] == "_"):
                     i += 1
-                tokens.append(Token(TokenType.WORD_TOKEN, src[start:i]))
+                add_token(TokenType.WORD_TOKEN, src[start:i], start)
+            # numbers
             elif c.isdigit():
                 start = i
                 seen_period = False
@@ -207,8 +234,10 @@ class Tokenizer:
                         f"Missing digit after decimal point in '{src[start:i]}'"
                     )
 
-                tokens.append(Token(TokenType.NUMBER_TOKEN, src[start:i]))
+                add_token(TokenType.NUMBER_TOKEN, src[start:i], start)
+            # comments
             elif c == "#":
+                token_start = i
                 i += 1
                 if i >= len(src) or src[i] != " ":
                     raise TokenizerError(
@@ -234,7 +263,7 @@ class Tokenizer:
                         f"A comment has trailing whitespace on line {self.get_character_line_number(i)}"
                     )
 
-                tokens.append(Token(TokenType.COMMENT_TOKEN, src[start:i]))
+                add_token(TokenType.COMMENT_TOKEN, src[start:i], token_start)
             else:
                 raise TokenizerError(
                     f"Unrecognized character '{c}' on line {self.get_character_line_number(i)}"
@@ -255,13 +284,15 @@ class Tokenizer:
             self.src[idx].isalnum() or self.src[idx] == "_"
         )
 
-    def tokenize_string(self, i: int) -> Tuple[str, int]:
+    def tokenize_string(self, i: int, current_line: int) -> Tuple[str, int, int]:
         src = self.src
         open_quote_index = i
         i += 1
         start = i
         while i < len(src) and src[i] != '"':
-            if src[i] == "\0":
+            if src[i] == "\n": 
+                current_line += 1;
+            elif src[i] == "\0":
                 raise TokenizerError(
                     f"Unexpected null byte on line {self.get_character_line_number(i)}"
                 )
@@ -274,4 +305,4 @@ class Tokenizer:
             raise TokenizerError(
                 f'Unclosed " on line {self.get_character_line_number(open_quote_index)}'
             )
-        return src[start:i], i
+        return src[start:i], i, current_line
