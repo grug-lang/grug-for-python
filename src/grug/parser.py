@@ -4,7 +4,7 @@ import math
 import struct
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Union, Tuple
 
 from .tokenizer import SPACES_PER_INDENT, SourceSpan, Token, TokenType
 
@@ -1074,7 +1074,7 @@ class Parser:
 
     def parse_if_statement(self, i: List[int]):
         self.increase_parsing_depth()
-        ifs = []
+        ifs: List[Tuple[Expr, List[Statement]]] = []
         while True:
             # consume if token
             i[0] += 1
@@ -1093,14 +1093,14 @@ class Parser:
                     and self.peek_token(i[0] + 1).type == TokenType.IF_TOKEN
                 ):
                     i[0] += 1
-                    ifs.append([condition, if_body])
+                    ifs.append((condition, if_body))
                     continue
                 else:
                     else_body = self.parse_statements(i)
             else: 
                 else_body = []
 
-            ifs.append([condition, if_body])
+            ifs.append((condition, if_body))
             break
 
         current = ifs.pop()
