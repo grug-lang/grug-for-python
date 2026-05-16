@@ -35,41 +35,41 @@ class Result:
 
 @dataclass
 class TrueExpr:
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
 
 
 @dataclass
 class FalseExpr:
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
 
 
 @dataclass
 class StringExpr:
     string: str
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.STRING, "string"))
 
 
 @dataclass
 class ResourceExpr:
     string: str
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.RESOURCE, "resource"))
 
 
 @dataclass
 class EntityExpr:
     string: str
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.ENTITY, "entity"))
 
 
 @dataclass
 class IdentifierExpr:
     name: str
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=Result)
 
 
@@ -77,7 +77,7 @@ class IdentifierExpr:
 class NumberExpr:
     value: float
     string: str
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.NUMBER, "number"))
 
 
@@ -85,7 +85,7 @@ class NumberExpr:
 class UnaryExpr:
     operator: TokenType
     expr: Expr
-    span: SourceSpan
+    expr_span: SourceSpan
     op_span: SourceSpan
     result: Result = field(default_factory=Result)
 
@@ -95,7 +95,7 @@ class BinaryExpr:
     left_expr: Expr
     operator: TokenType
     right_expr: Expr
-    span: SourceSpan
+    expr_span: SourceSpan
     op_span: SourceSpan
     result: Result = field(default_factory=Result)
 
@@ -105,7 +105,7 @@ class LogicalExpr:
     left_expr: Expr
     operator: TokenType
     right_expr: Expr
-    span: SourceSpan
+    expr_span: SourceSpan
     op_span: SourceSpan
     result: Result = field(default_factory=Result)
 
@@ -113,7 +113,7 @@ class LogicalExpr:
 @dataclass
 class CallExpr:
     fn_name: str
-    span: SourceSpan
+    expr_span: SourceSpan
     name_span: SourceSpan
     arguments: List[Expr] = field(default_factory=lambda: [])
     result: Result = field(default_factory=Result)
@@ -122,7 +122,7 @@ class CallExpr:
 @dataclass
 class ParenthesizedExpr:
     expr: Expr
-    span: SourceSpan
+    expr_span: SourceSpan
     result: Result = field(default_factory=Result)
 
 
@@ -813,7 +813,7 @@ class Parser:
             expr = UnaryExpr(
                 token.type,
                 self.parse_unary(i),
-                span=token.span,
+                expr_span=token.span,
                 op_span=token.span,
             )
             self.decrease_parsing_depth()
@@ -837,7 +837,7 @@ class Parser:
             )
 
         fn_name = expr.name
-        expr = CallExpr(fn_name, span=expr.span, name_span=expr.span)
+        expr = CallExpr(fn_name, expr_span=expr.expr_span, name_span=expr.expr_span)
 
         if fn_name.startswith("helper_"):
             self.called_helper_fn_names.add(fn_name)
@@ -892,30 +892,30 @@ class Parser:
 
         if token.type == TokenType.OPEN_PARENTHESIS_TOKEN:
             i[0] += 1
-            expr = ParenthesizedExpr(self.parse_expression(i), span=token.span)
+            expr = ParenthesizedExpr(self.parse_expression(i), expr_span=token.span)
             self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
         elif token.type == TokenType.TRUE_TOKEN:
             i[0] += 1
-            expr = TrueExpr(span=token.span)
+            expr = TrueExpr(expr_span=token.span)
         elif token.type == TokenType.FALSE_TOKEN:
             i[0] += 1
-            expr = FalseExpr(span=token.span)
+            expr = FalseExpr(expr_span=token.span)
         elif token.type == TokenType.STRING_TOKEN:
             i[0] += 1
-            expr = StringExpr(token.value, span=token.span)
+            expr = StringExpr(token.value, expr_span=token.span)
         elif token.type == TokenType.ENTITY_TOKEN:
             i[0] += 1
-            expr = EntityExpr(token.value, span=token.span)
+            expr = EntityExpr(token.value, expr_span=token.span)
         elif token.type == TokenType.RESOURCE_TOKEN:
             i[0] += 1
-            expr = ResourceExpr(token.value, span=token.span)
+            expr = ResourceExpr(token.value, expr_span=token.span)
         elif token.type == TokenType.WORD_TOKEN:
             i[0] += 1
-            expr = IdentifierExpr(token.value, span=token.span)
+            expr = IdentifierExpr(token.value, expr_span=token.span)
         elif token.type == TokenType.NUMBER_TOKEN:
             i[0] += 1
             expr = NumberExpr(
-                self.str_to_number(token.value), token.value, span=token.span
+                self.str_to_number(token.value), token.value, expr_span=token.span
             )
         else:
             raise ParserError(
@@ -941,7 +941,7 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_unary(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
                 )
             else:
                 break
@@ -966,7 +966,7 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_factor(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
                 )
             else:
                 break
@@ -993,7 +993,7 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_term(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
                 )
             else:
                 break
@@ -1018,7 +1018,7 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_comparison(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
                 )
             else:
                 break
@@ -1039,7 +1039,7 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_equality(i)
                 expr = LogicalExpr(
-                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
                 )
             else:
                 break
@@ -1060,7 +1060,7 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_and(i)
                 expr = LogicalExpr(
-                    expr, op, right_expr, span=expr.span, op_span=op_token.span
+                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
                 )
             else:
                 break
