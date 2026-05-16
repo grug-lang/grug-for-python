@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
+from .errors import SourceSpan
 from .parser import (
     Argument,
     Ast,
@@ -25,7 +26,7 @@ from .parser import (
     VariableStatement,
     WhileStatement,
 )
-from .tokenizer import SourceSpan, TokenType
+from .tokenizer import TokenType
 
 
 @dataclass

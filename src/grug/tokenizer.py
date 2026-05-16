@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Tuple
 
+from .errors import SourceSpan
+
 SPACES_PER_INDENT = 4
 
 
@@ -44,10 +46,6 @@ class TokenType(Enum):
     NUMBER_TOKEN = auto()
     COMMENT_TOKEN = auto()
 
-@dataclass
-class SourceSpan:
-    line: int
-    offset: int
 
 @dataclass
 class Token:
