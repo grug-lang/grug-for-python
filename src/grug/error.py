@@ -28,7 +28,7 @@ class SourceSpan:
         while line_end_index < len(source_text) and source_text[line_end_index] != '\n':
             line_end_index += 1;
         
-        return source_text[line_start_index + 1:line_end_index].strip()
+        return source_text[line_start_index + 1:line_end_index].lstrip()
 
 @dataclass
 class GrugError(Exception):
@@ -48,7 +48,7 @@ class GrugError(Exception):
         error_string = f"""\
   in ({file_path}:{line}:{column})\n\
 Error: {error_message}\n\
-{line} $ {source_line}"\
+{line} $ {source_line}\
 """
         return GrugError(
             function_name = "",
@@ -62,7 +62,7 @@ Error: {error_message}\n\
     @staticmethod
     def new_compile_error(file_path: Path, current_function: Optional[str], source_text: str, err_span: SourceSpan, error_message: str) -> "GrugError":
         if current_function == None:
-            current_function = "member_scope"
+            current_function = "member scope"
         line = err_span.line
         column = err_span.get_column(source_text)
         source_line = err_span.get_source_line(source_text)
@@ -70,7 +70,7 @@ Error: {error_message}\n\
         error_string = f"""\
   in {current_function} ({file_path}:{line}:{column})\n\
 Error: {error_message}\n\
-{line} $ {source_line}"\
+{line} $ {source_line}\
 """
         return GrugError(
             function_name = current_function,
@@ -81,5 +81,23 @@ Error: {error_message}\n\
             error_string = error_string
         )
 
+    @staticmethod
+    def new_file_name_error(file_path: Path, error_message: str) -> "GrugError":
+        source_line = str(file_path)
+        err_span = SourceSpan(1, 0)
+
+        error_string = f"""\
+Error: {error_message}\n\
+$  {file_path}\
+"""
+        return GrugError(
+            function_name = "",
+            file_path = file_path,
+            source_line = source_line,
+            span = err_span,
+            error_message = error_message,
+            error_string = error_string
+        )
+
     def __str__(self) -> str:
-        return self.error_message
+        return self.error_string

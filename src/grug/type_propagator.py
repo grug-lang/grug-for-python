@@ -190,13 +190,13 @@ class TypePropagator:
             if not entity_name:
                 raise self.new_error(
                     span,
-                    f"Entity '{string}' specifies the mod name '{mod}', but it is missing an entity name after the ':'"
+                    f"Entity '{string}' missing entity name"
                 )
 
             if mod == self.mod:
                 raise self.new_error(
                     span,
-                    f"Entity '{string}' its mod name '{mod}' is invalid, since the file it is in refers to its own mod; just change it to '{entity_name}'"
+                    f"Entity string ('{string}') cannot refer to its own mod"
                 )
 
         for c in mod:
@@ -389,20 +389,25 @@ class TypePropagator:
         self.fill_expr(right)
 
         op = expr.operator
-        op_name = op.name
 
         if left.result.type == Type.STRING:
             if op not in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
-                raise self.new_error(
-                    expr.op_span,
-                    f"You can't use the {op_name} operator on a string"
-                )
+                if op == TokenType.PLUS_TOKEN:
+                    raise self.new_error(
+                        expr.op_span,
+                        f"cannot add strings with '+'"
+                    )
+                else:
+                    raise self.new_error(
+                        expr.op_span,
+                        f"You can't use the {op} operator on a string"
+                    )
 
         is_id = left.result.type_name == "id" or right.result.type_name == "id"
         if not is_id and left.result.type_name != right.result.type_name:
             raise self.new_error(
                 expr.op_span,
-                f"The left and right operand of a binary expression ('{op_name}') must have the same type, but got {left.result.type_name} and {right.result.type_name}"
+                f"The left and right operand of a binary expression ({op}) must have the same type, but got {left.result.type_name} and {right.result.type_name}"
             )
 
         if op in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
@@ -415,12 +420,12 @@ class TypePropagator:
             TokenType.LESS_TOKEN,
         ):
             if left.result.type != Type.NUMBER:
-                raise self.new_error(expr.op_span, f"'{op_name}' operator expects number")
+                raise self.new_error(expr.op_span, f"{op} operator expects number")
             expr.result.type = Type.BOOL
             expr.result.type_name = "bool"
         elif op in (TokenType.AND_TOKEN, TokenType.OR_TOKEN):
             if left.result.type != Type.BOOL:
-                raise self.new_error(expr.op_span, f"'{op_name}' operator expects bool")
+                raise self.new_error(expr.op_span, f"{op} operator expects bool")
             expr.result.type = Type.BOOL
             expr.result.type_name = "bool"
         else:
@@ -432,7 +437,7 @@ class TypePropagator:
             )
 
             if left.result.type != Type.NUMBER:
-                raise self.new_error(expr.op_span, f"'{op_name}' operator expects number")
+                raise self.new_error(expr.op_span, f"{op} operator expects number")
             expr.result.type = left.result.type
             expr.result.type_name = left.result.type_name
 
@@ -453,7 +458,7 @@ class TypePropagator:
             if isinstance(inner, UnaryExpr) and inner.operator == op:
                 raise self.new_error(
                     expr.op_span,
-                    f"Found '{op.name}' directly next to another '{op.name}', which can be simplified by just removing both of them"
+                    f"Found {op} directly next to another {op}, which can be simplified by just removing both of them"
                 )
 
             self.fill_expr(inner)

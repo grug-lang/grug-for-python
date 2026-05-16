@@ -324,7 +324,7 @@ class Parser:
                     if newline_required:
                         raise ParserError(
                             token.span,
-                            f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
+                            f"Expected an empty line"
                         )
 
                     fn = self.parse_on_fn(i)
@@ -353,7 +353,7 @@ class Parser:
                     if newline_required:
                         raise ParserError(
                             token.span,
-                            f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
+                            f"Expected an empty line"
                         )
 
                     fn = self.parse_helper_fn(i)
@@ -375,7 +375,7 @@ class Parser:
                     if not newline_allowed:
                         raise ParserError(
                             token.span,
-                            f"Unexpected empty line, on line {self.get_token_line_number(i[0])}"
+                            f"Unexpected empty line"
                         )
 
                     seen_newline = True
@@ -397,13 +397,13 @@ class Parser:
                 else:
                     raise ParserError(
                         token.span,
-                        f"Unexpected token '{token.value}' on line {self.get_token_line_number(i[0])}"
+                        f"Unexpected token '{token.value}'"
                     )
 
             if seen_newline and not newline_allowed:
                 raise ParserError(
                     self.token_span_or_last(len(self.tokens) - 1),
-                    f"Unexpected empty line, on line {self.get_token_line_number(len(self.tokens)-1)}"
+                    f"Unexpected empty line"
                 )
         except ParserError as err:
             raise self.new_error(err.span, err.message) from err
@@ -414,7 +414,7 @@ class Parser:
         if token_index >= len(self.tokens):
             raise ParserError(
                 self.token_span_or_last(token_index),
-                f"token_index {token_index} was out of bounds in peek_token()"
+                f"unexpected end of file"
             )
         return self.tokens[token_index]
 
@@ -425,12 +425,17 @@ class Parser:
         return token
 
     def assert_token_type(self, token_index: int, expected_type: TokenType):
-        token = self.peek_token(token_index)
+        try: 
+            token = self.peek_token(token_index)
+        except Exception as e:
+            raise ParserError(
+                self.token_span_or_last(token_index),
+                f"Expected {expected_type} but got end of file"
+            )
         if token.type != expected_type:
             raise ParserError(
                 token.span,
-                f"Expected token type {expected_type.name}, "
-                f"but got {token.type.name} on line {self.get_token_line_number(token_index)}"
+                f"Expected {expected_type} but got {token.type}"
             )
 
     def consume_token_type(self, i: List[int], expected_type: TokenType):
@@ -467,7 +472,7 @@ class Parser:
             else:
                 raise ParserError(
                     switch_token.span,
-                    f"Expected '(', or ':', or ' =' after the word '{switch_token.value}' on line {self.get_token_line_number(i[0])}"
+                    f"Expected '(', or ':', or ' =' after the word '{switch_token.value}'"
                 )
         elif switch_token.type == TokenType.IF_TOKEN:
             statement = self.parse_if_statement(i)
@@ -508,7 +513,7 @@ class Parser:
         else:
             raise ParserError(
                 switch_token.span,
-                f"Expected a statement token, but got token type {switch_token.type.name} on line {self.get_token_line_number(i[0])}"
+                f"Expected a statement token, but got token type {switch_token.type}"
             )
 
         self.decrease_parsing_depth()
@@ -692,7 +697,7 @@ class Parser:
                 if not newline_allowed:
                     raise ParserError(
                         tok.span,
-                        f"Unexpected empty line, on line {self.get_token_line_number(i[0])}"
+                        f"Unexpected empty line"
                     )
                 i[0] += 1
                 seen_newline = True
@@ -711,7 +716,7 @@ class Parser:
         if seen_newline and not newline_allowed:
             raise ParserError(
                 self.token_span_or_last(i[0] - 1),
-                f"Unexpected empty line, on line {self.get_token_line_number(i[0]-1)}"
+                f"Unexpected empty line"
             )
 
         self.indentation -= 1
@@ -730,7 +735,7 @@ class Parser:
         if tok.type != TokenType.SPACE_TOKEN:
             raise ParserError(
                 tok.span,
-                f"Expected token type SPACE_TOKEN, but got {tok.type.name} on line {self.get_token_line_number(i[0])}"
+                f"Expected token type SPACE_TOKEN, but got {tok.type}"
             )
         i[0] += 1
 
@@ -741,7 +746,7 @@ class Parser:
         if spaces != expected:
             raise ParserError(
                 self.peek_token(i[0]).span,
-                f"Expected {expected} spaces, but got {spaces} spaces on line {self.get_token_line_number(i[0])}"
+                f"Expected {expected} spaces, but got {spaces} spaces"
             )
         i[0] += 1
 
@@ -757,7 +762,7 @@ class Parser:
         else:
             raise ParserError(
                 tok.span,
-                f"Expected indentation, newline, or '}}', but got '{tok.value}' on line {self.get_token_line_number(i[0])}"
+                f"Expected indentation, newline, or '}}', but got '{tok.value}'"
             )
 
     def increase_parsing_depth(self, i: List[int]):
@@ -786,7 +791,7 @@ class Parser:
             if var_name == "me":
                 raise self.new_error(
                     var_token.span,
-                    "The local variable 'me' has to have its name changed to something else, since grug already declares that variable"
+                    "variable cannot be named 'me'"
                 )
 
             self.consume_space(i)
@@ -806,7 +811,7 @@ class Parser:
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
             raise self.new_error(
                 var_token.span,
-                f"The variable '{var_name}' was not assigned a value on line {self.get_token_line_number(name_token_index)}"
+                f"The variable '{var_name}' was not assigned a value"
             )
 
         self.consume_space(i)
@@ -833,7 +838,7 @@ class Parser:
         if global_name == "me":
             raise self.new_error(
                 name_token.span,
-                "The global variable 'me' has to have its name changed to something else, since grug already declares that variable"
+                "variable cannot be named 'me'"
             )
 
         self.consume_token_type(i, TokenType.COLON_TOKEN)
@@ -854,7 +859,7 @@ class Parser:
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
             raise self.new_error(
                 name_token.span,
-                f"The global variable '{global_name}' was not assigned a value on line {self.get_token_line_number(name_token_index)}"
+                f"The global variable '{global_name}' was not assigned a value"
             )
 
         self.consume_space(i)
@@ -985,7 +990,7 @@ class Parser:
         else:
             raise ParserError(
                 token.span,
-                f"Expected a primary expression token, but got token type {token.type.name} on line {self.get_token_line_number(i[0])}"
+                f"Expected a primary expression token, but got token type {token.type}"
             )
 
         self.decrease_parsing_depth()

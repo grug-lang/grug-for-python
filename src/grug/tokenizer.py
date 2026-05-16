@@ -47,6 +47,47 @@ class TokenType(Enum):
     NUMBER_TOKEN = auto()
     COMMENT_TOKEN = auto()
 
+    def __str__(self) -> str:
+        return {
+            TokenType.OPEN_PARENTHESIS_TOKEN: "'('",
+            TokenType.CLOSE_PARENTHESIS_TOKEN: "')'",
+            TokenType.OPEN_BRACE_TOKEN: "'{'",
+            TokenType.CLOSE_BRACE_TOKEN: "'}'",
+            TokenType.PLUS_TOKEN: "'+'",
+            TokenType.MINUS_TOKEN: "'-'",
+            TokenType.MULTIPLICATION_TOKEN: "'*'",
+            TokenType.DIVISION_TOKEN: "'/'",
+            TokenType.COMMA_TOKEN: "','",
+            TokenType.COLON_TOKEN: "':'",
+            TokenType.NEWLINE_TOKEN: "line break ('\\n')",
+            TokenType.EQUALS_TOKEN: "'=='",
+            TokenType.NOT_EQUALS_TOKEN: "'!='",
+            TokenType.ASSIGNMENT_TOKEN: "'='",
+            TokenType.GREATER_OR_EQUAL_TOKEN: "'>='",
+            TokenType.GREATER_TOKEN: "'>'",
+            TokenType.LESS_OR_EQUAL_TOKEN: "'<='",
+            TokenType.LESS_TOKEN: "'<'",
+            TokenType.AND_TOKEN: "'and'",
+            TokenType.OR_TOKEN: "'or'",
+            TokenType.NOT_TOKEN: "'not'",
+            TokenType.TRUE_TOKEN: "'true'",
+            TokenType.FALSE_TOKEN: "'false'",
+            TokenType.IF_TOKEN: "'if'",
+            TokenType.ELSE_TOKEN: "'else'",
+            TokenType.WHILE_TOKEN: "'while'",
+            TokenType.BREAK_TOKEN: "'break'",
+            TokenType.RETURN_TOKEN: "'return'",
+            TokenType.CONTINUE_TOKEN: "'continue'",
+            TokenType.SPACE_TOKEN: "space (' ')",
+            TokenType.INDENTATION_TOKEN: "indentation",
+            TokenType.STRING_TOKEN: "string",
+            TokenType.ENTITY_TOKEN: "entity string",
+            TokenType.RESOURCE_TOKEN: "resource string",
+            TokenType.WORD_TOKEN: "word",
+            TokenType.NUMBER_TOKEN: "number",
+            TokenType.COMMENT_TOKEN: "comment",
+        }.get(self, self.name)
+
 
 @dataclass
 class Token:
@@ -234,7 +275,7 @@ class Tokenizer:
 
                 if src[i - 1] == ".":
                     raise self.new_error(
-                        current_span(i - 1),
+                        current_span(i),
                         f"Missing digit after decimal point in '{src[start:i]}'",
                     )
 
@@ -261,8 +302,8 @@ class Tokenizer:
                 comment_len = i - start
                 if comment_len == 0:
                     raise self.new_error(
-                        current_span(token_start),
-                        f"Expected the comment to contain some text on line {self.get_character_line_number(i)}",
+                        current_span(i - 1),
+                        f"Expected comment to contain some text",
                     )
 
                 if src[i - 1].isspace():
