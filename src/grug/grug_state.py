@@ -179,7 +179,7 @@ class GrugState:
 
         tokens = Tokenizer(text, grug_file_absolute_path).tokenize()
 
-        ast = Parser(tokens).parse()
+        ast = Parser(tokens, grug_file_absolute_path, text).parse()
 
         TypePropagator(ast, mod, entity_type, self.mod_api).fill()
 
@@ -323,7 +323,7 @@ class GrugState:
     def dump_file_to_json(self, input_grug_text: str):
         # TODO: path to file should be a parameter
         tokens = Tokenizer(input_grug_text, Path("<input>")).tokenize()
-        ast = Parser(tokens).parse()
+        ast = Parser(tokens, Path("<input>"), input_grug_text).parse()
         return Serializer.ast_to_json_text(ast)
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
