@@ -1,3 +1,4 @@
+from typing import Optional
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,7 +48,7 @@ class GrugError(Exception):
         error_string = f"""\
             in ({file_path}:{line}:{column})\n\
             Error: {error_message}\n\
-            {line} $ {source_line}\0"\
+            {line} $ {source_line}"\
             """
         return GrugError(
             function_name = "",
@@ -58,5 +59,26 @@ class GrugError(Exception):
             error_string = error_string
         )
         
+    @staticmethod
+    def new_compile_error(file_path: Path, current_function: Optional[str], source_text: str, err_span: SourceSpan, error_message: str) -> "GrugError":
+        if current_function == None:
+            current_function = "member_scope"
+        line = err_span.line
+        column = err_span.get_column(source_text)
+        source_line = err_span.get_source_line(source_text)
+                
+        error_string = f"""\
+            in {current_function} ({file_path}:{line}:{column})\n\
+            Error: {error_message}\n\
+            {line} $ {source_line}"\
+            """
+        return GrugError(
+            function_name = current_function,
+            file_path = file_path,
+            source_line = source_line,
+            span = err_span,
+            error_message = error_message,
+            error_string = error_string
+        )
     def __str__(self) -> str:
         return self.error_message
