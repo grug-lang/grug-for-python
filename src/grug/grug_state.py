@@ -177,7 +177,7 @@ class GrugState:
 
         entity_type = self._get_file_entity_type(Path(grug_file_relative_path).name)
 
-        tokens = Tokenizer(text).tokenize()
+        tokens = Tokenizer(text, grug_file_absolute_path).tokenize()
 
         ast = Parser(tokens).parse()
 
@@ -321,7 +321,8 @@ class GrugState:
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
     def dump_file_to_json(self, input_grug_text: str):
-        tokens = Tokenizer(input_grug_text).tokenize()
+        # TODO: path to file should be a parameter
+        tokens = Tokenizer(input_grug_text, Path("<input>")).tokenize()
         ast = Parser(tokens).parse()
         return Serializer.ast_to_json_text(ast)
 

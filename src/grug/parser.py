@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Dict, List, Optional, Set, Union, Tuple
 
-from .errors import SourceSpan
+from .error import SourceSpan
 from .tokenizer import SPACES_PER_INDENT, Token, TokenType
 
 MAX_PARSING_DEPTH = 100

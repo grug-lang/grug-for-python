@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum, auto
+from pathlib import Path
 from typing import List, Tuple
 
-from .errors import SourceSpan
+from .error import GrugError, SourceSpan
 
 SPACES_PER_INDENT = 4
 
@@ -54,13 +55,15 @@ class Token:
     span: SourceSpan
 
 
-class TokenizerError(Exception):
-    pass
-
-
 class Tokenizer:
-    def __init__(self, src: str):
+    def __init__(self, src: str, file_path: Path):
         self.src = src
+        self.file_path = file_path
+
+    def new_error(self, err_span: SourceSpan, error_message: str) -> GrugError:
+        return GrugError.new_tokenizer_error(
+            self.file_path, self.src, err_span, error_message
+        )
 
     def tokenize(self):
         tokens: List[Token] = []
@@ -182,8 +185,9 @@ class Tokenizer:
                 spaces = i - old_i
 
                 if spaces % SPACES_PER_INDENT != 0:
-                    raise TokenizerError(
-                        f"Encountered {spaces} spaces, while indentation expects multiples of {SPACES_PER_INDENT} spaces, on line {self.get_character_line_number(i)}"
+                    raise self.new_error(
+                        current_span(old_i),
+                        f"Encountered {spaces} spaces, while indentation expects multiples of {SPACES_PER_INDENT} spaces, on line {self.get_character_line_number(i)}",
                     )
 
                 add_token(TokenType.INDENTATION_TOKEN, " " * spaces, old_i)
@@ -221,15 +225,17 @@ class Tokenizer:
                 while i < len(src) and (src[i].isdigit() or src[i] == "."):
                     if src[i] == ".":
                         if seen_period:
-                            raise TokenizerError(
-                                f"Encountered two '.' periods in a number on line {self.get_character_line_number(i)}"
+                            raise self.new_error(
+                                current_span(i),
+                                f"Encountered two '.' periods in a number on line {self.get_character_line_number(i)}",
                             )
                         seen_period = True
                     i += 1
 
                 if src[i - 1] == ".":
-                    raise TokenizerError(
-                        f"Missing digit after decimal point in '{src[start:i]}'"
+                    raise self.new_error(
+                        current_span(i - 1),
+                        f"Missing digit after decimal point in '{src[start:i]}'",
                     )
 
                 add_token(TokenType.NUMBER_TOKEN, src[start:i], start)
@@ -238,33 +244,38 @@ class Tokenizer:
                 token_start = i
                 i += 1
                 if i >= len(src) or src[i] != " ":
-                    raise TokenizerError(
-                        f"Expected a single space after the '#' on line {self.get_character_line_number(i)}"
+                    raise self.new_error(
+                        current_span(token_start),
+                        f"Expected a single space after the '#' on line {self.get_character_line_number(i)}",
                     )
                 i += 1
                 start = i
                 while i < len(src) and src[i] != "\n":
                     if src[i] == "\0":
-                        raise TokenizerError(
-                            f"Unexpected null byte on line {self.get_character_line_number(i)}"
+                        raise self.new_error(
+                            current_span(i),
+                            f"Unexpected null byte on line {self.get_character_line_number(i)}",
                         )
                     i += 1
 
                 comment_len = i - start
                 if comment_len == 0:
-                    raise TokenizerError(
-                        f"Expected the comment to contain some text on line {self.get_character_line_number(i)}"
+                    raise self.new_error(
+                        current_span(token_start),
+                        f"Expected the comment to contain some text on line {self.get_character_line_number(i)}",
                     )
 
                 if src[i - 1].isspace():
-                    raise TokenizerError(
-                        f"A comment has trailing whitespace on line {self.get_character_line_number(i)}"
+                    raise self.new_error(
+                        current_span(i - 1),
+                        f"A comment has trailing whitespace on line {self.get_character_line_number(i)}",
                     )
 
                 add_token(TokenType.COMMENT_TOKEN, src[start:i], token_start)
             else:
-                raise TokenizerError(
-                    f"Unrecognized character '{c}' on line {self.get_character_line_number(i)}"
+                raise self.new_error(
+                    current_span(i),
+                    f"Unrecognized character '{c}' on line {self.get_character_line_number(i)}",
                 )
 
         return tokens
@@ -285,22 +296,26 @@ class Tokenizer:
     def tokenize_string(self, i: int, current_line: int) -> Tuple[str, int, int]:
         src = self.src
         open_quote_index = i
+        open_quote_line = current_line
         i += 1
         start = i
         while i < len(src) and src[i] != '"':
             if src[i] == "\n": 
                 current_line += 1;
             elif src[i] == "\0":
-                raise TokenizerError(
-                    f"Unexpected null byte on line {self.get_character_line_number(i)}"
+                raise self.new_error(
+                    SourceSpan(current_line, i),
+                    f"Unexpected null byte on line {self.get_character_line_number(i)}",
                 )
             elif src[i] == "\\" and i + 1 < len(src) and src[i + 1] == "\n":
-                raise TokenizerError(
-                    f"Unexpected line break in string on line {self.get_character_line_number(i)}"
+                raise self.new_error(
+                    SourceSpan(current_line, i),
+                    f"Unexpected line break in string on line {self.get_character_line_number(i)}",
                 )
             i += 1
         if i >= len(src):
-            raise TokenizerError(
-                f'Unclosed " on line {self.get_character_line_number(open_quote_index)}'
+            raise self.new_error(
+                SourceSpan(open_quote_line, open_quote_index),
+                f'Unclosed " on line {self.get_character_line_number(open_quote_index)}',
             )
         return src[start:i], i, current_line
