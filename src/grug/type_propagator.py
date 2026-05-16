@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from .error import SourceSpan
+from .error import GrugError, SourceSpan
 from .parser import (
     Argument,
     Ast,
@@ -44,19 +45,25 @@ class GameFn:
     return_type_name: Optional[str] = None
 
 
-class TypePropagationError(Exception):
-    pass
-
-
 ModApi = Dict[str, Dict[str, Any]]
 
 
 class TypePropagator:
-    def __init__(self, ast: Ast, mod: str, entity_type: str, mod_api: ModApi):
+    def __init__(
+        self,
+        ast: Ast,
+        mod: str,
+        entity_type: str,
+        mod_api: ModApi,
+        file_path: Path,
+        source_text: str,
+    ):
         self.ast = ast
         self.mod = mod
         self.file_entity_type = entity_type
         self.mod_api = mod_api
+        self.file_path = file_path
+        self.source_text = source_text
 
         self.on_fns: Dict[str, OnFn] = {
             s.fn_name: s for s in ast if isinstance(s, OnFn)
@@ -102,9 +109,21 @@ class TypePropagator:
             "on_functions", {}
         )
 
-    def add_global_variable(self, name: str, var_type: Type, type_name: str):
+    def new_error(self, err_span: SourceSpan, error_message: str) -> GrugError:
+        return GrugError.new_compile_error(
+            self.file_path,
+            self.filled_fn_name,
+            self.source_text,
+            err_span,
+            error_message,
+        )
+
+    def add_global_variable(
+        self, name: str, var_type: Type, type_name: str, span: SourceSpan
+    ):
         if name in self.global_variables:
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f"The global variable '{name}' shadows an earlier global variable"
             )
 
@@ -118,14 +137,18 @@ class TypePropagator:
             return self.global_variables[name]
         return None
 
-    def add_local_variable(self, name: str, var_type: Type, type_name: str):
+    def add_local_variable(
+        self, name: str, var_type: Type, type_name: str, span: SourceSpan
+    ):
         if name in self.local_variables:
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f"The local variable '{name}' shadows an earlier local variable"
             )
 
         if name in self.global_variables:
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f"The local variable '{name}' shadows an earlier global variable"
             )
 
@@ -147,9 +170,9 @@ class TypePropagator:
             return False
         return True
 
-    def validate_entity_string(self, string: str):
+    def validate_entity_string(self, string: str, span: SourceSpan):
         if not string:
-            raise TypePropagationError("Entities can't be empty strings")
+            raise self.new_error(span, "Entities can't be empty strings")
 
         mod = self.mod
         entity_name = string
@@ -157,7 +180,7 @@ class TypePropagator:
         colon_pos = string.find(":")
         if colon_pos != -1:
             if colon_pos == 0:
-                raise TypePropagationError(f"Entity '{string}' is missing a mod name")
+                raise self.new_error(span, f"Entity '{string}' is missing a mod name")
 
             temp_mod_name = string[:colon_pos]
 
@@ -165,48 +188,58 @@ class TypePropagator:
             entity_name = string[colon_pos + 1 :]
 
             if not entity_name:
-                raise TypePropagationError(
+                raise self.new_error(
+                    span,
                     f"Entity '{string}' specifies the mod name '{mod}', but it is missing an entity name after the ':'"
                 )
 
             if mod == self.mod:
-                raise TypePropagationError(
+                raise self.new_error(
+                    span,
                     f"Entity '{string}' its mod name '{mod}' is invalid, since the file it is in refers to its own mod; just change it to '{entity_name}'"
                 )
 
         for c in mod:
             if not (c.islower() or c.isdigit() or c in ("_", "-")):
-                raise TypePropagationError(
+                raise self.new_error(
+                    span,
                     f"Entity '{string}' its mod name contains the invalid character '{c}'"
                 )
 
         for c in entity_name:
             if not (c.islower() or c.isdigit() or c in ("_", "-")):
-                raise TypePropagationError(
+                raise self.new_error(
+                    span,
                     f"Entity '{string}' its entity name contains the invalid character '{c}'"
                 )
 
-    def validate_resource_string(self, string: str, resource_extension: Optional[str]):
+    def validate_resource_string(
+        self, string: str, resource_extension: Optional[str], span: SourceSpan
+    ):
         if not string:
-            raise TypePropagationError("Resources can't be empty strings")
+            raise self.new_error(span, "Resources can't be empty strings")
 
         if string.startswith("/"):
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f'Remove the leading slash from the resource "{string}"'
             )
 
         if string.endswith("/"):
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f'Remove the trailing slash from the resource "{string}"'
             )
 
         if "\\" in string:
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f"Replace the '\\' with '/' in the resource \"{string}\""
             )
 
         if "//" in string:
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f"Replace the '//' with '/' in the resource \"{string}\""
             )
 
@@ -216,7 +249,8 @@ class TypePropagator:
             # String starts with "."
             if dot_index == 0:
                 if len(string) == 1 or string[1] == "/":
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        span,
                         f"Remove the '.' from the resource \"{string}\""
                     )
 
@@ -224,7 +258,8 @@ class TypePropagator:
             elif string[dot_index - 1] == "/":
                 # Next must not be "/" or end-of-string
                 if dot_index + 1 == len(string) or string[dot_index + 1] == "/":
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        span,
                         f"Remove the '.' from the resource \"{string}\""
                     )
 
@@ -234,7 +269,8 @@ class TypePropagator:
             # String starts with ".."
             if dotdot_index == 0:
                 if len(string) == 2 or string[2] == "/":
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        span,
                         f"Remove the '..' from the resource \"{string}\""
                     )
 
@@ -242,15 +278,17 @@ class TypePropagator:
             elif string[dotdot_index - 1] == "/":
                 # Next must not be "/" or end-of-string
                 if dotdot_index + 2 == len(string) or string[dotdot_index + 2] == "/":
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        span,
                         f"Remove the '..' from the resource \"{string}\""
                     )
 
         if string.endswith("."):
-            raise TypePropagationError(f'resource name "{string}" cannot end with .')
+            raise self.new_error(span, f'resource name "{string}" cannot end with .')
 
         if resource_extension and not string.endswith(resource_extension):
-            raise TypePropagationError(
+            raise self.new_error(
+                span,
                 f"The resource '{string}' was supposed to have the extension '{resource_extension}'"
             )
 
@@ -259,39 +297,47 @@ class TypePropagator:
         args = call_expr.arguments
 
         if len(args) < len(params):
-            raise TypePropagationError(
+            raise self.new_error(
+                call_expr.name_span,
                 f"Function call '{fn_name}' expected the argument '{params[len(args)].name}' with type {params[len(args)].type_name}"
             )
 
         if len(args) > len(params):
-            raise TypePropagationError(
+            raise self.new_error(
+                call_expr.arguments[len(params)].expr_span,
                 f"Function call '{fn_name}' got an unexpected extra argument with type {call_expr.arguments[len(params)].result.type_name}"
             )
 
         for arg, param in zip(args, params):
             if isinstance(arg, StringExpr) and param.type == Type.ENTITY:
-                raise TypePropagationError(
+                raise self.new_error(
+                    arg.expr_span,
                     f"The host function '{fn_name}' expects an entity string, so put an 'e' in front of string \"{arg.string}\""
                 )
             elif isinstance(arg, StringExpr) and param.type == Type.RESOURCE:
-                raise TypePropagationError(
+                raise self.new_error(
+                    arg.expr_span,
                     f"The host function '{fn_name}' expects a resource string, so put an 'r' in front of string \"{arg.string}\""
                 )
 
             if isinstance(arg, EntityExpr):
-                self.validate_entity_string(arg.string)
+                self.validate_entity_string(arg.string, arg.expr_span)
             elif isinstance(arg, ResourceExpr):
-                self.validate_resource_string(arg.string, param.resource_extension)
+                self.validate_resource_string(
+                    arg.string, param.resource_extension, arg.expr_span
+                )
 
             if not arg.result.type:
-                raise TypePropagationError(
+                raise self.new_error(
+                    arg.expr_span,
                     f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got a function call that doesn't return anything"
                 )
 
             if self.are_incompatible_types(
                 param.type, param.type_name, arg.result.type, arg.result.type_name
             ):
-                raise TypePropagationError(
+                raise self.new_error(
+                    arg.expr_span,
                     f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got {arg.result.type_name}"
                 )
 
@@ -319,16 +365,19 @@ class TypePropagator:
             return
 
         if fn_name.startswith("on_"):
-            raise TypePropagationError(
+            raise self.new_error(
+                expr.name_span,
                 f"Mods aren't allowed to call their own on_ functions, but '{fn_name}' was called"
             )
 
         if fn_name.startswith("helper_"):
-            raise TypePropagationError(
+            raise self.new_error(
+                expr.name_span,
                 f"The helper function '{fn_name}' was not defined by this grug file"
             )
 
-        raise TypePropagationError(
+        raise self.new_error(
+            expr.name_span,
             f"The game function '{fn_name}' was not declared by mod_api.json"
         )
 
@@ -344,13 +393,15 @@ class TypePropagator:
 
         if left.result.type == Type.STRING:
             if op not in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
-                raise TypePropagationError(
+                raise self.new_error(
+                    expr.op_span,
                     f"You can't use the {op_name} operator on a string"
                 )
 
         is_id = left.result.type_name == "id" or right.result.type_name == "id"
         if not is_id and left.result.type_name != right.result.type_name:
-            raise TypePropagationError(
+            raise self.new_error(
+                expr.op_span,
                 f"The left and right operand of a binary expression ('{op_name}') must have the same type, but got {left.result.type_name} and {right.result.type_name}"
             )
 
@@ -364,12 +415,12 @@ class TypePropagator:
             TokenType.LESS_TOKEN,
         ):
             if left.result.type != Type.NUMBER:
-                raise TypePropagationError(f"'{op_name}' operator expects number")
+                raise self.new_error(expr.op_span, f"'{op_name}' operator expects number")
             expr.result.type = Type.BOOL
             expr.result.type_name = "bool"
         elif op in (TokenType.AND_TOKEN, TokenType.OR_TOKEN):
             if left.result.type != Type.BOOL:
-                raise TypePropagationError(f"'{op_name}' operator expects bool")
+                raise self.new_error(expr.op_span, f"'{op_name}' operator expects bool")
             expr.result.type = Type.BOOL
             expr.result.type_name = "bool"
         else:
@@ -381,7 +432,7 @@ class TypePropagator:
             )
 
             if left.result.type != Type.NUMBER:
-                raise TypePropagationError(f"'{op_name}' operator expects number")
+                raise self.new_error(expr.op_span, f"'{op_name}' operator expects number")
             expr.result.type = left.result.type
             expr.result.type_name = left.result.type_name
 
@@ -389,7 +440,9 @@ class TypePropagator:
         if isinstance(expr, IdentifierExpr):
             var = self.get_variable(expr.name)
             if not var:
-                raise TypePropagationError(f"The variable '{expr.name}' does not exist")
+                raise self.new_error(
+                    expr.expr_span, f"The variable '{expr.name}' does not exist"
+                )
             expr.result.type = var.type
             expr.result.type_name = var.type_name
         elif isinstance(expr, UnaryExpr):
@@ -398,7 +451,8 @@ class TypePropagator:
 
             # Check for double unary
             if isinstance(inner, UnaryExpr) and inner.operator == op:
-                raise TypePropagationError(
+                raise self.new_error(
+                    expr.op_span,
                     f"Found '{op.name}' directly next to another '{op.name}', which can be simplified by just removing both of them"
                 )
 
@@ -408,13 +462,15 @@ class TypePropagator:
 
             if op == TokenType.NOT_TOKEN:
                 if expr.result.type != Type.BOOL:
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        expr.op_span,
                         f"Found 'not' before {expr.result.type_name}, but it can only be put before a bool"
                     )
             else:
                 assert op == TokenType.MINUS_TOKEN
                 if expr.result.type != Type.NUMBER:
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        expr.op_span,
                         f"Found '-' before {expr.result.type_name}, but it can only be put before a number"
                     )
         elif isinstance(expr, (BinaryExpr, LogicalExpr)):
@@ -442,19 +498,21 @@ class TypePropagator:
                 stmt.expr.result.type,
                 stmt.expr.result.type_name,
             ):
-                raise TypePropagationError(
+                raise self.new_error(
+                    stmt.expr.expr_span,
                     f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                 )
 
-            self.add_local_variable(stmt.name, stmt.type, stmt.type_name)
+            self.add_local_variable(stmt.name, stmt.type, stmt.type_name, stmt.name_span)
         else:
             if not var:
-                raise TypePropagationError(
+                raise self.new_error(
+                    stmt.name_span,
                     f"Can't assign to the variable '{stmt.name}', since it does not exist"
                 )
 
             if stmt.name in self.global_variables and var.type == Type.ID:
-                raise TypePropagationError("Global id variables can't be reassigned")
+                raise self.new_error(stmt.name_span, "Global id variables can't be reassigned")
 
             if self.are_incompatible_types(
                 var.type,
@@ -462,7 +520,8 @@ class TypePropagator:
                 stmt.expr.result.type,
                 stmt.expr.result.type_name,
             ):
-                raise TypePropagationError(
+                raise self.new_error(
+                    stmt.expr.expr_span,
                     f"Can't assign {stmt.expr.result.type_name} to '{var.name}', which has type {var.type_name}"
                 )
 
@@ -495,7 +554,8 @@ class TypePropagator:
                     self.fill_expr(stmt.value)
 
                     if not self.fn_return_type:
-                        raise TypePropagationError(
+                        raise self.new_error(
+                            stmt.return_span,
                             f"Function '{self.filled_fn_name}' wasn't supposed to return any value"
                         )
 
@@ -505,11 +565,13 @@ class TypePropagator:
                         stmt.value.result.type,
                         stmt.value.result.type_name,
                     ):
-                        raise TypePropagationError(
+                        raise self.new_error(
+                            stmt.value.expr_span,
                             f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name}, not {stmt.value.result.type_name}"
                         )
                 elif self.fn_return_type:
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        stmt.return_span,
                         f"Function '{self.filled_fn_name}' is supposed to return a value of type {self.fn_return_type_name}"
                     )
             elif isinstance(stmt, WhileStatement):
@@ -522,7 +584,7 @@ class TypePropagator:
         self.local_variables = {}
 
         for arg in arguments:
-            self.add_local_variable(arg.name, arg.type, arg.type_name)
+            self.add_local_variable(arg.name, arg.type, arg.type_name, arg.name_span)
 
     def fill_helper_fns(self):
         for fn_name, fn in self.helper_fns.items():
@@ -539,7 +601,8 @@ class TypePropagator:
                 assert fn.body_statements
 
                 if not isinstance(fn.body_statements[-1], ReturnStatement):
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        fn.span,
                         f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name} as its last line"
                     )
 
@@ -547,7 +610,8 @@ class TypePropagator:
         # Check for on_fns that aren't declared in the entity
         for fn_name in self.on_fns.keys():
             if fn_name not in self.entity_on_functions:
-                raise TypePropagationError(
+                raise self.new_error(
+                    self.on_fns[fn_name].span,
                     f"The function '{fn_name}' was not declared by entity '{self.file_entity_type}' in mod_api.json"
                 )
 
@@ -565,7 +629,8 @@ class TypePropagator:
             # Check ordering
             current_parser_index = parser_on_fn_names.index(expected_fn_name)
             if previous_on_fn_index > current_parser_index:
-                raise TypePropagationError(
+                raise self.new_error(
+                    fn.span,
                     f"The function '{expected_fn_name}' needs to be moved before/after a different on_ function, according to the entity '{self.file_entity_type}' in mod_api.json"
                 )
             previous_on_fn_index = current_parser_index
@@ -578,22 +643,26 @@ class TypePropagator:
 
             if len(fn.arguments) != len(params):
                 if len(fn.arguments) < len(params):
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        fn.span,
                         f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.arguments)]['name']}' with type {params[len(fn.arguments)]['type']}"
                     )
                 else:
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        fn.arguments[len(params)].name_span,
                         f"Function '{expected_fn_name}' got an unexpected extra parameter '{fn.arguments[len(params)].name}' with type {fn.arguments[len(params)].type_name}"
                     )
 
             for arg, param in zip(fn.arguments, params):
                 if arg.name != param["name"]:
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        arg.name_span,
                         f"Function '{expected_fn_name}' its '{arg.name}' parameter was supposed to be named '{param['name']}'"
                     )
 
                 if arg.type_name != param["type"]:
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        arg.type_span,
                         f"Function '{expected_fn_name}' its '{param['name']}' parameter was supposed to have the type {param['type']}, but got {arg.type_name}"
                     )
 
@@ -609,7 +678,8 @@ class TypePropagator:
             self.check_global_expr(expr.right_expr, name)
         elif isinstance(expr, CallExpr):
             if expr.fn_name.startswith("helper_"):
-                raise TypePropagationError(
+                raise self.new_error(
+                    expr.name_span,
                     f"The global variable '{name}' isn't allowed to call helper functions"
                 )
             for arg in expr.arguments:
@@ -619,7 +689,7 @@ class TypePropagator:
 
     def fill_global_variables(self):
         # Add the implicit 'me' variable
-        self.add_global_variable("me", Type.ID, self.file_entity_type)
+        self.global_variables["me"] = Variable("me", Type.ID, self.file_entity_type)
 
         # Process global variable statements
         for stmt in self.ast:
@@ -635,7 +705,8 @@ class TypePropagator:
                 # Check for assignment to 'me'
                 if isinstance(stmt.expr, IdentifierExpr):
                     if stmt.expr.name == "me":
-                        raise TypePropagationError(
+                        raise self.new_error(
+                            stmt.expr.expr_span,
                             "Global variables can't be assigned 'me'"
                         )
 
@@ -645,11 +716,14 @@ class TypePropagator:
                     stmt.expr.result.type,
                     stmt.expr.result.type_name,
                 ):
-                    raise TypePropagationError(
+                    raise self.new_error(
+                        stmt.expr.expr_span,
                         f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}"
                     )
 
-                self.add_global_variable(stmt.name, stmt.type, stmt.type_name)
+                self.add_global_variable(
+                    stmt.name, stmt.type, stmt.type_name, stmt.name_span
+                )
 
     def fill(self):
         """Main entry point for type propagation"""
