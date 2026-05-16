@@ -35,59 +35,59 @@ class Result:
 
 @dataclass
 class TrueExpr:
+    span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class FalseExpr:
+    span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class StringExpr:
     string: str
+    span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.STRING, "string"))
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class ResourceExpr:
     string: str
+    span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.RESOURCE, "resource"))
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class EntityExpr:
     string: str
+    span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.ENTITY, "entity"))
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class IdentifierExpr:
     name: str
+    span: SourceSpan
     result: Result = field(default_factory=Result)
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class NumberExpr:
     value: float
     string: str
+    span: SourceSpan
     result: Result = field(default_factory=lambda: Result(Type.NUMBER, "number"))
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class UnaryExpr:
     operator: TokenType
     expr: Expr
+    span: SourceSpan
+    op_span: SourceSpan
     result: Result = field(default_factory=Result)
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
-    op_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -95,9 +95,9 @@ class BinaryExpr:
     left_expr: Expr
     operator: TokenType
     right_expr: Expr
+    span: SourceSpan
+    op_span: SourceSpan
     result: Result = field(default_factory=Result)
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
-    op_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -105,25 +105,25 @@ class LogicalExpr:
     left_expr: Expr
     operator: TokenType
     right_expr: Expr
+    span: SourceSpan
+    op_span: SourceSpan
     result: Result = field(default_factory=Result)
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
-    op_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class CallExpr:
     fn_name: str
+    span: SourceSpan
+    name_span: SourceSpan
     arguments: List[Expr] = field(default_factory=lambda: [])
     result: Result = field(default_factory=Result)
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
-    name_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class ParenthesizedExpr:
     expr: Expr
+    span: SourceSpan
     result: Result = field(default_factory=Result)
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 Expr = Union[
@@ -148,7 +148,7 @@ class VariableStatement:
     type: Optional[Type]
     type_name: Optional[str]
     expr: Expr
-    name_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    name_span: SourceSpan
 
 
 @dataclass
@@ -165,8 +165,8 @@ class IfStatement:
 
 @dataclass
 class ReturnStatement:
+    return_span: SourceSpan
     value: Optional[Expr] = None
-    return_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
@@ -177,12 +177,12 @@ class WhileStatement:
 
 @dataclass
 class BreakStatement:
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    span: SourceSpan
 
 
 @dataclass
 class ContinueStatement:
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    span: SourceSpan
 
 
 @dataclass
@@ -193,7 +193,7 @@ class EmptyLineStatement:
 @dataclass
 class CommentStatement:
     string: str
-    comment_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
+    comment_span: SourceSpan
 
 
 Statement = Union[
@@ -214,28 +214,28 @@ class Argument:
     name: str
     type: Type
     type_name: str
+    name_span: SourceSpan
+    type_span: SourceSpan
     resource_extension: Optional[str] = None
     entity_type: Optional[str] = None
-    name_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
-    type_span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class OnFn:
     fn_name: str
+    span: SourceSpan
     arguments: List[Argument] = field(default_factory=lambda: [])
     body_statements: List[Statement] = field(default_factory=lambda: [])
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 @dataclass
 class HelperFn:
     fn_name: str
+    span: SourceSpan
     arguments: List[Argument] = field(default_factory=lambda: [])
     return_type: Optional[Type] = None
     return_type_name: Optional[str] = None
     body_statements: List[Statement] = field(default_factory=lambda: [])
-    span: SourceSpan = field(default_factory=lambda: SourceSpan(0, 0))
 
 
 Ast = List[
@@ -437,11 +437,11 @@ class Parser:
             i[0] += 1
             token = self.peek_token(i[0])
             if token.type == TokenType.NEWLINE_TOKEN:
-                statement = ReturnStatement(return_span=switch_token.span)
+                statement = ReturnStatement(switch_token.span)
             else:
                 self.consume_space(i)
                 expr = self.parse_expression(i)
-                statement = ReturnStatement(expr, switch_token.span)
+                statement = ReturnStatement(switch_token.span, expr)
         elif switch_token.type == TokenType.WHILE_TOKEN:
             i[0] += 1
             statement = self.parse_while_statement(i)
@@ -560,7 +560,7 @@ class Parser:
 
     def parse_helper_fn(self, i: List[int]):
         fn_name = self.consume_token(i)
-        fn = HelperFn(fn_name.value, span=fn_name.span)
+        fn = HelperFn(fn_name.value, fn_name.span)
 
         if fn.fn_name not in self.called_helper_fn_names:
             raise ParserError(
@@ -601,7 +601,7 @@ class Parser:
 
     def parse_on_fn(self, i: List[int]):
         fn_token = self.consume_token(i)
-        fn = OnFn(fn_token.value, span=fn_token.span)
+        fn = OnFn(fn_token.value, fn_token.span)
 
         self.consume_token_type(i, TokenType.OPEN_PARENTHESIS_TOKEN)
         next_tok = self.peek_token(i[0])

@@ -76,11 +76,10 @@ class TypePropagator:
                     obj["name"],
                     Parser.parse_type(obj["type"]),
                     obj["type"],
+                    SourceSpan(0, 0),
+                    SourceSpan(0, 0),
                     obj.get("resource_extension"),
                     obj.get("entity_type"),
-                    # Dummy span locations
-                    SourceSpan(0, 0),
-                    SourceSpan(0, 0),
                 )
                 for obj in lst
             ]
