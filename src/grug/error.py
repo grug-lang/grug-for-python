@@ -23,6 +23,9 @@ class SourceSpan:
         if self.offset >= len(source_text):
             raise Exception("expected span to be within source code bounds")
 
+        if source_text[line_start_index] == '\n':
+            line_start_index -= 1;
+
         while line_start_index >= 0 and source_text[line_start_index] != '\n':
             line_start_index -= 1;
         while line_end_index < len(source_text) and source_text[line_end_index] != '\n':
@@ -83,12 +86,12 @@ Error: {error_message}\n\
 
     @staticmethod
     def new_file_name_error(file_path: Path, error_message: str) -> "GrugError":
-        source_line = str(file_path)
+        source_line = file_path
         err_span = SourceSpan(1, 0)
 
         error_string = f"""\
 Error: {error_message}\n\
-$  {file_path}\
+$  {source_line}\
 """
         return GrugError(
             function_name = "",

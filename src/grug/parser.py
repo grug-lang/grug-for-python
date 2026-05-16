@@ -298,7 +298,7 @@ class Parser:
                     if seen_on_fn:
                         raise self.new_error(
                             token.span,
-                            f"Move the global variable '{token.value}' so it is above the on_ functions"
+                            "Cannot declare member variables after on_ functions"
                         )
 
                     self.ast.append(self.parse_global_variable(i))
@@ -317,7 +317,10 @@ class Parser:
                     and self.tokens[i[0] + 1].type == TokenType.OPEN_PARENTHESIS_TOKEN
                 ):
                     if self.helper_fns:
-                        raise self.new_error(
+                        raise GrugError.new_compile_error(
+                            self.file_path,
+                            token.value,
+                            self.source_text,
                             token.span,
                             f"{token.value}() must be defined before all helper_ functions"
                         )
@@ -329,7 +332,10 @@ class Parser:
 
                     fn = self.parse_on_fn(i)
                     if fn.fn_name in self.on_fns:
-                        raise self.new_error(
+                        raise GrugError.new_compile_error(
+                            self.file_path,
+                            fn.fn_name,
+                            self.source_text,
                             fn.span,
                             f"The function '{fn.fn_name}' was defined several times in the same file"
                         )
@@ -358,7 +364,10 @@ class Parser:
 
                     fn = self.parse_helper_fn(i)
                     if fn.fn_name in self.helper_fns:
-                        raise self.new_error(
+                        raise GrugError.new_compile_error(
+                            self.file_path,
+                            fn.fn_name,
+                            self.source_text,
                             fn.span,
                             f"The function '{fn.fn_name}' was defined several times in the same file"
                         )
@@ -397,7 +406,7 @@ class Parser:
                 else:
                     raise ParserError(
                         token.span,
-                        f"Unexpected token '{token.value}'"
+                        f"Unexpected token '{token.value}' on line {self.get_token_line_number(i[0])}"
                     )
 
             if seen_newline and not newline_allowed:
@@ -471,8 +480,8 @@ class Parser:
                 statement = self.parse_local_variable(i)
             else:
                 raise ParserError(
-                    switch_token.span,
-                    f"Expected '(', or ':', or ' =' after the word '{switch_token.value}'"
+                    self.peek_token(i[0] + 1).span,
+                    f"Expected '(', or ':', or ' =' after the word '{switch_token.value}' on line {self.get_token_line_number(i[0])}"
                 )
         elif switch_token.type == TokenType.IF_TOKEN:
             statement = self.parse_if_statement(i)
@@ -513,7 +522,7 @@ class Parser:
         else:
             raise ParserError(
                 switch_token.span,
-                f"Expected a statement token, but got token type {switch_token.type}"
+                f"Expected a statement token, but got {switch_token.type} on line {self.get_token_line_number(i[0])}"
             )
 
         self.decrease_parsing_depth()
@@ -707,6 +716,11 @@ class Parser:
                 newline_allowed = True
 
                 self.consume_indentation(i)
+                if self.peek_token(i[0]).type == TokenType.NEWLINE_TOKEN:
+                    raise ParserError(
+                        tok.span,
+                        "Empty line cannot have indentation"
+                    )
 
                 stmt = self.parse_statement(i)
                 stmts.append(stmt)
@@ -762,7 +776,7 @@ class Parser:
         else:
             raise ParserError(
                 tok.span,
-                f"Expected indentation, newline, or '}}', but got '{tok.value}'"
+                f"Expected indentation, line break, or '}}' but got '{tok.value}'"
             )
 
     def increase_parsing_depth(self, i: List[int]):
@@ -809,9 +823,12 @@ class Parser:
                 )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
+            err_span = var_token.span
+            if var_type_name is not None:
+                err_span = SourceSpan(type_token.span.line, type_token.span.offset + len(type_token.value))
             raise self.new_error(
-                var_token.span,
-                f"The variable '{var_name}' was not assigned a value"
+                err_span,
+                f"Variable '{var_name}' was not assigned a value"
             )
 
         self.consume_space(i)
@@ -858,7 +875,7 @@ class Parser:
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
             raise self.new_error(
-                name_token.span,
+                SourceSpan(type_token.span.line, type_token.span.offset + len(type_token.value)),
                 f"The global variable '{global_name}' was not assigned a value"
             )
 
@@ -903,7 +920,7 @@ class Parser:
         if not isinstance(expr, IdentifierExpr):
             raise ParserError(
                 token.span,
-                f"Unexpected '(' after non-identifier at line {self.get_token_line_number(i[0])}"
+                "Expected ')' but got '('"
             )
 
         fn_name = expr.name
@@ -990,7 +1007,7 @@ class Parser:
         else:
             raise ParserError(
                 token.span,
-                f"Expected a primary expression token, but got token type {token.type}"
+                f"Expected a primary expression token but got {token.type}"
             )
 
         self.decrease_parsing_depth()

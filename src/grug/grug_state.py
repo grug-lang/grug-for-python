@@ -277,7 +277,7 @@ class GrugState:
                 raise GrugError.new_file_name_error(
                     grug_file_path,
                     f"'{type_name}' seems like a custom ID type, but it contains '{c}', "
-                    f"which isn't uppercase/lowercase/a digit",
+                    f"which isn't uppercase, lowercase, or a digit",
                 )
 
     def compile_all_mods(self) -> GrugDir:

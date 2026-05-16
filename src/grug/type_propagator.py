@@ -367,7 +367,7 @@ class TypePropagator:
         if fn_name.startswith("on_"):
             raise self.new_error(
                 expr.name_span,
-                f"Mods aren't allowed to call their own on_ functions, but '{fn_name}' was called"
+                "Mods aren't allowed to call their own on_ functions"
             )
 
         if fn_name.startswith("helper_"):
@@ -392,16 +392,15 @@ class TypePropagator:
 
         if left.result.type == Type.STRING:
             if op not in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
-                if op == TokenType.PLUS_TOKEN:
+                if op == TokenType.PLUS_TOKEN and right.result.type == Type.STRING:
                     raise self.new_error(
                         expr.op_span,
-                        f"cannot add strings with '+'"
+                        "cannot add strings with '+'"
                     )
-                else:
-                    raise self.new_error(
-                        expr.op_span,
-                        f"You can't use the {op} operator on a string"
-                    )
+                raise self.new_error(
+                    expr.op_span,
+                    f"You can't use the {op} operator on a string"
+                )
 
         is_id = left.result.type_name == "id" or right.result.type_name == "id"
         if not is_id and left.result.type_name != right.result.type_name:
@@ -517,7 +516,7 @@ class TypePropagator:
                 )
 
             if stmt.name in self.global_variables and var.type == Type.ID:
-                raise self.new_error(stmt.name_span, "Global id variables can't be reassigned")
+                raise self.new_error(stmt.expr.expr_span, "Global id variables can't be reassigned")
 
             if self.are_incompatible_types(
                 var.type,
@@ -560,7 +559,7 @@ class TypePropagator:
 
                     if not self.fn_return_type:
                         raise self.new_error(
-                            stmt.return_span,
+                            stmt.value.expr_span,
                             f"Function '{self.filled_fn_name}' wasn't supposed to return any value"
                         )
 
@@ -615,6 +614,7 @@ class TypePropagator:
         # Check for on_fns that aren't declared in the entity
         for fn_name in self.on_fns.keys():
             if fn_name not in self.entity_on_functions:
+                self.filled_fn_name = fn_name
                 raise self.new_error(
                     self.on_fns[fn_name].span,
                     f"The function '{fn_name}' was not declared by entity '{self.file_entity_type}' in mod_api.json"
@@ -634,9 +634,10 @@ class TypePropagator:
             # Check ordering
             current_parser_index = parser_on_fn_names.index(expected_fn_name)
             if previous_on_fn_index > current_parser_index:
+                self.filled_fn_name = expected_fn_name
                 raise self.new_error(
                     fn.span,
-                    f"The function '{expected_fn_name}' needs to be moved before/after a different on_ function, according to the entity '{self.file_entity_type}' in mod_api.json"
+                    f"The function '{expected_fn_name}' needs to be moved before or after a different on_ function, according to the entity '{self.file_entity_type}' in mod_api.json"
                 )
             previous_on_fn_index = current_parser_index
 

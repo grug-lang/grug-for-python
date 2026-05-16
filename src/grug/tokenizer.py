@@ -228,7 +228,7 @@ class Tokenizer:
                 if spaces % SPACES_PER_INDENT != 0:
                     raise self.new_error(
                         current_span(old_i),
-                        f"Encountered {spaces} spaces, while indentation expects multiples of {SPACES_PER_INDENT} spaces, on line {self.get_character_line_number(i)}",
+                        f"Expected multiple of {SPACES_PER_INDENT} spaces but found {spaces} spaces",
                     )
 
                 add_token(TokenType.INDENTATION_TOKEN, " " * spaces, old_i)
@@ -286,8 +286,8 @@ class Tokenizer:
                 i += 1
                 if i >= len(src) or src[i] != " ":
                     raise self.new_error(
-                        current_span(token_start),
-                        f"Expected a single space after the '#' on line {self.get_character_line_number(i)}",
+                        current_span(i),
+                        "Expected space (' ') after '#'",
                     )
                 i += 1
                 start = i
@@ -308,7 +308,7 @@ class Tokenizer:
 
                 if src[i - 1].isspace():
                     raise self.new_error(
-                        current_span(i - 1),
+                        current_span(i),
                         f"A comment has trailing whitespace on line {self.get_character_line_number(i)}",
                     )
 
@@ -316,7 +316,7 @@ class Tokenizer:
             else:
                 raise self.new_error(
                     current_span(i),
-                    f"Unrecognized character '{c}' on line {self.get_character_line_number(i)}",
+                    f"Unrecognized character '{c}'",
                 )
 
         return tokens
