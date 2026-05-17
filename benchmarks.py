@@ -253,7 +253,7 @@ class BenchmarkGameFnRegistrator:
         self.benchmark_lib = benchmark_lib
 
     def register_game_fns(self) -> None:
-        for name in self.state.mod_api["game_functions"]:
+        for name in self.state.mod_api["host_functions"]:
             self._register_fn(name)
 
     def _get_c_args(self, *args: GrugValue):
@@ -291,7 +291,7 @@ class BenchmarkGameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api["game_functions"][name].get("return_type")
+        return_type = self.state.mod_api["host_functions"][name].get("return_type")
 
         def fn(state: GrugState, *args: GrugValue) -> Optional[GrugValue]:
             del state
