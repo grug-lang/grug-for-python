@@ -299,7 +299,7 @@ class Entity:
     def _run_call_expr(self, call_expr: CallExpr):
         args = [self._run_expr(arg) for arg in call_expr.arguments]
 
-        if call_expr.fn_name.startswith("helper_"):
+        if call_expr.fn_name.startswith("_"):
             return self._run_helper_fn(call_expr.fn_name, *args)
         else:
             return self._run_game_fn(call_expr.fn_name, *args)

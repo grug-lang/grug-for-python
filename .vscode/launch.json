@@ -10,7 +10,7 @@
                 "--grug-tests-path=../grug-tests",
                 "-s", // Prevents pytest from hiding printed output of tests
                 "-v", // Increases verbosity
-                // "--whitelisted-test=f32_too_big" // Use to debug a specific test
+                // "--whitelisted-test=helper_fn_defined_between_on_fns" // Use to debug a specific test
             ],
             "console": "integratedTerminal"
         },

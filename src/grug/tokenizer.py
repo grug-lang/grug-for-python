@@ -38,6 +38,8 @@ class TokenType(Enum):
     BREAK_TOKEN = auto()
     RETURN_TOKEN = auto()
     CONTINUE_TOKEN = auto()
+    EXPORT_TOKEN = auto()
+    LOCAL_TOKEN = auto()
     SPACE_TOKEN = auto()
     INDENTATION_TOKEN = auto()
     STRING_TOKEN = auto()
@@ -78,6 +80,8 @@ class TokenType(Enum):
             TokenType.BREAK_TOKEN: "'break'",
             TokenType.RETURN_TOKEN: "'return'",
             TokenType.CONTINUE_TOKEN: "'continue'",
+            TokenType.EXPORT_TOKEN: "'export'",
+            TokenType.LOCAL_TOKEN: "'local'",
             TokenType.SPACE_TOKEN: "space (' ')",
             TokenType.INDENTATION_TOKEN: "indentation",
             TokenType.STRING_TOKEN: "string",
@@ -212,6 +216,12 @@ class Tokenizer:
             elif src.startswith("continue", i) and self.is_end_of_word(i + 8):
                 add_token(TokenType.CONTINUE_TOKEN, "continue", i)
                 i += 8
+            elif src.startswith("export", i) and self.is_end_of_word(i + 6):
+                add_token(TokenType.EXPORT_TOKEN, "export", i)
+                i += 6
+            elif src.startswith("local", i) and self.is_end_of_word(i + 5):
+                add_token(TokenType.LOCAL_TOKEN, "local", i)
+                i += 5
             # spaces and indentation
             elif c == " ":
                 if i + 1 >= len(src) or src[i + 1] != " ":

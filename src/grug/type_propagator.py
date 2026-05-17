@@ -100,14 +100,12 @@ class TypePropagator:
                 fn.get("return_type", None),
             )
 
-        self.game_functions = {
+        self.host_functions = {
             fn_name: parse_game_fn(fn_name, fn)
-            for fn_name, fn in mod_api["game_functions"].items()
+            for fn_name, fn in mod_api["host_functions"].items()
         }
 
-        self.entity_on_functions = mod_api["entities"][entity_type].get(
-            "on_functions", {}
-        )
+        self.entity_on_functions = {values["name"]: values for values in mod_api["entities"][entity_type].get("export_functions", [])}
 
     def new_error(self, err_span: SourceSpan, error_message: str) -> GrugError:
         return GrugError.new_compile_error(
@@ -357,23 +355,23 @@ class TypePropagator:
             return
 
         # Check if it's a game function
-        if fn_name in self.game_functions:
-            game_fn = self.game_functions[fn_name]
+        if fn_name in self.host_functions:
+            game_fn = self.host_functions[fn_name]
             expr.result.type = game_fn.return_type
             expr.result.type_name = game_fn.return_type_name
             self.check_arguments(game_fn.arguments, expr)
             return
 
-        if fn_name.startswith("on_"):
+        if fn_name.startswith("_"):
             raise self.new_error(
                 expr.name_span,
-                "Mods aren't allowed to call their own on_ functions"
+                f"The local function '{fn_name}' was not defined by this grug file"
             )
 
-        if fn_name.startswith("helper_"):
+        if fn_name in self.entity_on_functions:
             raise self.new_error(
                 expr.name_span,
-                f"The helper function '{fn_name}' was not defined by this grug file"
+                "Mods aren't allowed to call their own export functions"
             )
 
         raise self.new_error(
@@ -637,7 +635,7 @@ class TypePropagator:
                 self.filled_fn_name = expected_fn_name
                 raise self.new_error(
                     fn.span,
-                    f"The function '{expected_fn_name}' needs to be moved before or after a different on_ function, according to the entity '{self.file_entity_type}' in mod_api.json"
+                    f"The function '{expected_fn_name}' needs to be moved before or after a different export function, according to the entity '{self.file_entity_type}' in mod_api.json"
                 )
             previous_on_fn_index = current_parser_index
 
@@ -683,10 +681,10 @@ class TypePropagator:
             self.check_global_expr(expr.left_expr, name)
             self.check_global_expr(expr.right_expr, name)
         elif isinstance(expr, CallExpr):
-            if expr.fn_name.startswith("helper_"):
+            if expr.fn_name.startswith("_"):
                 raise self.new_error(
                     expr.name_span,
-                    f"The global variable '{name}' isn't allowed to call helper functions"
+                    f"The global variable '{name}' isn't allowed to call local functions"
                 )
             for arg in expr.arguments:
                 self.check_global_expr(arg, name)

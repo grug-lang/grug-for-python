@@ -311,26 +311,17 @@ class Parser:
                     continue
 
                 elif (
-                    token.type == TokenType.WORD_TOKEN
-                    and token.value.startswith("on_")
-                    and i[0] + 1 < len(self.tokens)
-                    and self.tokens[i[0] + 1].type == TokenType.OPEN_PARENTHESIS_TOKEN
+                    token.type == TokenType.EXPORT_TOKEN
                 ):
-                    if self.helper_fns:
-                        raise GrugError.new_compile_error(
-                            self.file_path,
-                            token.value,
-                            self.source_text,
-                            token.span,
-                            f"{token.value}() must be defined before all helper_ functions"
-                        )
+                    # space token skipped
+                    name_token = self.peek_token(i[0] + 2)
                     if newline_required:
                         raise ParserError(
-                            token.span,
+                            name_token.span,
                             f"Expected an empty line"
                         )
 
-                    fn = self.parse_on_fn(i)
+                    fn = self.parse_export_fn(i)
                     if fn.fn_name in self.on_fns:
                         raise GrugError.new_compile_error(
                             self.file_path,
@@ -351,18 +342,16 @@ class Parser:
                     continue
 
                 elif (
-                    token.type == TokenType.WORD_TOKEN
-                    and token.value.startswith("helper_")
-                    and i[0] + 1 < len(self.tokens)
-                    and self.tokens[i[0] + 1].type == TokenType.OPEN_PARENTHESIS_TOKEN
+                    token.type == TokenType.LOCAL_TOKEN
                 ):
+                    name_token = self.peek_token(i[0] + 2)
                     if newline_required:
                         raise ParserError(
-                            token.span,
+                            name_token.span,
                             f"Expected an empty line"
                         )
 
-                    fn = self.parse_helper_fn(i)
+                    fn = self.parse_local_fn(i)
                     if fn.fn_name in self.helper_fns:
                         raise GrugError.new_compile_error(
                             self.file_path,
@@ -450,6 +439,7 @@ class Parser:
     def consume_token_type(self, i: List[int], expected_type: TokenType):
         self.assert_token_type(i[0], expected_type)
         i[0] += 1
+        return self.tokens[i[0] - 1]
 
     def get_token_line_number(self, token_index: int):
         assert token_index < len(self.tokens)
@@ -615,8 +605,19 @@ class Parser:
 
         return arguments
 
-    def parse_helper_fn(self, i: List[int]):
+    def parse_local_fn(self, i: List[int]):
+        # local token
+        self.consume_token(i)
+        # space token
+        self.consume_space(i)
+
         fn_name = self.consume_token(i)
+        if not fn_name.value.startswith("_"):
+            raise self.new_error(
+                fn_name.span,
+                f"Local function name must begin with '_'"
+            )
+
         fn = HelperFn(fn_name.value, fn_name.span)
         previous_function = self.current_function
         self.current_function = fn.fn_name
@@ -661,9 +662,23 @@ class Parser:
         self.current_function = previous_function
         return fn
 
-    def parse_on_fn(self, i: List[int]):
-        fn_token = self.consume_token(i)
-        fn = OnFn(fn_token.value, fn_token.span)
+    def parse_export_fn(self, i: List[int]):
+        # export token
+        self.consume_token(i)
+        # space token
+        self.consume_space(i)
+        # name token
+        name_token = self.consume_token_type(i, TokenType.WORD_TOKEN)
+        if self.helper_fns:
+            raise GrugError.new_compile_error(
+                self.file_path,
+                name_token.value,
+                self.source_text,
+                name_token.span,
+                f"{name_token.value}() must be defined before all local functions"
+            )
+
+        fn = OnFn(name_token.value, name_token.span)
         previous_function = self.current_function
         self.current_function = fn.fn_name
 
@@ -823,10 +838,7 @@ class Parser:
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
             next_token = self.peek_token(i[0])
-            if var_type_name is not None:
-                err_span = SourceSpan(next_token.span.line, next_token.span.offset + len(next_token.value))
-            else: 
-                err_span = var_token.span
+            err_span = SourceSpan(next_token.span.line, next_token.span.offset)
             raise self.new_error(
                 err_span,
                 f"Variable '{var_name}' was not assigned a value"
@@ -926,7 +938,7 @@ class Parser:
         fn_name = expr.name
         expr = CallExpr(fn_name, expr_span=expr.expr_span, name_span=expr.expr_span)
 
-        if fn_name.startswith("helper_"):
+        if fn_name.startswith("_"):
             self.called_helper_fn_names.add(fn_name)
 
         i[0] += 1

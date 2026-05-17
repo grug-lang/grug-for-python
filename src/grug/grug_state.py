@@ -122,11 +122,11 @@ class GrugState:
                 )
 
             entity_dict = cast(Dict[str, Any], entity)
-            host_functions = entity_dict.get("export_functions")
-            if host_functions is None:
+            export_functions = entity_dict.get("export_functions")
+            if export_functions is None:
                 continue
 
-            if not isinstance(host_functions, list):
+            if not isinstance(export_functions, list):
                 raise RuntimeError(
                     f"Error: 'export_functions' for entity '{entity_name}' must be a JSON array"
                 )
