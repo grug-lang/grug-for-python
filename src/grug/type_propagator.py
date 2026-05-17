@@ -479,10 +479,14 @@ class TypePropagator:
             elif isinstance(stmt, CallStatement):
                 self.fill_call_expr(stmt.expr)
             elif isinstance(stmt, IfStatement):
-                self.fill_expr(stmt.condition)
-                self.fill_statements(stmt.if_body)
-                if stmt.else_body:
-                    self.fill_statements(stmt.else_body)
+                while True:
+                    self.fill_expr(stmt.condition)
+                    self.fill_statements(stmt.if_body)
+                    if len(stmt.else_body) == 1 and isinstance(stmt.else_body[0], IfStatement):
+                        stmt = stmt.else_body[0]
+                    else:
+                        self.fill_statements(stmt.else_body)
+                        break;
             elif isinstance(stmt, ReturnStatement):
                 if stmt.value:
                     self.fill_expr(stmt.value)

@@ -409,7 +409,6 @@ class Parser:
                     f"Expected '(', or ':', or ' =' after the word '{switch_token.value}' on line {self.get_token_line_number(i[0])}"
                 )
         elif switch_token.type == TokenType.IF_TOKEN:
-            i[0] += 1
             statement = self.parse_if_statement(i)
         elif switch_token.type == TokenType.RETURN_TOKEN:
             i[0] += 1
@@ -1009,28 +1008,43 @@ class Parser:
 
     def parse_if_statement(self, i: List[int]):
         self.increase_parsing_depth()
-        self.consume_space(i)
-        condition = self.parse_expression(i)
-        if_body = self.parse_statements(i)
-
-        else_body: List[Statement] = []
-        tok = self.peek_token(i[0])
-        if tok and tok.type == TokenType.SPACE_TOKEN:
+        ifs = []
+        while True:
+            # consume if token
             i[0] += 1
+            self.consume_space(i)
+            condition = self.parse_expression(i)
+            if_body = self.parse_statements(i)
 
-            self.consume_token_type(i, TokenType.ELSE_TOKEN)
+            tok = self.peek_token(i[0])
+            if tok and tok.type == TokenType.SPACE_TOKEN:
+                i[0] += 1
 
-            if (
-                self.peek_token(i[0]).type == TokenType.SPACE_TOKEN
-                and self.peek_token(i[0] + 1).type == TokenType.IF_TOKEN
-            ):
-                i[0] += 2
-                else_body = [self.parse_if_statement(i)]
-            else:
-                else_body = self.parse_statements(i)
+                self.consume_token_type(i, TokenType.ELSE_TOKEN)
+
+                if (
+                    self.peek_token(i[0]).type == TokenType.SPACE_TOKEN
+                    and self.peek_token(i[0] + 1).type == TokenType.IF_TOKEN
+                ):
+                    i[0] += 1
+                    ifs.append([condition, if_body])
+                    continue
+                else:
+                    else_body = self.parse_statements(i)
+            else: 
+                else_body = []
+
+            ifs.append([condition, if_body])
+            break
+
+        current = ifs.pop()
+        current = IfStatement(current[0], current[1], else_body)
+
+        for statement in reversed(ifs):
+            current = IfStatement(statement[0], statement[1], [current])
 
         self.decrease_parsing_depth()
-        return IfStatement(condition, if_body, else_body)
+        return current
 
     def parse_while_statement(self, i: List[int]):
         self.increase_parsing_depth()

@@ -11,7 +11,6 @@ from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExc
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
 from grug.grug_value import GrugValue
 
-
 class GrugValueUnion(ctypes.Union):
     _fields_ = [
         ("_number", ctypes.c_double),
@@ -19,7 +18,6 @@ class GrugValueUnion(ctypes.Union):
         ("_string", ctypes.c_char_p),
         ("_id", ctypes.c_uint64),
     ]
-
 
 class GrugValueWorkaround(ctypes.Structure):
     """
@@ -38,6 +36,15 @@ class GrugValueWorkaround(ctypes.Structure):
     """
 
     _fields_ = [("_blob", ctypes.c_uint64)]
+
+def c_to_py_value(value: GrugValueUnion, typ: str):
+    if typ == "number":
+        return float(value._number)
+    if typ == "bool":
+        return bool(value._bool)
+    if typ == "string":
+        return ctypes.string_at(value._string).decode()
+    return int(value._id)
 
 
 # Callback type definitions
@@ -101,15 +108,6 @@ def custom_runtime_error_handler(
         on_fn_name.encode(),
         on_fn_path.encode(),
     )
-
-def c_to_py_value(value: GrugValueUnion, typ: str):
-    if typ == "number":
-        return float(value._number)
-    if typ == "bool":
-        return bool(value._bool)
-    if typ == "string":
-        return ctypes.string_at(value._string).decode()
-    return int(value._id)
 
 def test_grug(
     grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.PyDLL

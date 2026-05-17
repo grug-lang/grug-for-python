@@ -1,11 +1,10 @@
 import argparse
 import ctypes
-import json
 import sys
-import tempfile
+import os
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, cast
+from typing import Dict, List, NamedTuple, Optional, cast
 
 ROOT = Path(__file__).resolve().parent
 SRC_DIR = ROOT / "src"
@@ -17,7 +16,7 @@ import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
 from grug.grug_value import GrugValue
-from test_grug import (  # pyright: ignore[reportMissingImports]
+from tests.test_grug import (  
     GrugValueUnion,
     GrugValueWorkaround,
     c_to_py_value,
@@ -95,28 +94,6 @@ def load_benchmark_lib(lib_path: Path) -> ctypes.PyDLL:
 
     return lib
 
-
-def normalized_mod_api_path(mod_api_path: Path) -> Path:
-    with mod_api_path.open() as f:
-        mod_api = json.load(f)
-
-    entities = cast(Dict[str, Dict[str, Any]], mod_api.get("entities", {}))
-    for entity in entities.values():
-        on_functions = entity.get("on_functions")
-        if isinstance(on_functions, list):
-            entity["on_functions"] = sorted(on_functions, key=lambda fn: fn["name"])
-
-    temp_file = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        suffix=".json",
-        delete=False,
-    )
-    with temp_file:
-        json.dump(mod_api, temp_file)
-
-    return Path(temp_file.name)
-
 def parse_args() -> BenchmarkArgs:
     parser = argparse.ArgumentParser(description="Run grug benchmark harness for Python.")
     parser.add_argument(
@@ -177,7 +154,8 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             return 1
         except Exception:  
             traceback.print_exc(file=sys.stderr)
-            sys.exit(2)
+            os._exit(2)
+        return 0
 
     @destroy_grug_state_t
     def destroy_grug_state(state_ptr: int) -> None:
@@ -203,7 +181,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             return file_id
         except Exception:  
             traceback.print_exc(file=sys.stderr)
-            sys.exit(2)
+            os._exit(2)
 
     @create_entity_t
     def create_entity(state_ptr: int, grug_script_id: int) -> int:
@@ -215,7 +193,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             return entity_id
         except Exception:  
             traceback.print_exc(file=sys.stderr)
-            sys.exit(2)
+            os._exit(2)
 
     @get_on_fn_id_t
     def get_on_fn_id(state_ptr: int, entity_type: bytes, function_name: bytes) -> int:
@@ -245,7 +223,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             ]
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError):
-            sys.exit(2)
+            os._exit(2)
 
     @destroy_entity_t
     def destroy_entity(state_ptr: int, entity_id: int) -> None:
@@ -339,8 +317,8 @@ def main() -> None:
 
     benchmark_lib = load_benchmark_lib(lib_path)
     run_benchmarks(
-        grug_bench_path / "mod_api.json",
-        grug_bench_path / "mods",
+        str(grug_bench_path / "mod_api.json"),
+        str(grug_bench_path / "mods"),
         benchmark_lib,
     )
 
