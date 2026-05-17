@@ -131,8 +131,6 @@ class GrugState:
                     f"Error: 'on_functions' for entity '{entity_name}' must be a JSON array"
                 )
 
-            on_functions_list = cast(List[Any], on_functions)
-
         game_functions = self.mod_api.get("game_functions")
         if not isinstance(game_functions, dict):
             raise RuntimeError("Error: 'game_functions' must be a JSON object")

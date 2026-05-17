@@ -86,7 +86,7 @@ Error: {error_message}\n\
 
     @staticmethod
     def new_file_name_error(file_path: Path, error_message: str) -> "GrugError":
-        source_line = file_path
+        source_line = str(file_path)
         err_span = SourceSpan(1, 0)
 
         error_string = f"""\

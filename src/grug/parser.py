@@ -436,7 +436,7 @@ class Parser:
     def assert_token_type(self, token_index: int, expected_type: TokenType):
         try: 
             token = self.peek_token(token_index)
-        except Exception as e:
+        except Exception as _:
             raise ParserError(
                 self.token_span_or_last(token_index),
                 f"Expected {expected_type} but got end of file"
@@ -792,7 +792,6 @@ class Parser:
         self.parsing_depth -= 1
 
     def parse_local_variable(self, i: List[int]):
-        name_token_index = i[0]
         var_token = self.consume_token(i)
         var_name = var_token.value
 
@@ -823,9 +822,11 @@ class Parser:
                 )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
-            err_span = var_token.span
+            next_token = self.peek_token(i[0])
             if var_type_name is not None:
-                err_span = SourceSpan(type_token.span.line, type_token.span.offset + len(type_token.value))
+                err_span = SourceSpan(next_token.span.line, next_token.span.offset + len(next_token.value))
+            else: 
+                err_span = var_token.span
             raise self.new_error(
                 err_span,
                 f"Variable '{var_name}' was not assigned a value"
@@ -848,7 +849,6 @@ class Parser:
         return VariableStatement(var_name, var_type, var_type_name, expr, var_token.span)
 
     def parse_global_variable(self, i: List[int]):
-        name_token_index = i[0]
         name_token = self.consume_token(i)
         global_name = name_token.value
 
