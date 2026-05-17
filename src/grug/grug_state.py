@@ -122,27 +122,27 @@ class GrugState:
                 )
 
             entity_dict = cast(Dict[str, Any], entity)
-            on_functions = entity_dict.get("on_functions")
-            if on_functions is None:
+            host_functions = entity_dict.get("export_functions")
+            if host_functions is None:
                 continue
 
-            if not isinstance(on_functions, list):
+            if not isinstance(host_functions, list):
                 raise RuntimeError(
-                    f"Error: 'on_functions' for entity '{entity_name}' must be a JSON array"
+                    f"Error: 'export_functions' for entity '{entity_name}' must be a JSON array"
                 )
 
-        game_functions = self.mod_api.get("game_functions")
-        if not isinstance(game_functions, dict):
-            raise RuntimeError("Error: 'game_functions' must be a JSON object")
+        host_functions = self.mod_api.get("host_functions")
+        if not isinstance(host_functions, dict):
+            raise RuntimeError("Error: 'host_functions' must be a JSON object")
 
     def _convert_on_functions_to_dicts(self):
         for entity in self.mod_api["entities"].values():
-            on_functions = entity.get("on_functions")
-            if on_functions is None:
+            host_functions = entity.get("host_functions")
+            if host_functions is None:
                 continue
-            entity["on_functions"] = {
+            entity["host_functions"] = {
                 fn["name"]: {k: v for k, v in fn.items() if k != "name"}
-                for fn in on_functions
+                for fn in host_functions
             }
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
@@ -193,7 +193,7 @@ class GrugState:
 
         game_fn_return_types = {
             fn_name: fn.get("return_type")
-            for fn_name, fn in self.mod_api["game_functions"].items()
+            for fn_name, fn in self.mod_api["host_functions"].items()
         }
 
         return GrugFile(
