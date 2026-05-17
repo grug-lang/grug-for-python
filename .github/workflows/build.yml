@@ -85,7 +85,7 @@ jobs:
 
       - name: Run grug-bench tests (Python ${{ matrix.python-version }})
         run: |
-          coverage run benchmarks.py --grug-bench-path=./grug-bench -s -v
+          coverage run benchmarks.py --grug-bench-path=./grug-bench
 
       - name: Run grug-for-python tests (Python ${{ matrix.python-version }})
         run: |
