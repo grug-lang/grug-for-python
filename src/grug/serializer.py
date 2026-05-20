@@ -393,9 +393,9 @@ class Serializer:
                     write(", ")
                 write(f'{arg["name"]}: {arg["type"]}')
 
-        def apply_helper_fn(statement: Dict[str, Any]) -> None:
+        def apply_local_fn(statement: Dict[str, Any]) -> None:
             """Generate code for a helper function."""
-            write(f'{statement["name"]}(')
+            write(f'local {statement["name"]}(')
 
             if "arguments" in statement:
                 apply_arguments(statement["arguments"])
@@ -412,9 +412,9 @@ class Serializer:
 
             write("}\n")
 
-        def apply_on_fn(statement: Dict[str, Any]) -> None:
+        def apply_export_fn(statement: Dict[str, Any]) -> None:
             """Generate code for an on function."""
-            write(f'{statement["name"]}(')
+            write(f'export {statement["name"]}(')
 
             if "arguments" in statement:
                 apply_arguments(statement["arguments"])
@@ -440,9 +440,9 @@ class Serializer:
                 if stmt_type == "GLOBAL_VARIABLE":
                     apply_global_variable(statement)
                 elif stmt_type == "GLOBAL_ON_FN":
-                    apply_on_fn(statement)
+                    apply_export_fn(statement)
                 elif stmt_type == "GLOBAL_HELPER_FN":
-                    apply_helper_fn(statement)
+                    apply_local_fn(statement)
                 elif stmt_type == "GLOBAL_EMPTY_LINE":
                     write("\n")
                 else:

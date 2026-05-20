@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, cast
 
 import pytest
-from test_grug import GrugStateVTableStruct
+from tests.test_grug import GrugStateVTableStruct
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

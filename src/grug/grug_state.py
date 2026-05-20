@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, cast
 
 from grug.grug_value import GrugValue
 
+from .error import GrugError
 from .parser import HelperFn, OnFn, Parser, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
@@ -121,29 +122,27 @@ class GrugState:
                 )
 
             entity_dict = cast(Dict[str, Any], entity)
-            on_functions = entity_dict.get("on_functions")
-            if on_functions is None:
+            export_functions = entity_dict.get("export_functions")
+            if export_functions is None:
                 continue
 
-            if not isinstance(on_functions, list):
+            if not isinstance(export_functions, list):
                 raise RuntimeError(
-                    f"Error: 'on_functions' for entity '{entity_name}' must be a JSON array"
+                    f"Error: 'export_functions' for entity '{entity_name}' must be a JSON array"
                 )
 
-            on_functions_list = cast(List[Any], on_functions)
-
-        game_functions = self.mod_api.get("game_functions")
-        if not isinstance(game_functions, dict):
-            raise RuntimeError("Error: 'game_functions' must be a JSON object")
+        host_functions = self.mod_api.get("host_functions")
+        if not isinstance(host_functions, dict):
+            raise RuntimeError("Error: 'host_functions' must be a JSON object")
 
     def _convert_on_functions_to_dicts(self):
         for entity in self.mod_api["entities"].values():
-            on_functions = entity.get("on_functions")
-            if on_functions is None:
+            host_functions = entity.get("host_functions")
+            if host_functions is None:
                 continue
-            entity["on_functions"] = {
+            entity["host_functions"] = {
                 fn["name"]: {k: v for k, v in fn.items() if k != "name"}
-                for fn in on_functions
+                for fn in host_functions
             }
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
@@ -174,14 +173,17 @@ class GrugState:
 
         grug_file_absolute_path = Path(self.mods_dir_path) / grug_file_relative_path
         text = grug_file_absolute_path.read_text()
+        grug_file_path = Path(grug_file_relative_path)
 
-        entity_type = self._get_file_entity_type(Path(grug_file_relative_path).name)
+        entity_type = self._get_file_entity_type(grug_file_path)
 
-        tokens = Tokenizer(text).tokenize()
+        tokens = Tokenizer(text, grug_file_path).tokenize()
 
-        ast = Parser(tokens).parse()
+        ast = Parser(tokens, grug_file_path, text).parse()
 
-        TypePropagator(ast, mod, entity_type, self.mod_api).fill()
+        TypePropagator(
+            ast, mod, entity_type, self.mod_api, grug_file_path, text
+        ).fill()
 
         global_variables = [s for s in ast if isinstance(s, VariableStatement)]
 
@@ -191,7 +193,7 @@ class GrugState:
 
         game_fn_return_types = {
             fn_name: fn.get("return_type")
-            for fn_name, fn in self.mod_api["game_functions"].items()
+            for fn_name, fn in self.mod_api["host_functions"].items()
         }
 
         return GrugFile(
@@ -205,7 +207,7 @@ class GrugState:
             self,
         )
 
-    def _get_file_entity_type(self, grug_filename: str) -> str:
+    def _get_file_entity_type(self, grug_file_path: Path) -> str:
         """
         Extract and validate the entity type from a grug filename.
 
@@ -216,33 +218,41 @@ class GrugState:
             The entity type string (e.g., 'BlockEntity')
 
         Raises:
-            ValueError: If the filename format is invalid
+            GrugError: If the filename format is invalid
         """
+        grug_filename = grug_file_path.name
+
         # Find the dash
         dash_index = grug_filename.find("-")
 
         if dash_index == -1 or dash_index + 1 >= len(grug_filename):
-            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
+            raise GrugError.new_file_name_error(
+                grug_file_path, f"'{grug_filename}' is missing an entity type in its name"
+            )
 
         # Find the period after the dash
         period_index = grug_filename.find(".", dash_index + 1)
 
         if period_index == -1:
-            raise ValueError(f"'{grug_filename}' is missing a period in its filename")
+            raise GrugError.new_file_name_error(
+                grug_file_path, f"'{grug_filename}' is missing a period in its filename"
+            )
 
         # Extract entity type (between dash and period)
         entity_type = grug_filename[dash_index + 1 : period_index]
 
         # Check if entity type is empty
         if len(entity_type) == 0:
-            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
+            raise GrugError.new_file_name_error(
+                grug_file_path, f"'{grug_filename}' is missing an entity type in its name"
+            )
 
         # Validate PascalCase
-        self._check_custom_id_is_pascal(entity_type)
+        self._check_custom_id_is_pascal(entity_type, grug_file_path)
 
         return entity_type
 
-    def _check_custom_id_is_pascal(self, type_name: str):
+    def _check_custom_id_is_pascal(self, type_name: str, grug_file_path: Path):
         """
         Validate that a custom ID type name is in PascalCase.
 
@@ -250,20 +260,22 @@ class GrugState:
             type_name: The type name to validate
 
         Raises:
-            ValueError: If the type name is not valid PascalCase
+            GrugError: If the type name is not valid PascalCase
         """
         # The first character must always be uppercase
         if not type_name[0].isupper():
-            raise ValueError(
-                f"'{type_name}' seems like a custom ID type, but it doesn't start in Uppercase"
+            raise GrugError.new_file_name_error(
+                grug_file_path,
+                f"'{type_name}' seems like a custom ID type, but it doesn't start in Uppercase",
             )
 
         # Custom IDs only consist of uppercase, lowercase characters, and digits
         for c in type_name:
             if not (c.isupper() or c.islower() or c.isdigit()):
-                raise ValueError(
+                raise GrugError.new_file_name_error(
+                    grug_file_path,
                     f"'{type_name}' seems like a custom ID type, but it contains '{c}', "
-                    f"which isn't uppercase/lowercase/a digit"
+                    f"which isn't uppercase, lowercase, or a digit",
                 )
 
     def compile_all_mods(self) -> GrugDir:
@@ -321,8 +333,9 @@ class GrugState:
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
     def dump_file_to_json(self, input_grug_text: str):
-        tokens = Tokenizer(input_grug_text).tokenize()
-        ast = Parser(tokens).parse()
+        # TODO: path to file should be a parameter
+        tokens = Tokenizer(input_grug_text, Path("<input>")).tokenize()
+        ast = Parser(tokens, Path("<input>"), input_grug_text).parse()
         return Serializer.ast_to_json_text(ast)
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
