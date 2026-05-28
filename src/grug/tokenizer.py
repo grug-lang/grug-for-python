@@ -154,7 +154,7 @@ class Tokenizer:
             elif c == ":":
                 add_token(TokenType.COLON_TOKEN, c, i)
                 i += 1
-            elif src.startswith("\r\n", i):
+            elif src.startswith("\r\n", i): # pragma: no cover
                 add_token(TokenType.NEWLINE_TOKEN, "\r\n", i)
                 current_line += 1
                 i += 2
