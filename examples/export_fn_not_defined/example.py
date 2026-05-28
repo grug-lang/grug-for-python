@@ -6,7 +6,7 @@ state = grug.init()
 
 @state.game_fn
 def print_string(state: GrugState, string: str):
-    print(string)
+    print(string)  # pragma: no cover
 
 
 file = state.mods["animals"]["labrador-Dog.grug"]
