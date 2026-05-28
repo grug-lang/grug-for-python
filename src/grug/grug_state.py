@@ -28,11 +28,11 @@ class GrugPackage:
         self.prefix = prefix
         self.game_fns = game_fns
 
-    def no_prefix(self): # pragma: no cover
+    def no_prefix(self): 
         self.prefix = ""
         return self
 
-    def set_prefix(self, new_prefix: str): # pragma: no cover
+    def set_prefix(self, new_prefix: str): 
         self.prefix = new_prefix
         return self
 

@@ -154,6 +154,8 @@ class Tokenizer:
             elif c == ":":
                 add_token(TokenType.COLON_TOKEN, c, i)
                 i += 1
+            # Hard to hit this branch when running on windows because "\r\n"
+            # is replaced with "\n" when reading the file
             elif src.startswith("\r\n", i): # pragma: no cover
                 add_token(TokenType.NEWLINE_TOKEN, "\r\n", i)
                 current_line += 1

@@ -794,6 +794,7 @@ class Parser:
 
     def increase_parsing_depth(self, i: List[int]):
         self.parsing_depth += 1
+        # TODO: We don't cover this test yet
         if self.parsing_depth >= MAX_PARSING_DEPTH: # pragma: no cover
             raise ParserError(
                 self.token_span(i[0]),

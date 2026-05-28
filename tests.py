@@ -46,7 +46,7 @@ def run_package_tests():
         )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": #pragma: no cover
     print("Running all example programs and package tests...")
     run_examples()
     run_package_tests()
