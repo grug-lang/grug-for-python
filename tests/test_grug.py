@@ -379,6 +379,7 @@ def test_grug(
                 runtime_error_handler=custom_runtime_error_handler,
                 mod_api_path=ctypes.string_at(tests_path).decode(),
                 mods_dir_path=ctypes.string_at(mod_api_path).decode(),
+                on_fn_time_limit_ms=1000,
             )
         except RuntimeError:
             return 0
@@ -446,6 +447,7 @@ class GameFnRegistrator:
             "mega_f32",
             "mega_i32",
             "draw",
+            "assert_state_is_not_null",
             "blocked_alrm",
             "spawn",
             "spawn_d",
@@ -540,7 +542,10 @@ class GameFnRegistrator:
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
 
-            result: GrugValueWorkaround = c_fn(0, c_args)
+            # We pass 42 since `state` is a Python object
+            # grug-tests just doesn't want us to
+            # *accidentally* pass NULL
+            result: GrugValueWorkaround = c_fn(42, c_args)
 
             self._raise_game_fn_error_if_needed(state)
 
