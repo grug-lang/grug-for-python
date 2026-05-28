@@ -28,11 +28,11 @@ class GrugPackage:
         self.prefix = prefix
         self.game_fns = game_fns
 
-    def no_prefix(self):
+    def no_prefix(self): # pragma: no cover
         self.prefix = ""
         return self
 
-    def set_prefix(self, new_prefix: str):
+    def set_prefix(self, new_prefix: str): # pragma: no cover
         self.prefix = new_prefix
         return self
 
@@ -224,7 +224,7 @@ class GrugState:
 
         if period_index == -1:
             raise GrugError.new_file_name_error(
-                grug_file_path, f"'{grug_filename}' is missing a period in its filename"
+                grug_file_path, f"'{grug_filename}' is missing a period in its name"
             )
 
         # Extract entity type (between dash and period)

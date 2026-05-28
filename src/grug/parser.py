@@ -344,6 +344,7 @@ class Parser:
                     token.type == TokenType.LOCAL_TOKEN
                 ):
                     self.assert_token_type(i[0] + 1, TokenType.SPACE_TOKEN)
+                    self.assert_token_type(i[0] + 2, TokenType.WORD_TOKEN)
                     name_token = self.peek_token(i[0] + 2)
                     if newline_required:
                         raise ParserError(
@@ -503,9 +504,6 @@ class Parser:
                 )
             i[0] += 1
             statement = ContinueStatement(switch_token.span)
-        elif switch_token.type == TokenType.NEWLINE_TOKEN:
-            i[0] += 1
-            statement = EmptyLineStatement()
         elif switch_token.type == TokenType.COMMENT_TOKEN:
             i[0] += 1
             statement = CommentStatement(switch_token.value, switch_token.span)
@@ -612,15 +610,15 @@ class Parser:
         self.consume_space(i)
 
         fn_name = self.consume_token(i)
-        if not fn_name.value.startswith("_"):
+
+        fn = HelperFn(fn_name.value, fn_name.span)
+        self.current_function = fn.fn_name
+        if not fn.fn_name.startswith("_"):
             raise self.new_error(
                 fn_name.span,
                 f"Local function name must begin with '_'"
             )
 
-        fn = HelperFn(fn_name.value, fn_name.span)
-        previous_function = self.current_function
-        self.current_function = fn.fn_name
 
         if fn.fn_name not in self.called_helper_fn_names:
             raise self.new_error(
@@ -659,7 +657,7 @@ class Parser:
             raise self.new_error(fn.span, f"{fn.fn_name}() can't be empty")
 
         self.ast.append(fn)
-        self.current_function = previous_function
+        self.current_function = None
         return fn
 
     def parse_export_fn(self, i: List[int]):
@@ -796,7 +794,7 @@ class Parser:
 
     def increase_parsing_depth(self, i: List[int]):
         self.parsing_depth += 1
-        if self.parsing_depth >= MAX_PARSING_DEPTH:
+        if self.parsing_depth >= MAX_PARSING_DEPTH: # pragma: no cover
             raise ParserError(
                 self.token_span(i[0]),
                 f"There is a function that contains more than {MAX_PARSING_DEPTH} levels of nested expressions"

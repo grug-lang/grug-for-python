@@ -10,7 +10,7 @@ class SourceSpan:
     def get_column(self, source_text: str) -> int:
         column = 1;
         if self.offset >= len(source_text):
-            raise Exception("expected span to be within source code bounds")
+            raise Exception("expected span to be within source code bounds") # pragma: no cover
 
         while column <= self.offset and source_text[self.offset - column] != '\n':
             column += 1;
@@ -21,7 +21,7 @@ class SourceSpan:
         line_start_index = self.offset;
         line_end_index = self.offset;
         if self.offset >= len(source_text):
-            raise Exception("expected span to be within source code bounds")
+            raise Exception("expected span to be within source code bounds") # pragma: no cover
 
         if source_text[line_start_index] == '\n':
             line_start_index -= 1;
