@@ -16,5 +16,5 @@ file = state.compile_grug_file("animals/labrador-Dog.grug")
 dog1 = file.create_entity()
 
 state.update()
-dog1.on_bark("woof")
-dog1.on_bark("")
+dog1.bark("woof")
+dog1.bark("")

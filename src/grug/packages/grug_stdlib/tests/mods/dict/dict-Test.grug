@@ -1,4 +1,4 @@
-on_run() {
+export run() {
     d: Dict = dict()
     assert_id(d, d)
 }

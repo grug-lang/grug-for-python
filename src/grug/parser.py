@@ -272,12 +272,11 @@ class Parser:
             error_message,
         )
 
-    def token_span_or_last(self, token_index: int) -> SourceSpan:
+    def token_span(self, token_index: int) -> SourceSpan:
         if token_index < len(self.tokens):
             return self.tokens[token_index].span
-        if self.tokens:
-            return self.tokens[-1].span
-        return SourceSpan(1, 0)
+        # We never call token_span if self.tokens is empty
+        return self.tokens[-1].span
 
     def parse(self):
         seen_on_fn = False
@@ -313,7 +312,7 @@ class Parser:
                 elif (
                     token.type == TokenType.EXPORT_TOKEN
                 ):
-                    # space token skipped
+                    self.assert_token_type(i[0] + 1, TokenType.SPACE_TOKEN)
                     name_token = self.peek_token(i[0] + 2)
                     if newline_required:
                         raise ParserError(
@@ -344,6 +343,7 @@ class Parser:
                 elif (
                     token.type == TokenType.LOCAL_TOKEN
                 ):
+                    self.assert_token_type(i[0] + 1, TokenType.SPACE_TOKEN)
                     name_token = self.peek_token(i[0] + 2)
                     if newline_required:
                         raise ParserError(
@@ -400,7 +400,7 @@ class Parser:
 
             if seen_newline and not newline_allowed:
                 raise ParserError(
-                    self.token_span_or_last(len(self.tokens) - 1),
+                    self.token_span(len(self.tokens) - 1),
                     f"Unexpected empty line"
                 )
         except ParserError as err:
@@ -411,7 +411,7 @@ class Parser:
     def peek_token(self, token_index: int):
         if token_index >= len(self.tokens):
             raise ParserError(
-                self.token_span_or_last(token_index),
+                self.token_span(token_index),
                 f"unexpected end of file"
             )
         return self.tokens[token_index]
@@ -427,7 +427,7 @@ class Parser:
             token = self.peek_token(token_index)
         except Exception as _:
             raise ParserError(
-                self.token_span_or_last(token_index),
+                self.token_span(token_index),
                 f"Expected {expected_type} but got end of file"
             )
         if token.type != expected_type:
@@ -744,7 +744,7 @@ class Parser:
 
         if seen_newline and not newline_allowed:
             raise ParserError(
-                self.token_span_or_last(i[0] - 1),
+                self.token_span(i[0] - 1),
                 f"Unexpected empty line"
             )
 
@@ -798,7 +798,7 @@ class Parser:
         self.parsing_depth += 1
         if self.parsing_depth >= MAX_PARSING_DEPTH:
             raise ParserError(
-                self.token_span_or_last(i[0]),
+                self.token_span(i[0]),
                 f"There is a function that contains more than {MAX_PARSING_DEPTH} levels of nested expressions"
             )
 

@@ -2,15 +2,15 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": [
+            "export_functions": [
                 {
-                    "name": "on_tick",
+                    "name": "tick",
                     "description": "Called every tick."
                 }
             ]
         }
     },
-    "game_functions": {
+    "host_functions": {
         "ceil": {
             "description": "Ceiling of n, the smallest integer greater than or equal to n.",
             "return_type": "number",

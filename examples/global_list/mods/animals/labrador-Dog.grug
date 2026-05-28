@@ -1,6 +1,6 @@
 l: List = list()
 
-on_run() {
+export run() {
     list_number_append(l, 42)
     print_list(l)
 }
