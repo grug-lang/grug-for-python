@@ -1,8 +1,24 @@
 {
     "entities": {
         "Dog": {
-            "description": "A dog."
+            "description": "A dog.",
+            "on_functions": [
+                {
+                    "name": "on_run",
+                    "description": "Called once."
+                }
+            ]
         }
     },
-    "game_functions": {}
+    "game_functions": {
+        "print_string": {
+            "description": "Prints a string.",
+            "arguments": [
+                {
+                    "name": "str",
+                    "type": "string"
+                }
+            ]
+        }
+    }
 }
