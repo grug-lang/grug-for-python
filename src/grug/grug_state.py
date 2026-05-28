@@ -346,7 +346,7 @@ class GrugState:
         """This (re)compiles grug files using mark-and-sweep, and prints any error."""
         try:
             self._update()
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             print(e)
 
     def _update(self):
