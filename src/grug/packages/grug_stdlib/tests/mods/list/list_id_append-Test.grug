@@ -1,4 +1,4 @@
-on_run() {
+export run() {
     l: List = list()
     list_id_append(l, list())
     assert_number(list_len(l), 1)

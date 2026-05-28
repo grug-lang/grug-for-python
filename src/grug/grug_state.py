@@ -96,7 +96,6 @@ class GrugState:
         self.mod_api: Dict[str, Any] = cast(Dict[str, Any], raw)
 
         self._assert_mod_api()
-        self._convert_on_functions_to_dicts()
 
         self.mods_dir_path = mods_dir_path
 
@@ -134,16 +133,6 @@ class GrugState:
         host_functions = self.mod_api.get("host_functions")
         if not isinstance(host_functions, dict):
             raise RuntimeError("Error: 'host_functions' must be a JSON object")
-
-    def _convert_on_functions_to_dicts(self):
-        for entity in self.mod_api["entities"].values():
-            host_functions = entity.get("host_functions")
-            if host_functions is None:
-                continue
-            entity["host_functions"] = {
-                fn["name"]: {k: v for k, v in fn.items() if k != "name"}
-                for fn in host_functions
-            }
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:
@@ -323,7 +312,7 @@ class GrugState:
             for file in sorted(dir.files.values(), key=lambda f: f.relative_path):
                 print(f"Testing {file.relative_path}...")
                 test = file.create_entity()
-                test.on_run()
+                test.run()
                 nonlocal tests_ran
                 tests_ran += 1
 

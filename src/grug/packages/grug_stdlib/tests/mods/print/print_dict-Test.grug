@@ -1,4 +1,4 @@
-on_run() {
+export run() {
     d: Dict = dict()
     dict_number_number_set(d, 1, 2)
     print_dict(d)

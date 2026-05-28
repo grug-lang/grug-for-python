@@ -1,4 +1,4 @@
-on_run() {
+export run() {
     d: Dict = dict()
     dict_string_string_set(d, "foo", "bar")
     assert_number(dict_len(d), 1)

@@ -1,4 +1,4 @@
-on_run() {
+export run() {
     d: Dict = dict()
     dict_number_number_set(d, 1, 10)
     assert_number(dict_number_number_get(d, 2), 10)

@@ -1,4 +1,4 @@
-on_run() {
+export run() {
     l1: List = list()
     l2: List = list()
     list_number_append(l2, 1)

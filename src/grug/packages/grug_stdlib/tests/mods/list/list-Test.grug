@@ -1,4 +1,4 @@
-on_run() {
+export run() {
     l: List = list()
     assert_id(l, l)
 }

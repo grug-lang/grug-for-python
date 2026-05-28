@@ -1,6 +1,6 @@
 i: number = 0
 
-on_tick() {
+export tick() {
     std_print_number(std_ceil(i / 3))
     std_print_number(exp(i))
     i = i + 1

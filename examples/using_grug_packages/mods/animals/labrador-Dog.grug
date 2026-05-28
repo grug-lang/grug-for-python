@@ -1,6 +1,6 @@
 i: number = 0
 
-on_tick() {
+export tick() {
     print_number(ceil(i / 3))
     print_number(np_exp(i))
     i = i + 1

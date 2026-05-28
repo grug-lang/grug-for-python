@@ -1,11 +1,11 @@
-on_run() {
+export run() {
     l: List = list()
 
     list_number_append(l, 1)
     list_number_append(l, 2)
     list_number_append(l, 3)
     list_number_append(l, 4)
-    helper_print(l, "[1, 2, 3, 4] at the start:")
+    _print(l, "[1, 2, 3, 4] at the start:")
 
     print_string("4 after len():")
     print_number(list_len(l))
@@ -15,18 +15,18 @@ on_run() {
     list_number_append(l2, 5)
     list_number_append(l2, 6)
     list_extend(l, l2)
-    helper_print(l, "[1, 2, 3, 4, 5, 6] after extend([5, 6]):")
+    _print(l, "[1, 2, 3, 4, 5, 6] after extend([5, 6]):")
 
     list_number_insert(l, 2, 0)
-    helper_print(l, "[1, 2, 0, 3, 4, 5, 6] after insert(2, 0):")
+    _print(l, "[1, 2, 0, 3, 4, 5, 6] after insert(2, 0):")
 
     list_number_remove(l, 3)
-    helper_print(l, "[1, 2, 0, 4, 5, 6] after remove(3):")
+    _print(l, "[1, 2, 0, 4, 5, 6] after remove(3):")
 
     x: number = list_number_pop(l)
-    helper_print(l, "[1, 2, 0, 4, 5] after pop():")
+    _print(l, "[1, 2, 0, 4, 5] after pop():")
     y: number = list_number_pop_index(l, 1)
-    helper_print(l, "[1, 0, 4, 5] after pop(1):")
+    _print(l, "[1, 0, 4, 5] after pop(1):")
 
     idx: number = list_number_index(l, 4)
     print_string("2 after index(4):")
@@ -34,25 +34,25 @@ on_run() {
     print_string("")
 
     list_number_append(l, 4)
-    helper_print(l, "[1, 0, 4, 5, 4] after append(4):")
+    _print(l, "[1, 0, 4, 5, 4] after append(4):")
     print_string("2 after count(4):")
     print_number(list_number_count(l, 4))
     print_string("")
 
     list_sort(l)
-    helper_print(l, "[0, 1, 4, 4, 5] after sort():")
+    _print(l, "[0, 1, 4, 4, 5] after sort():")
 
     list_reverse(l)
-    helper_print(l, "[5, 4, 4, 1, 0] after reverse():")
+    _print(l, "[5, 4, 4, 1, 0] after reverse():")
 
     l3: List = list_copy(l)
-    helper_print(l3, "[5, 4, 4, 1, 0] after copy():")
+    _print(l3, "[5, 4, 4, 1, 0] after copy():")
 
     list_clear(l)
-    helper_print(l, "[] after clear():")
+    _print(l, "[] after clear():")
 }
 
-helper_print(list: List, label: string) {
+local _print(list: List, label: string) {
     print_string(label)
     print_list(list)
     print_string("")

@@ -15,5 +15,5 @@ dog1 = file.create_entity()
 
 while True:
     state.update()
-    dog1.on_tick()
+    dog1.tick()
     time.sleep(1)

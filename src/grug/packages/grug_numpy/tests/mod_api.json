@@ -2,15 +2,15 @@
     "entities": {
         "Test": {
             "description": "A test.",
-            "on_functions": [
+            "export_functions": [
                 {
-                    "name": "on_run",
+                    "name": "run",
                     "description": "Runs a test."
                 }
             ]
         }
     },
-    "game_functions": {
+    "host_functions": {
         "assert_number": {
             "description": "Asserts that two numbers are equal.",
             "arguments": [

@@ -2,15 +2,15 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": [
+            "export_functions": [
                 {
-                    "name": "on_run",
+                    "name": "run",
                     "description": "Called once."
                 }
             ]
         }
     },
-    "game_functions": {
+    "host_functions": {
         "dict": {
             "description": "Creates a dict.",
             "return_type": "Dict"
