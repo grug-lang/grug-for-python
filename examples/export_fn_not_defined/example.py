@@ -1,6 +1,12 @@
 import grug
+from grug.grug_state import GrugState
 
 state = grug.init()
+
+
+@state.game_fn
+def print_string(state: GrugState, string: str):
+    print(string)
 
 
 file = state.mods["animals"]["labrador-Dog.grug"]
