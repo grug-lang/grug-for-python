@@ -72,7 +72,7 @@ class BenchmarkArgs(NamedTuple):
 
 def load_benchmark_lib(lib_path: Path) -> ctypes.PyDLL:
     if not lib_path.is_file():
-        raise FileNotFoundError(f"Shared library not found: {lib_path}")
+        raise FileNotFoundError(f"Shared library not found: {lib_path}")  # pragma: no cover
 
     lib = ctypes.PyDLL(str(lib_path))
 
@@ -126,7 +126,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
         on_fn_name: str,
         on_fn_path: str,
     ) -> None:
-        benchmark_lib.runtime_error_handler(
+        benchmark_lib.runtime_error_handler(  # pragma: no cover
             reason.encode(),
             grug_runtime_error_type.value,
             on_fn_name.encode(),
@@ -152,10 +152,10 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             )
             BenchmarkGameFnRegistrator(state, benchmark_lib).register_game_fns()
             return 1
-        except Exception:  
+        except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             os._exit(2)
-        return 0
+        return 0  # pragma: no cover
 
     @destroy_grug_state_t
     def destroy_grug_state(state_ptr: int) -> None:
@@ -179,7 +179,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
                 ctypes.string_at(file_path).decode()
             )
             return file_id
-        except Exception:  
+        except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             os._exit(2)
 
@@ -191,7 +191,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             entity_id = _allocate_id()
             entity_by_id[entity_id] = file_by_id[grug_script_id].create_entity()
             return entity_id
-        except Exception:  
+        except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             os._exit(2)
 
@@ -222,7 +222,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
                 for arg, argument in zip(c_args or [], on_fn_decl.arguments)
             ]
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
-        except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError):
+        except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError):  # pragma: no cover
             os._exit(2)
 
     @destroy_entity_t
@@ -264,7 +264,7 @@ class BenchmarkGameFnRegistrator:
                 c_args[i]._number = value
             elif isinstance(value, bool):
                 c_args[i]._bool = value
-            else:
+            else:  # pragma: no cover
                 assert isinstance(value, int)
                 c_args[i]._id = ctypes.c_uint64(value)
 
@@ -306,14 +306,14 @@ def main() -> None:
 
     grug_bench_path = args.grug_bench_path
     if not grug_bench_path.is_dir():
-        raise FileNotFoundError(f"Directory not found: {grug_bench_path}")
+        raise FileNotFoundError(f"Directory not found: {grug_bench_path}")  # pragma: no cover
 
     if sys.platform == "win32":  
-        lib_path = grug_bench_path / "build/bench.dll"
+        lib_path = grug_bench_path / "build/bench.dll"  # pragma: no cover
     elif sys.platform == "linux":  
         lib_path = grug_bench_path / "build/libbench.so"
     else:
-        raise RuntimeError(f"Unsupported operating system: {sys.platform}")  
+        raise RuntimeError(f"Unsupported operating system: {sys.platform}")  # pragma: no cover
 
     benchmark_lib = load_benchmark_lib(lib_path)
     run_benchmarks(
@@ -322,5 +322,5 @@ def main() -> None:
         benchmark_lib,
     )
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
