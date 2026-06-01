@@ -1,0 +1,151 @@
+# .github/workflows/ci.yml
+# Modified CI workflow to cache pyenv and Python installations
+# Based on grug-lang/grug-ir's build.yml caching approach
+
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Cache pyenv installation directory
+      - name: Cache pyenv
+        id: cache-pyenv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pyenv
+            ~/.pyenv_cache
+          key: ${{ runner.os }}-pyenv-${{ hashFiles('.python-version') }}
+          restore-keys: |
+            ${{ runner.os }}-pyenv-
+
+      # Install pyenv and build dependencies only if cache miss
+      - name: Install pyenv and build dependencies
+        if: steps.cache-pyenv.outputs.cache-hit != 'true'
+        run: |
+          # Install build dependencies for Python compilation
+          sudo apt-get update
+          sudo apt-get install -y \
+            make \
+            build-essential \
+            libssl-dev \
+            zlib1g-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            wget \
+            curl \
+            llvm \
+            libncurses5-dev \
+            xz-utils \
+            tk-dev \
+            libxml2-dev \
+            libxmlsec1-dev \
+            libffi-dev \
+            liblzma-dev \
+            git
+
+          # Install pyenv
+          git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+          cd ~/.pyenv && src/configure && make -C src
+
+          # Create cache marker
+          mkdir -p ~/.pyenv_cache
+          echo "pyenv installed at $(date)" > ~/.pyenv_cache/install_info.txt
+
+      # Add pyenv to PATH
+      - name: Setup pyenv in PATH
+        run: |
+          echo "$HOME/.pyenv/bin" >> $GITHUB_PATH
+          echo "PYENV_ROOT=$HOME/.pyenv" >> $GITHUB_ENV
+          echo "$HOME/.pyenv/shims" >> $GITHUB_PATH
+
+      # Cache Python installation
+      - name: Cache Python
+        id: cache-python
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pyenv/versions/3.7.17
+            ~/.pyenv_cache/python_3.7.17
+          key: ${{ runner.os }}-python-3.7.17-${{ hashFiles('.python-version') }}
+          restore-keys: |
+            ${{ runner.os }}-python-3.7.17-
+
+      # Install Python only if cache miss
+      - name: Install Python
+        if: steps.cache-python.outputs.cache-hit != 'true'
+        run: |
+          # Initialize pyenv
+          eval "$(pyenv init -)"
+          
+          # Install Python 3.7.17
+          pyenv install 3.7.17
+          
+          # Create cache marker
+          mkdir -p ~/.pyenv_cache/python_3.7.17
+          echo "Python 3.7.17 installed at $(date)" > ~/.pyenv_cache/python_3.7.17/install_info.txt
+
+      # Set Python version
+      - name: Set Python version
+        run: |
+          eval "$(pyenv init -)"
+          pyenv global 3.7.17
+          pyenv rehash
+
+      # Verify Python installation
+      - name: Verify Python installation
+        run: |
+          eval "$(pyenv init -)"
+          python --version
+          which python
+          
+          # Verify it's the correct version
+          PYTHON_VERSION=$(python --version 2>&1)
+          if [[ "$PYTHON_VERSION" != *"3.7.17"* ]]; then
+            echo "Error: Expected Python 3.7.17, got $PYTHON_VERSION"
+            exit 1
+          fi
+          
+          # Test basic Python functionality
+          python -c "print('Python 3.7.17 is working correctly')"
+          python -c "import sys; assert sys.version_info[:3] == (3, 7, 17), 'Version mismatch'"
+
+      # Example step using Python
+      - name: Run Python script
+        run: |
+          eval "$(pyenv init -)"
+          python -c "
+# Test script to verify Python environment
+import sys
+import platform
+
+print(f'Python version: {sys.version}')
+print(f'Platform: {platform.platform()}')
+print(f'Python executable: {sys.executable}')
+
+# Verify we can import standard library modules
+import json
+import os
+import re
+print('All standard library imports successful')
+"
+
+      # Cleanup step (optional)
+      - name: Cleanup pyenv cache (optional)
+        if: always()
+        run: |
+          # Remove old cache entries if needed
+          # This is optional and can be customized
+          echo "Cache cleanup completed"
