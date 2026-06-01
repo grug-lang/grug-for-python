@@ -1,0 +1,230 @@
+# =============================================================================
+# CI Workflow Configuration with Caching for pyenv and Python installations
+# =============================================================================
+# This workflow implements caching for pyenv and Python builds to reduce
+# CI execution time. The caching strategy is based on grug-lang/grug-ir's
+# approach, which reduced installation times from minutes to seconds.
+#
+# Key features:
+# - Caches pyenv installation directory
+# - Caches compiled Python versions
+# - Uses composite cache keys for proper invalidation
+# - Handles cache misses gracefully with fallback installation
+# =============================================================================
+
+name: CI with Caching
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  # Define Python versions to test
+  PYTHON_VERSIONS: "3.7.17 3.8.18 3.9.18 3.10.13 3.11.6"
+  # pyenv version for cache key
+  PYENV_VERSION: "2.3.31"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.7.17", "3.8.18", "3.9.18", "3.10.13", "3.11.6"]
+      # Fail fast to avoid wasting resources on subsequent versions if one fails
+      fail-fast: true
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Cache pyenv installation
+      # This caches the pyenv directory to avoid re-cloning and building pyenv
+      - name: Cache pyenv
+        id: cache-pyenv
+        uses: actions/cache@v3
+        with:
+          # Path to pyenv installation directory
+          path: ~/.pyenv
+          # Cache key includes pyenv version to invalidate when version changes
+          key: ${{ runner.os }}-pyenv-${{ env.PYENV_VERSION }}-${{ hashFiles('.python-version') }}
+          # Restore keys for fallback if exact key not found
+          restore-keys: |
+            ${{ runner.os }}-pyenv-${{ env.PYENV_VERSION }}-
+            ${{ runner.os }}-pyenv-
+
+      # Step 3: Install pyenv if not cached
+      - name: Install pyenv and build dependencies
+        if: steps.cache-pyenv.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing pyenv and build dependencies..."
+          
+          # Install system dependencies required for building Python
+          sudo apt-get update
+          sudo apt-get install -y \
+            make \
+            build-essential \
+            libssl-dev \
+            zlib1g-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            wget \
+            curl \
+            llvm \
+            libncurses5-dev \
+            xz-utils \
+            tk-dev \
+            libxml2-dev \
+            libxmlsec1-dev \
+            libffi-dev \
+            liblzma-dev \
+            git
+            
+          # Clone pyenv if not already present
+          if [ ! -d "$HOME/.pyenv" ]; then
+            git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+            cd ~/.pyenv && git checkout v${{ env.PYENV_VERSION }}
+          fi
+          
+          echo "pyenv installation completed successfully"
+        shell: bash
+
+      # Step 4: Setup pyenv environment variables
+      - name: Setup pyenv
+        run: |
+          echo "Configuring pyenv environment..."
+          
+          # Add pyenv to PATH and initialize
+          echo "$HOME/.pyenv/bin" >> $GITHUB_PATH
+          echo "PYENV_ROOT=$HOME/.pyenv" >> $GITHUB_ENV
+          echo "$HOME/.pyenv/shims" >> $GITHUB_PATH
+          
+          # Initialize pyenv for the current shell
+          eval "$(pyenv init -)"
+          
+          # Verify pyenv installation
+          pyenv --version
+        shell: bash
+
+      # Step 5: Cache Python version
+      # This caches the compiled Python binary to avoid recompilation
+      - name: Cache Python ${{ matrix.python-version }}
+        id: cache-python
+        uses: actions/cache@v3
+        with:
+          # Path to pyenv's versions directory where Python installations are stored
+          path: ~/.pyenv/versions/${{ matrix.python-version }}
+          # Cache key includes OS, pyenv version, and Python version
+          key: ${{ runner.os }}-python-${{ env.PYENV_VERSION }}-${{ matrix.python-version }}-${{ hashFiles('.python-version') }}
+          # Restore keys for fallback
+          restore-keys: |
+            ${{ runner.os }}-python-${{ env.PYENV_VERSION }}-${{ matrix.python-version }}-
+            ${{ runner.os }}-python-${{ env.PYENV_VERSION }}-
+            ${{ runner.os }}-python-
+
+      # Step 6: Install Python version if not cached
+      - name: Install Python ${{ matrix.python-version }}
+        if: steps.cache-python.outputs.cache-hit != 'true'
+        run: |
+          echo "Installing Python ${{ matrix.python-version }}..."
+          
+          # Initialize pyenv
+          eval "$(pyenv init -)"
+          
+          # Install the specified Python version
+          # Using CONFIGURE_OPTS to optimize build for CI environment
+          CONFIGURE_OPTS="--enable-optimizations --with-lto" \
+          PYTHON_CONFIGURE_OPTS="--enable-shared" \
+          pyenv install ${{ matrix.python-version }}
+          
+          # Verify installation
+          pyenv versions
+          
+          echo "Python ${{ matrix.python-version }} installation completed"
+        shell: bash
+        timeout-minutes: 30  # Prevent hanging builds
+
+      # Step 7: Set Python version for this job
+      - name: Set Python version
+        run: |
+          eval "$(pyenv init -)"
+          pyenv global ${{ matrix.python-version }}
+          python --version
+          pip --version
+        shell: bash
+
+      # Step 8: Cache pip dependencies
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/setup.py', '**/setup.cfg') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+            ${{ runner.os }}-pip-
+
+      # Step 9: Install project dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          if [ -f setup.py ]; then
+            pip install -e .
+          fi
+        shell: bash
+
+      # Step 10: Run tests
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v --timeout=60
+        shell: bash
+        continue-on-error: false
+
+      # Step 11: Verify cache performance (optional, for monitoring)
+      - name: Cache performance report
+        if: always()
+        run: |
+          echo "=== Cache Performance Report ==="
+          echo "pyenv cache hit: ${{ steps.cache-pyenv.outputs.cache-hit }}"
+          echo "Python cache hit: ${{ steps.cache-python.outputs.cache-hit }}"
+          echo "pip cache hit: ${{ steps.cache-pip.outputs.cache-hit }}"
+          echo "================================"
+        shell: bash
+
+# =============================================================================
+# Cache Invalidation Strategy
+# =============================================================================
+# The cache is invalidated when:
+# 1. pyenv version changes (PYENV_VERSION env variable)
+# 2. Python version changes (matrix.python-version)
+# 3. .python-version file changes (hashFiles)
+# 4. Dependencies change (requirements.txt, setup.py, setup.cfg)
+#
+# Cache keys use a hierarchical structure:
+# - Primary key: Most specific (includes all variables)
+# - Restore keys: Less specific fallbacks for partial cache hits
+#
+# This ensures that:
+# - Different Python versions don't interfere with each other
+# - Version upgrades trigger fresh installations
+# - Minor dependency changes don't invalidate Python binary cache
+# =============================================================================
+
+# =============================================================================
+# Performance Expectations
+# =============================================================================
+# After caching:
+# - 'Install pyenv and build dependencies': < 10 seconds (cache hit)
+# - 'Install Python': < 10 seconds (cache hit)
+# - 'Install dependencies': < 30 seconds (cache hit)
+#
+# Cache miss scenarios:
+# - First run: Full installation (pyenv: ~30s, Python: ~2-3min)
+# - Version change: Only affected version reinstalled
+# - Dependency change: Only pip cache invalidated
+# =============================================================================
