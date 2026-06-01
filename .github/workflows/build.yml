@@ -43,6 +43,7 @@ jobs:
           git clone https://github.com/grug-lang/grug-tests
           cd grug-tests
           git checkout main
+          export ASAN=1
           cmake -S . -B build
           cmake --build build
 
@@ -81,6 +82,7 @@ jobs:
 
       - name: Run grug-tests tests (Python ${{ matrix.python-version }})
         run: |
+          export LD_PRELOAD=$(gcc -print-file-name=libasan.so)
           coverage run -m pytest --grug-tests-path=./grug-tests -s -v
 
       - name: Run grug-bench tests (Python ${{ matrix.python-version }})
