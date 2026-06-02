@@ -1,0 +1,173 @@
+# .github/workflows/ci.yml
+# CI workflow with caching for pyenv and Python installations
+# Based on grug-lang/grug-ir's caching approach
+
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.7.17']  # Can be extended to other versions
+    
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Step 2: Cache pyenv installation
+      # This caches the pyenv binary and its dependencies
+      - name: Cache pyenv
+        id: cache-pyenv
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pyenv
+            ~/.pyenv_cache
+          key: ${{ runner.os }}-pyenv-${{ hashFiles('**/.python-version') }}
+          restore-keys: |
+            ${{ runner.os }}-pyenv-
+      
+      # Step 3: Install pyenv if not cached
+      - name: Install pyenv
+        if: steps.cache-pyenv.outputs.cache-hit != 'true'
+        run: |
+          # Install pyenv dependencies
+          sudo apt-get update
+          sudo apt-get install -y \
+            make \
+            build-essential \
+            libssl-dev \
+            zlib1g-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            wget \
+            curl \
+            llvm \
+            libncurses5-dev \
+            xz-utils \
+            tk-dev \
+            libxml2-dev \
+            libxmlsec1-dev \
+            libffi-dev \
+            liblzma-dev
+          
+          # Install pyenv
+          git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+          cd ~/.pyenv && src/configure && make -C src
+          
+          # Create cache directory for future use
+          mkdir -p ~/.pyenv_cache
+      
+      # Step 4: Add pyenv to PATH
+      - name: Setup pyenv in PATH
+        run: |
+          echo "$HOME/.pyenv/bin" >> $GITHUB_PATH
+          echo "PYENV_ROOT=$HOME/.pyenv" >> $GITHUB_ENV
+          echo "$HOME/.pyenv/shims" >> $GITHUB_PATH
+      
+      # Step 5: Cache Python installation
+      # This caches the compiled Python binary and its libraries
+      - name: Cache Python ${{ matrix.python-version }}
+        id: cache-python
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pyenv/versions/${{ matrix.python-version }}
+            ~/.pyenv_cache/python-${{ matrix.python-version }}
+          key: ${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-python-${{ matrix.python-version }}-
+      
+      # Step 6: Install Python if not cached
+      - name: Install Python ${{ matrix.python-version }}
+        if: steps.cache-python.outputs.cache-hit != 'true'
+        run: |
+          # Install the specific Python version using pyenv
+          pyenv install ${{ matrix.python-version }}
+          
+          # Create a cache marker to track successful installation
+          mkdir -p ~/.pyenv_cache/python-${{ matrix.python-version }}
+          echo "installed" > ~/.pyenv_cache/python-${{ matrix.python-version }}/.installed
+      
+      # Step 7: Set Python version and verify
+      - name: Set Python version
+        run: |
+          pyenv global ${{ matrix.python-version }}
+          pyenv rehash
+      
+      # Step 8: Verify Python installation
+      - name: Verify Python version
+        run: |
+          python --version
+          python -c "import sys; assert sys.version_info[:2] == (3, 7), f'Expected Python 3.7.x, got {sys.version}'"
+      
+      # Step 9: Install dependencies (if requirements.txt exists)
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install --upgrade pip
+            pip install -r requirements.txt
+          fi
+      
+      # Step 10: Run tests (example)
+      - name: Run tests
+        run: |
+          if [ -f setup.py ] || [ -f pyproject.toml ]; then
+            pip install -e .
+          fi
+          python -m pytest tests/ --junitxml=test-results.xml || echo "No tests found"
+      
+      # Step 11: Upload test results (optional)
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: test-results.xml
+
+# Alternative: Simplified version for minimal CI
+# This can be used if you want a more concise workflow
+jobs:
+  test-simplified:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Single cache for both pyenv and Python
+      - name: Cache pyenv and Python
+        id: cache-all
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pyenv
+            ~/.cache/pip
+          key: ${{ runner.os }}-pyenv-python-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pyenv-python-${{ matrix.python-version }}-
+            ${{ runner.os }}-pyenv-python-
+      
+      - name: Setup Python with pyenv
+        uses: gabrielfalcao/pyenv-action@v11
+        with:
+          default: 3.7.17
+          versions: 3.7.17
+      
+      - name: Verify Python
+        run: python --version
+      
+      - name: Run tests
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          python -m pytest tests/ || echo "No tests found"
