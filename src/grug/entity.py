@@ -211,9 +211,9 @@ class Entity:
         elif isinstance(expr, ResourceExpr):
             return f"{self.file.mod}/{expr.string}"
         elif isinstance(expr, EntityExpr):
-            return (
+            return 
                 expr.string if ":" in expr.string else f"{self.file.mod}:{expr.string}"
-            )
+            
         elif isinstance(expr, IdentifierExpr):
             if expr.name in self.global_variables:
                 return self.global_variables[expr.name]
