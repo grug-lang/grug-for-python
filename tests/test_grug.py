@@ -381,6 +381,7 @@ def test_grug(
         grug_state_vtable,
         whitelisted_test.encode() if whitelisted_test else None,
     )
+    del error_buffers
 
 
 class GameFnRegistrator:
