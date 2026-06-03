@@ -120,7 +120,7 @@ def test_grug(
     id_map: dict[int, GrugFile] = {}
 
     current_entity: Optional[Entity] = None
-    _last_error: Optional[bytes] = None
+    error_buffers: List[bytes] = []
 
     @ctypes.CFUNCTYPE(
         ctypes.c_void_p,
@@ -143,10 +143,11 @@ def test_grug(
             id_map[file_id] = grug_file
             return file_id
         except Exception as e:
+            buf = str(e).encode()
             # This ensures the buffer returned from this function isnt cleaned
             # up before the c code has a chance to use it
-            _last_error = str(e).encode();
-            out_err[0] = _last_error
+            error_buffers.append(buf)
+            out_err[0] = buf
             return -1
 
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
