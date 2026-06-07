@@ -98,7 +98,7 @@ coverage html
 
 Run `python -m http.server` in a different terminal to view the HTML output in your browser.
 
-If you compiled grug-tests with `ASAN=1` in your environment, you need to pass `export LD_PRELOAD=$(gcc -print-file-name=libasan.so)` before you run pytest.
+If you compiled grug-tests with `ASAN=1` in your environment, you need to pass `export LD_PRELOAD=$(gcc -print-file-name=libasan.so) ASAN_OPTIONS="detect_leaks=0"` before you run pytest.
 
 Pass `--whitelisted-test=f32_too_big` to only run the test called `f32_too_big`.
 
