@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+import os
 
 from .error import GrugError, SourceSpan
 from .parser import (
@@ -55,6 +56,7 @@ class TypePropagator:
         mod: str,
         entity_type: str,
         mod_api: ModApi,
+        mods_dir_path: Path,
         file_path: Path,
         source_text: str,
     ):
@@ -62,6 +64,7 @@ class TypePropagator:
         self.mod = mod
         self.file_entity_type = entity_type
         self.mod_api = mod_api
+        self.mods_dir_path = mods_dir_path
         self.file_path = file_path
         self.source_text = source_text
 
@@ -290,6 +293,14 @@ class TypePropagator:
                 f"The resource '{string}' was supposed to have the extension '{resource_extension}'"
             )
 
+        full_path = self.mods_dir_path / Path(self.mod) / Path(string)
+        print("full resource path: ", full_path)
+        if not os.path.exists(full_path):
+            raise self.new_error(
+                span,
+                f"resource '{string}' does not exist"
+            )
+
     def check_arguments(self, params: List[Argument], call_expr: CallExpr):
         fn_name = call_expr.fn_name
         args = call_expr.arguments
@@ -388,7 +399,7 @@ class TypePropagator:
 
         op = expr.operator
 
-        if left.result.type == Type.STRING:
+        if left.result.type == Type.STRING and right.result.type == Type.STRING:
             if op not in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
                 if op == TokenType.PLUS_TOKEN and right.result.type == Type.STRING:
                     raise self.new_error(
@@ -397,7 +408,7 @@ class TypePropagator:
                     )
                 raise self.new_error(
                     expr.op_span,
-                    f"You can't use the {op} operator on a string"
+                    f"You can't use the {op} operator on strings"
                 )
 
         is_id = left.result.type_name == "id" or right.result.type_name == "id"
@@ -545,6 +556,11 @@ class TypePropagator:
             elif isinstance(stmt, IfStatement):
                 while True:
                     self.fill_expr(stmt.condition)
+                    if stmt.condition.result.type != Type.BOOL:
+                        raise self.new_error(
+                            stmt.condition.expr_span,
+                            f"If condition must be bool but got '{stmt.condition.result.type_name}'"
+                        )
                     self.fill_statements(stmt.if_body)
                     if len(stmt.else_body) == 1 and isinstance(stmt.else_body[0], IfStatement):
                         stmt = stmt.else_body[0]
@@ -578,6 +594,11 @@ class TypePropagator:
                     )
             elif isinstance(stmt, WhileStatement):
                 self.fill_expr(stmt.condition)
+                if stmt.condition.result.type != Type.BOOL:
+                    raise self.new_error(
+                        stmt.condition.expr_span,
+                        f"While condition must be bool but got '{stmt.condition.result.type_name}'"
+                    )
                 self.fill_statements(stmt.body_statements)
 
         self.remove_local_variables_in_statements(statements)

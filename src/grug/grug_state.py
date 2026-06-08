@@ -171,7 +171,7 @@ class GrugState:
         ast = Parser(tokens, grug_file_path, text).parse()
 
         TypePropagator(
-            ast, mod, entity_type, self.mod_api, grug_file_path, text
+            ast, mod, entity_type, self.mod_api, Path(self.mods_dir_path), grug_file_path, text
         ).fill()
 
         global_variables = [s for s in ast if isinstance(s, VariableStatement)]
