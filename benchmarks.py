@@ -175,7 +175,7 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
         try:
             assert state
             file_id = _allocate_id()
-            file_by_id[file_id] = state.compile_grug_file(
+            file_by_id[file_id] = state._compile_grug_file(  # type: ignore
                 ctypes.string_at(file_path).decode()
             )
             return file_id

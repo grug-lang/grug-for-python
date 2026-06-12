@@ -2,15 +2,15 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": [
+            "export_functions": [
                 {
-                    "name": "on_tick",
+                    "name": "tick",
                     "description": "Called once per tick."
                 }
             ]
         }
     },
-    "game_functions": {
+    "host_functions": {
         "open_file": {
             "description": "Opens a file.",
             "arguments": [

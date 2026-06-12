@@ -223,6 +223,8 @@ class GrugState:
 
         mtime = grug_file_absolute_path.stat().st_mtime
 
+        grug_file_path = Path(grug_file_relative_path)
+
         entity_type = self._get_file_entity_type(grug_file_path)
 
         tokens = Tokenizer(text, grug_file_path).tokenize()
