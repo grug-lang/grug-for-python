@@ -19,6 +19,7 @@ class TokenType(Enum):
     DIVISION_TOKEN = auto()
     COMMA_TOKEN = auto()
     COLON_TOKEN = auto()
+    DOT_TOKEN = auto()
     NEWLINE_TOKEN = auto()
     EQUALS_TOKEN = auto()
     NOT_EQUALS_TOKEN = auto()
@@ -153,6 +154,9 @@ class Tokenizer:
                 i += 1
             elif c == ":":
                 add_token(TokenType.COLON_TOKEN, c, i)
+                i += 1
+            elif c == ".":
+                add_token(TokenType.DOT_TOKEN, c, i)
                 i += 1
             # Hard to hit this branch when running on windows because "\r\n"
             # is replaced with "\n" when reading the file

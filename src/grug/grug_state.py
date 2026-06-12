@@ -185,6 +185,27 @@ class GrugState:
                     f"Error: 'export_functions' for entity '{entity_name}' must be a JSON array"
                 )
 
+        classes = self.mod_api.get("entities")
+        if not isinstance(classes, dict):
+            raise RuntimeError("Error: 'classes' must be a JSON object")
+
+        classes_dict = cast(Dict[str, Any], classes)
+        for class_name, class_items in classes_dict.items():
+            if not isinstance(class_items, dict):
+                raise RuntimeError(
+                    f"Error: entity '{class_name}' must be a JSON object"
+                )
+
+            class_items_dict = cast(Dict[str, Any], class_items)
+            methods = class_items_dict.get("methods")
+            if export_functions is None:
+                continue
+
+            if not isinstance(methods, list):
+                raise RuntimeError(
+                    f"Error: 'methods' for class '{class_name}' must be a JSON array"
+                )
+
         host_functions = self.mod_api.get("host_functions")
         if not isinstance(host_functions, dict):
             raise RuntimeError("Error: 'host_functions' must be a JSON object")

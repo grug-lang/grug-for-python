@@ -10,7 +10,7 @@
                 "--grug-tests-path=../grug-tests",
                 "-s", // Prevents pytest from hiding printed output of tests
                 "-v", // Increases verbosity
-                "--whitelisted-test=entity_cant_be_empty_string" // Use to debug a specific test
+                "--whitelisted-test=method_on_number" // Use to debug a specific test
             ],
             "console": "integratedTerminal"
         },
