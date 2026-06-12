@@ -41,7 +41,7 @@ class Variable:
 @dataclass
 class GameFn:
     fn_name: str
-    arguments: List[Argument] = field(default_factory=lambda: [])  # pragma: no cover
+    parameters: List[Argument] = field(default_factory=lambda: [])  # pragma: no cover
     return_type: Optional[Type] = None
     return_type_name: Optional[str] = None
 
@@ -98,7 +98,7 @@ class TypePropagator:
         def parse_game_fn(fn_name: str, fn: Dict[str, Any]):
             return GameFn(
                 fn_name,
-                parse_args(fn.get("arguments", [])),
+                parse_args(fn.get("parameters", [])),
                 Parser.parse_type(fn["return_type"]) if "return_type" in fn else None,
                 fn.get("return_type", None),
             )
@@ -369,7 +369,7 @@ class TypePropagator:
             game_fn = self.host_functions[fn_name]
             expr.result.type = game_fn.return_type
             expr.result.type_name = game_fn.return_type_name
-            self.check_arguments(game_fn.arguments, expr)
+            self.check_arguments(game_fn.parameters, expr)
             return
 
         if fn_name.startswith("_"):
