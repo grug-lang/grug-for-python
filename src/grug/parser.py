@@ -116,6 +116,7 @@ class LogicalExpr:
 
 @dataclass
 class CallExpr:
+    receiver: Optional[Expr]
     fn_name: str
     expr_span: SourceSpan
     name_span: SourceSpan
@@ -456,7 +457,7 @@ class Parser:
 
         if switch_token.type == TokenType.WORD_TOKEN:
             token = self.peek_token(i[0] + 1)
-            if token.type == TokenType.OPEN_PARENTHESIS_TOKEN:
+            if token.type == TokenType.OPEN_PARENTHESIS_TOKEN or token.type == TokenType.DOT_TOKEN:
                 expr = self.parse_call(i)
 
                 # The above `token.type == TokenType.OPEN_PARENTHESIS_TOKEN` guarantees that in `parse_call()`
@@ -935,7 +936,7 @@ class Parser:
             )
 
         fn_name = expr.name
-        expr = CallExpr(fn_name, expr_span=expr.expr_span, name_span=expr.expr_span)
+        expr = CallExpr(None, fn_name, expr_span=expr.expr_span, name_span=expr.expr_span)
 
         if fn_name.startswith("_"):
             self.called_helper_fn_names.add(fn_name)
@@ -1020,6 +1021,45 @@ class Parser:
                 token.span,
                 f"Expected a primary expression token but got {token.type}"
             )
+
+        while self.peek_token(i[0]).type == TokenType.DOT_TOKEN:
+            i[0] += 1
+            receiver = expr
+
+            name_token = self.peek_token(i[0])
+            # name must be word
+            self.assert_token_type(i[0], TokenType.WORD_TOKEN)
+            i[0] += 1
+            
+            token = self.peek_token(i[0])
+            if token.type != TokenType.OPEN_PARENTHESIS_TOKEN:
+                # Reserved for struct field accesses
+                raise ParserError(
+                    token.span,
+                    "Method call expected '('"
+                );
+            i[0] += 1
+
+            method_name = name_token.value
+            expr = CallExpr(receiver, name_token.value, expr_span=receiver.expr_span, name_span=name_token.span)
+
+
+            token = self.peek_token(i[0])
+            if token.type == TokenType.CLOSE_PARENTHESIS_TOKEN:
+                i[0] += 1
+                self.decrease_parsing_depth()
+                return expr
+
+            while True:
+                arg = self.parse_expression(i)
+                expr.arguments.append(arg)
+
+                token = self.peek_token(i[0])
+                if token.type != TokenType.COMMA_TOKEN:
+                    self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
+                    break
+                i[0] += 1
+                self.consume_space(i)
 
         self.decrease_parsing_depth()
         return expr
