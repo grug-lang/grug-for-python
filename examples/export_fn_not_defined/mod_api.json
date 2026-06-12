@@ -2,9 +2,9 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": [
+            "export_functions": [
                 {
-                    "name": "on_run",
+                    "name": "run",
                     "description": "Called once."
                 }
             ]

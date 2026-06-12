@@ -1,4 +1,4 @@
-on_bark(sound: string) {
+export bark(sound: string) {
     print_string(sound)
 
     # Print "arf" a second time

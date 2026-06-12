@@ -13,4 +13,4 @@ file = state.mods["animals"]["labrador-Dog.grug"]
 
 dog = file.create_entity()
 
-dog.on_tick()
+dog.tick()
