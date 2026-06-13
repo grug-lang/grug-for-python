@@ -380,7 +380,7 @@ def test_grug(
                 runtime_error_handler=custom_runtime_error_handler,
                 mod_api_path=ctypes.string_at(tests_path).decode(),
                 mods_dir_path=ctypes.string_at(mod_api_path).decode(),
-                on_fn_time_limit_ms=1000,
+                on_fn_time_limit_ms=100,
             )
         except RuntimeError:
             return 0
