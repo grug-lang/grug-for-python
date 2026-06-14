@@ -7,8 +7,10 @@ Install this package using `pip install grug-lang`, and run `python -c "import g
 A minimal example program is provided in the [`examples/minimal/` directory](https://github.com/grug-lang/grug-for-python/tree/main/examples/minimal) on GitHub:
 
 ```py
-import grug
 import time
+
+import grug
+from grug import GrugState
 
 state = grug.init()
 
@@ -28,7 +30,7 @@ while True:
     time.sleep(1)
 ```
 ```py
-on_bark(sound: string) {
+export bark(sound: string) {
     print_string(sound)
 
     # Print "arf" a second time
