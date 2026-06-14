@@ -26,7 +26,7 @@ from .serializer import Serializer
 from .tokenizer import Tokenizer
 from .type_propagator import TypePropagator
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .entity import Entity
 
     EntitiesSet = weakref.WeakSet["Entity"]
@@ -48,11 +48,11 @@ class GrugPackage:
         self.prefix = prefix
         self.game_fns = game_fns
 
-    def no_prefix(self): 
+    def no_prefix(self):
         self.prefix = ""
         return self
 
-    def set_prefix(self, new_prefix: str): 
+    def set_prefix(self, new_prefix: str):
         self.prefix = new_prefix
         return self
 
@@ -232,7 +232,13 @@ class GrugState:
         ast = Parser(tokens, grug_file_path, text).parse()
 
         TypePropagator(
-            ast, mod, entity_type, self.mod_api, Path(self.mods_dir_path), grug_file_path, text
+            ast,
+            mod,
+            entity_type,
+            self.mod_api,
+            Path(self.mods_dir_path),
+            grug_file_path,
+            text,
         ).fill()
 
         global_variables = [s for s in ast if isinstance(s, VariableStatement)]
@@ -278,7 +284,8 @@ class GrugState:
 
         if dash_index == -1 or dash_index + 1 >= len(grug_filename):
             raise GrugError.new_file_name_error(
-                grug_file_path, f"'{grug_filename}' is missing an entity type in its name"
+                grug_file_path,
+                f"'{grug_filename}' is missing an entity type in its name",
             )
 
         # Find the period after the dash
@@ -295,7 +302,8 @@ class GrugState:
         # Check if entity type is empty
         if len(entity_type) == 0:
             raise GrugError.new_file_name_error(
-                grug_file_path, f"'{grug_filename}' is missing an entity type in its name"
+                grug_file_path,
+                f"'{grug_filename}' is missing an entity type in its name",
             )
 
         # Validate PascalCase
