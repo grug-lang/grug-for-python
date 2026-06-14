@@ -294,7 +294,6 @@ class TypePropagator:
             )
 
         full_path = self.mods_dir_path / Path(self.mod) / Path(string)
-        print("full resource path: ", full_path)
         if not os.path.exists(full_path):
             raise self.new_error(
                 span,
