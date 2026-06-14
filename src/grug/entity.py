@@ -374,6 +374,8 @@ class Entity:
 
         old_fn_depth = self.state.fn_depth
         self.state.fn_depth += 1
+
+        try:
         if self.state.fn_depth > MAX_DEPTH:
             self.state.runtime_error_handler(
                 "Stack overflow, so check for accidental infinite recursion",
@@ -391,11 +393,11 @@ class Entity:
         except Return as e:
             result = e.value
 
+            return result
+
+        finally:
         self.state.fn_depth = old_fn_depth
-
         self.local_variables = parent_local_variables
-
-        return result
 
     def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
         game_fn = self.file.game_fns[name]
