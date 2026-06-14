@@ -324,7 +324,9 @@ class Entity:
             if self._run_expr(statement.condition):
                 self._run_statements(statement.if_body)
                 break
-            elif len(statement.else_body) == 1 and isinstance(statement.else_body[0], IfStatement):
+            elif len(statement.else_body) == 1 and isinstance(
+                statement.else_body[0], IfStatement
+            ):
                 statement = statement.else_body[0]
                 continue
             else:
@@ -376,28 +378,28 @@ class Entity:
         self.state.fn_depth += 1
 
         try:
-        if self.state.fn_depth > MAX_DEPTH:
-            self.state.runtime_error_handler(
-                "Stack overflow, so check for accidental infinite recursion",
-                GrugRuntimeErrorType.STACK_OVERFLOW,
-                self.fn_name,
-                self.file.relative_path,
-            )
-            raise StackOverflow()
+            if self.state.fn_depth > MAX_DEPTH:
+                self.state.runtime_error_handler(
+                    "Stack overflow, so check for accidental infinite recursion",
+                    GrugRuntimeErrorType.STACK_OVERFLOW,
+                    self.fn_name,
+                    self.file.relative_path,
+                )
+                raise StackOverflow()
 
-        self._check_time_limit_exceeded()
+            self._check_time_limit_exceeded()
 
-        result: Optional[GrugValue] = None
-        try:
-            self._run_statements(helper_fn.body_statements)
-        except Return as e:
-            result = e.value
+            result: Optional[GrugValue] = None
+            try:
+                self._run_statements(helper_fn.body_statements)
+            except Return as e:
+                result = e.value
 
             return result
 
         finally:
-        self.state.fn_depth = old_fn_depth
-        self.local_variables = parent_local_variables
+            self.state.fn_depth = old_fn_depth
+            self.local_variables = parent_local_variables
 
     def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
         game_fn = self.file.game_fns[name]
