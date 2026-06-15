@@ -368,12 +368,44 @@ def test_grug(
             traceback.print_exc(file=sys.stderr)
             return True
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
+    _original_run_game_fn = Entity._run_game_fn  # pyright: ignore[reportPrivateUsage]
+
+    _game_fn_error_reason: Optional[str] = None
+
+    def _test_run_game_fn(
+        self: Entity, name: str, *args: GrugValue
+    ) -> Optional[GrugValue]:
+        nonlocal _game_fn_error_reason
+
+        # Call the original method
+        result = _original_run_game_fn(self, name, *args)
+
+        # Raise _game_fn_error_reason if it's not None
+        if _game_fn_error_reason is not None:
+            reason = _game_fn_error_reason
+
+            assert state
+            state.runtime_error_handler(
+                reason,
+                GrugRuntimeErrorType.GAME_FN_ERROR,
+                self.fn_name,
+                self.file.relative_path,
+            )
+
+            _game_fn_error_reason = None
+            raise ReraisedGameFnError(reason)
+
+        return result
+
+    # Patch the method for testing
+    Entity._run_game_fn = _test_run_game_fn  # pyright: ignore[reportPrivateUsage]
+
+    @game_fn_error_t
     def game_fn_error(state_ptr: int, reason: bytes) -> None:
         global _game_fn_error_reason
         _game_fn_error_reason = ctypes.string_at(reason).decode()
 
-    @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
+    @create_grug_state_t
     def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
         try:
             state = grug.init(
@@ -383,6 +415,7 @@ def test_grug(
                 on_fn_time_limit_ms=100,
             )
         except RuntimeError:
+            traceback.print_exc(file=sys.stderr)
             return 0
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
@@ -473,8 +506,15 @@ class GameFnRegistrator:
             "store",
             "retrieve",
             "box_number",
+            "vec_number_new",
         ):
             self._register_fn(name)
+        for method_name, native_name in (
+            ("push", "vec_number_push"),
+            ("pop", "vec_number_pop"),
+            ("insert", "vec_number_insert"),
+        ):
+            self._register_method("VecNumber", method_name, native_name)
 
     def _get_c_args(self, *args: GrugValue):
         c_args = (GrugValueUnion * len(args))()
@@ -556,6 +596,40 @@ class GameFnRegistrator:
             return self._unpack_workaround(result, return_type)
 
         self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
+
+    def _register_method(self, class_name: str, name: str, native_name):
+        c_fn = self.grug_lib["game_fn_" + native_name]
+
+        c_fn.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(GrugValueUnion),
+        )
+        c_fn.restype = GrugValueWorkaround
+
+        found = False
+        # class and method may not exist
+        # This branch is technically there in _register_fn too, but it is
+        # implicit in this line
+        # 
+        # ```
+        # return_type = self.state.mod_api["host_functions"][name].get("return_type")
+        # ```
+        for method in self.state.mod_api["classes"][class_name]["methods"]: # pragma: no cover
+            if method["name"] == name:
+                return_type = method.get("return_type")
+                found = True
+                break
+        if not found: # pragma: no cover
+            raise "Method not found"
+
+        def fn(state: GrugState, *args: GrugValue):
+            c_args, _keepalive = self._get_c_args(*args)
+            result: GrugValueWorkaround = c_fn(0, c_args)
+            if _grug_runtime_err is not None:
+                raise _grug_runtime_err
+            return self._unpack_workaround(result, return_type)
+
+        self.state._register_method_fn(class_name, name, fn)  # pyright: ignore[reportPrivateUsage]
 
 
 # Enables stepping through code with VS Code its Python debugger.

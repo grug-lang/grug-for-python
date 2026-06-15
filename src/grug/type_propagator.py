@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 import os
 
 from .error import GrugError, SourceSpan
@@ -95,7 +95,21 @@ class TypePropagator:
                 for obj in lst
             ]
 
-        def parse_game_fn(fn_name: str, fn: Dict[str, Any]):
+        def parse_host_fn(fn_name: str, fn: Dict[str, Any]):
+            return GameFn(
+                fn_name,
+                parse_args(fn.get("parameters", [])),
+                Parser.parse_type(fn["return_type"]) if "return_type" in fn else None,
+                fn.get("return_type", None),
+            )
+
+        def parse_class(fn_name: str, cls: Dict[str, Any]):
+            {
+                methods: {
+                    method_name: parse_host_fn(method_name, method_items)
+                    for method_name, method_items in cls.items()
+                }
+            }
             return GameFn(
                 fn_name,
                 parse_args(fn.get("parameters", [])),
@@ -104,8 +118,15 @@ class TypePropagator:
             )
 
         self.host_functions = {
-            fn_name: parse_game_fn(fn_name, fn)
+            fn_name: parse_host_fn(fn_name, fn)
             for fn_name, fn in mod_api["host_functions"].items()
+        }
+        self.classes = {
+            class_name: {
+                method_items["name"]: parse_host_fn(method_items["name"], method_items)
+                for method_items in cast(Dict[str, Any], class_items)["methods"]
+            }
+            for class_name, class_items in mod_api["classes"].items()
         }
 
         self.entity_on_functions = {
@@ -381,7 +402,7 @@ class TypePropagator:
             if expr.receiver.result.type_name == "id":
                 raise self.new_error(expr.expr_span, f"Cannot call method on 'id' type")
             else:
-                reciever_type_name = expr.receiver.result.type_name
+                receiver_type_name = expr.receiver.result.type_name
         else:
             raise self.new_error(
                 expr.expr_span,
@@ -393,10 +414,23 @@ class TypePropagator:
 
         fn_name = expr.fn_name
 
-        raise self.new_error(
-            expr.name_span,
-            f"The game function '{fn_name}' was not declared by mod_api.json",
-        )
+        if receiver_type_name in self.classes:
+            available_methods = self.classes[receiver_type_name]
+            if expr.fn_name not in available_methods:
+                raise self.new_error(
+                    expr.expr_span,
+                    f"Cannot find method '{expr.fn_name}' on type '{receiver_type_name}'",
+                )
+            method = available_methods[expr.fn_name]
+            self.check_arguments(method.parameters, expr)
+            expr.result.type = method.return_type
+            expr.result.type_name = method.return_type_name
+            return
+        else:
+            raise self.new_error(
+                expr.expr_span,
+                f"Type '{receiver_type_name}' does not have any methods",
+            )
 
     def fill_binary_expr(self, expr: Union[BinaryExpr, LogicalExpr]):
         left = expr.left_expr
@@ -680,7 +714,7 @@ class TypePropagator:
             self.fn_return_type_name = None
             self.filled_fn_name = expected_fn_name
 
-            params = self.entity_on_functions[expected_fn_name].get("arguments", [])
+            params = self.entity_on_functions[expected_fn_name].get("parameters", [])
 
             if len(fn.arguments) != len(params):
                 if len(fn.arguments) < len(params):

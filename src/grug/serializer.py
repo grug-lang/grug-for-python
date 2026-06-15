@@ -111,6 +111,8 @@ class Serializer:
             result["type"] = "CALL_STATEMENT"
             call_expr = stmt.expr
             result["name"] = call_expr.fn_name
+            if call_expr.receiver:
+                result["receiver"] = Serializer._serialize_expr(call_expr.receiver)
             if call_expr.arguments:
                 result["arguments"] = [
                     Serializer._serialize_expr(arg) for arg in call_expr.arguments
@@ -343,6 +345,9 @@ class Serializer:
 
                 write("\n")
             elif stmt_type == "CALL_STATEMENT":
+                if "receiver" in statement:
+                    apply_expr(statement["receiver"])
+                    write(".")
                 write(f'{statement["name"]}(')
                 if "arguments" in statement:
                     for i, arg in enumerate(statement["arguments"]):
