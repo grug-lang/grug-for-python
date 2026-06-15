@@ -74,6 +74,16 @@ class Entity:
 
         self.file.entities.add(self)
 
+        self.game_fns = file.game_fns
+
+        self.game_fn_return_types = file.game_fn_return_types
+
+        self.methods = file.methods
+
+        self.method_return_types = file.method_return_types
+
+        self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
+
         self.start_time: float
 
         self.local_variables: Dict[str, GrugValue] = {}
@@ -317,7 +327,14 @@ class Entity:
         if call_expr.fn_name.startswith("_"):
             return self._run_helper_fn(call_expr.fn_name, *args)
         else:
-            return self._run_game_fn(call_expr.fn_name, *args)
+            if call_expr.receiver:
+                receiver = self._run_expr(call_expr.receiver)
+                args.insert(0, receiver)
+                return self._run_method_fn(
+                    call_expr.fn_name, call_expr.receiver.result.type_name, *args
+                )
+            else:
+                return self._run_game_fn(call_expr.fn_name, *args)
 
     def _run_if_statement(self, statement: IfStatement):
         while True:
@@ -416,6 +433,37 @@ class Entity:
             raise ReraisedGameFnError()
 
         t = self.file.game_fn_return_types[name]
+        if t is None:
+            return
+
+        expected_type = self._get_expected_py_type(t)
+
+        assert isinstance(
+            result, expected_type
+        ), f"Return value of game function {name}() must be {expected_type.__name__}, got {type(result).__name__}"
+
+        return result
+
+    def _run_method_fn(
+        self, name: str, receiver_type_name: str, *args: GrugValue
+    ) -> Optional[GrugValue]:
+        game_fn = self.methods[receiver_type_name][name]
+
+        parent_fn_name = self.fn_name
+        try:
+            result = game_fn(self.state, *args)
+        except GameFnError as e:
+            self.state.runtime_error_handler(
+                e.reason,
+                GrugRuntimeErrorType.GAME_FN_ERROR,
+                parent_fn_name,
+                self.file.relative_path,
+            )
+            raise ReraisedGameFnError()
+        finally:
+            self.fn_name = parent_fn_name
+
+        t = self.method_return_types[receiver_type_name][name]
         if t is None:
             return
 

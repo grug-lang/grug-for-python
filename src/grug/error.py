@@ -104,5 +104,22 @@ $  {source_line}\
             error_string = error_string
         )
 
+    @staticmethod
+    def new_init_error(error_message: str) -> "GrugError":
+        err_span = SourceSpan(1, 0)
+
+        error_string = f"""\
+  while initializing state
+Error: {error_message}\n\
+"""
+        return GrugError(
+            function_name = "",
+            file_path = "",
+            source_line = "",
+            span = err_span,
+            error_message = error_message,
+            error_string = error_string
+        )
+
     def __str__(self) -> str:
         return self.error_string

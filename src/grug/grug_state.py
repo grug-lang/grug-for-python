@@ -66,7 +66,9 @@ class GrugFile:
     on_fns: Dict[str, OnFn]
     helper_fns: Dict[str, HelperFn]
     game_fns: Dict[str, "GameFn"]
+    methods: Dict[str, Dict[str, "GameFn"]]
     game_fn_return_types: Dict[str, Optional[str]]
+    method_return_types: Dict[str, Dict[str, Optional[str]]]
 
     state: "GrugState"
     mtime: float
@@ -83,7 +85,6 @@ class GrugFile:
         raise TypeError(
             f"GrugFile '{self.relative_path}' is not a directory and cannot be indexed"
         )
-
 
 @dataclass
 class GrugDir:
@@ -145,6 +146,7 @@ class GrugState:
         self.on_fn_time_limit_ms = on_fn_time_limit_ms
 
         self.game_fns: Dict[str, "GameFn"] = {}
+        self.classes: Dict[str, Dict[str, "GameFn"]] = {}
         self._add_game_fns_from_packages(packages)
 
         self.next_id = 0
@@ -185,7 +187,7 @@ class GrugState:
                     f"Error: 'export_functions' for entity '{entity_name}' must be a JSON array"
                 )
 
-        classes = self.mod_api.get("entities")
+        classes = self.mod_api.get("classes")
         if not isinstance(classes, dict):
             raise RuntimeError("Error: 'classes' must be a JSON object")
 
@@ -197,6 +199,7 @@ class GrugState:
                 )
 
             class_items_dict = cast(Dict[str, Any], class_items)
+            print(f"class_items: {class_name} {class_items_dict}")
             methods = class_items_dict.get("methods")
             if export_functions is None:
                 continue
@@ -229,6 +232,11 @@ class GrugState:
         """Decorator for game functions."""
         self._register_game_fn(fn.__name__, fn)
         return fn
+
+    def _register_method_fn(self, class_name: str, fn_name: str, fn: "GameFn"):
+        if class_name not in self.classes:
+            self.classes[class_name] = dict()
+        self.classes[class_name][fn_name] = fn
 
     def _register_game_fn(self, name: str, fn: "GameFn"):
         self.game_fns[name] = fn
@@ -268,10 +276,19 @@ class GrugState:
 
         helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
 
+        method_return_types = {
+            class_name: {
+                fn["name"]: fn.get("return_type")
+                for fn in class_items["methods"]
+            }
+            for class_name, class_items in self.mod_api["classes"].items()
+        }
+
         game_fn_return_types = {
             fn_name: fn.get("return_type")
             for fn_name, fn in self.mod_api["host_functions"].items()
         }
+        method_return_types
 
         return GrugFile(
             grug_file_relative_path,
@@ -280,7 +297,9 @@ class GrugState:
             on_fns,
             helper_fns,
             self.game_fns,
+            self.classes,
             game_fn_return_types,
+            method_return_types,
             self,
             mtime,
         )
@@ -466,3 +485,4 @@ class GrugState:
 
 
 GameFn = Callable[..., Optional[GrugValue]]
+
