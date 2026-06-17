@@ -114,7 +114,7 @@ Error: {error_message}\n\
 """
         return GrugError(
             function_name = "",
-            file_path = "",
+            file_path = Path(""),
             source_line = "",
             span = err_span,
             error_message = error_message,

@@ -330,6 +330,7 @@ class Entity:
             if call_expr.receiver:
                 receiver = self._run_expr(call_expr.receiver)
                 args.insert(0, receiver)
+                assert call_expr.receiver.result.type_name
                 return self._run_method_fn(
                     call_expr.fn_name, call_expr.receiver.result.type_name, *args
                 )
