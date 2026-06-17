@@ -103,20 +103,6 @@ class TypePropagator:
                 fn.get("return_type", None),
             )
 
-        def parse_class(fn_name: str, cls: Dict[str, Any]):
-            {
-                methods: {
-                    method_name: parse_host_fn(method_name, method_items)
-                    for method_name, method_items in cls.items()
-                }
-            }
-            return GameFn(
-                fn_name,
-                parse_args(fn.get("parameters", [])),
-                Parser.parse_type(fn["return_type"]) if "return_type" in fn else None,
-                fn.get("return_type", None),
-            )
-
         self.host_functions = {
             fn_name: parse_host_fn(fn_name, fn)
             for fn_name, fn in mod_api["host_functions"].items()
@@ -411,8 +397,6 @@ class TypePropagator:
 
         for arg in expr.arguments:
             self.fill_expr(arg)
-
-        fn_name = expr.fn_name
 
         if receiver_type_name in self.classes:
             available_methods = self.classes[receiver_type_name]

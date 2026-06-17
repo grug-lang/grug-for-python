@@ -199,9 +199,8 @@ class GrugState:
                 )
 
             class_items_dict = cast(Dict[str, Any], class_items)
-            print(f"class_items: {class_name} {class_items_dict}")
             methods = class_items_dict.get("methods")
-            if export_functions is None:
+            if methods is None:
                 continue
 
             if not isinstance(methods, list):
@@ -248,7 +247,7 @@ class GrugState:
 
         text = grug_file_absolute_path.read_text()
         if len(text) == 0:
-            raise RuntimeError("File is empty")
+            raise GrugError.new_file_name_error(Path(grug_file_relative_path), "File is empty")
 
         mtime = grug_file_absolute_path.stat().st_mtime
 
@@ -288,7 +287,6 @@ class GrugState:
             fn_name: fn.get("return_type")
             for fn_name, fn in self.mod_api["host_functions"].items()
         }
-        method_return_types
 
         return GrugFile(
             grug_file_relative_path,
