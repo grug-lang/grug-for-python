@@ -109,8 +109,8 @@ class TypePropagator:
         }
         self.classes = {
             class_name: {
-                method_items["name"]: parse_host_fn(method_items["name"], method_items)
-                for method_items in cast(Dict[str, Any], class_items)["methods"]
+                method_name: parse_host_fn(method_name, method_items)
+                for method_name, method_items in cast(Dict[str, Any], class_items)["methods"].items()
             }
             for class_name, class_items in mod_api["classes"].items()
         }
@@ -398,10 +398,7 @@ class TypePropagator:
 
         self.fill_expr(expr.receiver)
         if expr.receiver.result.type == Type.ID:
-            if expr.receiver.result.type_name == "id":
-                raise self.new_error(expr.expr_span, f"Cannot call method on 'id' type")
-            else:
-                receiver_type_name = expr.receiver.result.type_name
+            receiver_type_name = expr.receiver.result.type_name
         else:
             raise self.new_error(
                 expr.expr_span,

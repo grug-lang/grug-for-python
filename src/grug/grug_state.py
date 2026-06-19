@@ -203,9 +203,9 @@ class GrugState:
             if methods is None:
                 continue
 
-            if not isinstance(methods, list):
+            if not isinstance(methods, dict):
                 raise RuntimeError(
-                    f"Error: 'methods' for class '{class_name}' must be a JSON array"
+                    f"Error: 'methods' for class '{class_name}' must be a JSON object"
                 )
 
         host_functions = self.mod_api.get("host_functions")
@@ -277,8 +277,8 @@ class GrugState:
 
         method_return_types = {
             class_name: {
-                fn["name"]: fn.get("return_type")
-                for fn in class_items["methods"]
+                fn_name: fn.get("return_type")
+                for fn_name, fn in class_items["methods"].items()
             }
             for class_name, class_items in self.mod_api["classes"].items()
         }
