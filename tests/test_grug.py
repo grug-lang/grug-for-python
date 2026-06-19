@@ -576,7 +576,6 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        found = False
         # class and method may not exist
         # This branch is technically there in _register_fn too, but it is
         # implicit in this line
