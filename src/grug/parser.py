@@ -1051,7 +1051,6 @@ class Parser:
                 );
             i[0] += 1
 
-            method_name = name_token.value
             expr = CallExpr(receiver, name_token.value, expr_span=receiver.expr_span, name_span=name_token.span)
 
 
