@@ -459,6 +459,7 @@ class Parser:
             token = self.peek_token(i[0] + 1)
             if token.type == TokenType.OPEN_PARENTHESIS_TOKEN or token.type == TokenType.DOT_TOKEN:
                 expr = self.parse_call(i)
+                expr = self.try_parse_method(expr, i)
 
                 # The above `token.type == TokenType.OPEN_PARENTHESIS_TOKEN` guarantees that in `parse_call()`
                 # the early Expr return in `if token.type != TokenType.OPEN_PARENTHESIS_TOKEN` is not reached.
@@ -917,7 +918,9 @@ class Parser:
             self.decrease_parsing_depth()
             return expr
         self.decrease_parsing_depth()
-        return self.parse_call(i)
+        expr = self.parse_call(i)
+        expr = self.try_parse_method(expr, i)
+        return expr
 
     def parse_call(self, i: List[int]):
         self.increase_parsing_depth(i)
@@ -925,6 +928,7 @@ class Parser:
         expr = self.parse_primary(i)
 
         token = self.peek_token(i[0])
+
         if token.type != TokenType.OPEN_PARENTHESIS_TOKEN:
             self.decrease_parsing_depth()
             return expr
@@ -1022,6 +1026,13 @@ class Parser:
                 f"Expected a primary expression token but got {token.type}"
             )
 
+        self.decrease_parsing_depth()
+        return expr
+
+    def try_parse_method(self, expr: Expr, i: List[int]):
+        # If a "." token is next, parse a method call and return, else try
+        # parsing a normal call
+
         while self.peek_token(i[0]).type == TokenType.DOT_TOKEN:
             i[0] += 1
             receiver = expr
@@ -1041,13 +1052,12 @@ class Parser:
             i[0] += 1
 
             method_name = name_token.value
-            expr = CallExpr(receiver, method_name, expr_span=receiver.expr_span, name_span=name_token.span)
+            expr = CallExpr(receiver, name_token.value, expr_span=receiver.expr_span, name_span=name_token.span)
 
 
             token = self.peek_token(i[0])
             if token.type == TokenType.CLOSE_PARENTHESIS_TOKEN:
                 i[0] += 1
-                self.decrease_parsing_depth()
                 return expr
 
             while True:
@@ -1060,8 +1070,6 @@ class Parser:
                     break
                 i[0] += 1
                 self.consume_space(i)
-
-        self.decrease_parsing_depth()
         return expr
 
     def parse_factor(self, i: List[int]):
