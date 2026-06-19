@@ -584,14 +584,7 @@ class GameFnRegistrator:
         # ```
         # return_type = self.state.mod_api["host_functions"][name].get("return_type")
         # ```
-        return_type = None
-        for method in self.state.mod_api["classes"][class_name]["methods"]: # pragma: no cover
-            if method["name"] == name:
-                return_type = str(method.get("return_type"))
-                found = True
-                break
-        if not found: # pragma: no cover
-            raise Exception("Method not found")
+        return_type = self.state.mod_api["classes"][class_name]["methods"][name].get("return_type")
 
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
