@@ -383,6 +383,19 @@ class TypePropagator:
     def fill_method_expr(self, expr: CallExpr):
         # Fill argument expressions first
         assert expr.receiver
+        # method chaining is not allowed
+        if isinstance(expr.receiver, CallExpr):
+            if expr.receiver.receiver == None:
+                raise self.new_error(
+                    expr.expr_span,
+                    f"Cannot call method on the result of a function call",
+                )
+            else:
+                raise self.new_error(
+                    expr.expr_span,
+                    f"Method chaining is not allowed",
+                )
+
         self.fill_expr(expr.receiver)
         if expr.receiver.result.type == Type.ID:
             if expr.receiver.result.type_name == "id":
