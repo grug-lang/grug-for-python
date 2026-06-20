@@ -311,7 +311,7 @@ def main() -> None:
     if sys.platform == "win32":  
         lib_path = grug_bench_path / "build/bench.dll"  # pragma: no cover
     elif sys.platform == "linux":  
-        lib_path = grug_bench_path / "build/libbench.so"
+        lib_path = grug_bench_path / "build/libbench.so" # pragma: no cover
     else:
         raise RuntimeError(f"Unsupported operating system: {sys.platform}")  # pragma: no cover
 
