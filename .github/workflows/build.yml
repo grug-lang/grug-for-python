@@ -98,7 +98,7 @@ jobs:
 
       - name: Run grug-for-python tests (Python ${{ matrix.python-version }})
         run: |
-          python tests.py
+          coverage run --append tests.py
 
       - name: Report coverage (Python ${{ matrix.python-version }})
         run: |
