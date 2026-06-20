@@ -10,10 +10,11 @@
             ]
         }
     },
+	"classes": {},
     "host_functions": {
         "assert_number": {
             "description": "Asserts that two numbers are equal.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "n1",
                     "type": "number"
@@ -27,7 +28,7 @@
         "np_exp": {
             "description": "Calculate the exponential of n.",
             "return_type": "number",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "n",
                     "type": "number"

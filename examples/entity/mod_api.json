@@ -10,10 +10,11 @@
             ]
         }
     },
+	"classes": {},
     "host_functions": {
         "spawn": {
             "description": "Spawns an entity.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "name",
                     "type": "entity"

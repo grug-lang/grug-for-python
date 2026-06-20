@@ -13,7 +13,7 @@
     "host_functions": {
         "open_file": {
             "description": "Opens a file.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "filename",
                     "type": "resource"

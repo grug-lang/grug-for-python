@@ -10,10 +10,11 @@
             ]
         }
     },
+	"classes": {},
     "host_functions": {
         "print_string": {
             "description": "Prints a string.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "str",
                     "type": "string"

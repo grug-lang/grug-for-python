@@ -4,6 +4,7 @@
             "description": "A dog."
         }
     },
+	"classes": {},
     "host_functions": {
     }
 }

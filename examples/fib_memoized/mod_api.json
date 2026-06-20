@@ -10,6 +10,7 @@
             ]
         }
     },
+	"classes": {},
     "host_functions": {
         "dict": {
             "description": "Creates a dict.",
@@ -18,7 +19,7 @@
         "dict_number_has_key": {
             "description": "Returns whether the number key is in the Dict.",
             "return_type": "bool",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "dict",
                     "type": "Dict"
@@ -32,7 +33,7 @@
         "dict_number_number_get": {
             "description": "Gets the value for a number key in a Dict. Returns 0 if the key is not present.",
             "return_type": "number",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "dict",
                     "type": "Dict"
@@ -45,7 +46,7 @@
         },
         "dict_number_number_set": {
             "description": "Associates a number key with a number value in a Dict. If the key already exists, its value is overwritten.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "dict",
                     "type": "Dict"
@@ -66,7 +67,7 @@
         },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "list",
                     "type": "List"
@@ -79,7 +80,7 @@
         },
         "print_list": {
             "description": "Prints a list.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "list",
                     "type": "List"

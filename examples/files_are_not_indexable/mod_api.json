@@ -6,7 +6,7 @@
                 {
                     "name": "bark",
                     "description": "Called when the dog barks.",
-                    "arguments": [
+                    "parameters": [
                         {
                             "name": "sound",
                             "type": "string"
@@ -16,10 +16,11 @@
             ]
         }
     },
+	"classes": {},
     "host_functions": {
         "print_string": {
             "description": "Prints a string.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "str",
                     "type": "string"
