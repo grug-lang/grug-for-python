@@ -10,6 +10,7 @@
             ]
         }
     },
+	"classes": {},
     "host_functions": {
         "list": {
             "description": "Creates a list.",
@@ -17,7 +18,7 @@
         },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "list",
                     "type": "List"
@@ -30,7 +31,7 @@
         },
         "print_list": {
             "description": "Prints a list.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "list",
                     "type": "List"
