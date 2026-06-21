@@ -451,6 +451,7 @@ class GameFnRegistrator:
             "mega_f32",
             "mega_i32",
             "draw",
+            "utils",
             "assert_state_is_not_null",
             "blocked_alrm",
             "spawn",
@@ -479,12 +480,19 @@ class GameFnRegistrator:
             "vec_number_new",
         ):
             self._register_fn(name)
+
         for method_name, native_name in (
             ("push", "vec_number_push"),
             ("pop", "vec_number_pop"),
             ("insert", "vec_number_insert"),
         ):
             self._register_method("VecNumber", method_name, native_name)
+
+        for method_name, native_name in (
+            ("assert_state_is_not_null", "Utils_assert_state_is_not_null"),
+            ("cause_game_fn_error", "Utils_cause_game_fn_error"),
+        ):
+            self._register_method("Utils", method_name, native_name)
 
     def _get_c_args(self, *args: GrugValue):
         c_args = (GrugValueUnion * len(args))()
@@ -554,8 +562,7 @@ class GameFnRegistrator:
             c_args, _keepalive = self._get_c_args(*args)
 
             # We pass 42 since `state` is a Python object
-            # grug-tests just doesn't want us to
-            # *accidentally* pass NULL
+            # grug-tests just doesn't want us to *accidentally* pass NULL
             result: GrugValueWorkaround = c_fn(42, c_args)
 
             self._raise_game_fn_error_if_needed(state)
@@ -576,23 +583,27 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        # class and method may not exist
-        # This branch is technically there in _register_fn too, but it is
-        # implicit in this line
-        # 
-        # ```
-        # return_type = self.state.mod_api["host_functions"][name].get("return_type")
-        # ```
-        return_type = self.state.mod_api["classes"][class_name]["methods"][name].get("return_type")
+        return_type = self.state.mod_api["classes"][class_name]["methods"][name].get(
+            "return_type"
+        )
 
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
-            result: GrugValueWorkaround = c_fn(0, c_args)
+
+            # We pass 42 since `state` is a Python object
+            # grug-tests just doesn't want us to *accidentally* pass NULL
+            result: GrugValueWorkaround = c_fn(42, c_args)
+
+            self._raise_game_fn_error_if_needed(state)
+
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
+
             return self._unpack_workaround(result, return_type)
 
-        self.state._register_method_fn(class_name, name, fn)  # pyright: ignore[reportPrivateUsage]
+        self.state._register_method_fn(  # pyright: ignore[reportPrivateUsage]
+            class_name, name, fn
+        )
 
 
 # Enables stepping through code with VS Code its Python debugger.
