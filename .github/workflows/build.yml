@@ -31,18 +31,11 @@ jobs:
 
           curl https://pyenv.run | bash
 
-      - name: Cache Python downloads
-        uses: actions/cache@v4
-        with:
-          path: ~/.pyenv/cache
-          key: pyenv-python-${{ runner.os }}-${{ matrix.python-version }}
-
       - name: Install Python
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
-          mkdir -p "$PYENV_ROOT/cache"
           pyenv install -s ${{ matrix.python-version }}
 
       - name: Clone and build grug-tests
@@ -98,7 +91,7 @@ jobs:
 
       - name: Run grug-for-python tests (Python ${{ matrix.python-version }})
         run: |
-          coverage run --append tests.py
+          python tests.py
 
       - name: Report coverage (Python ${{ matrix.python-version }})
         run: |
