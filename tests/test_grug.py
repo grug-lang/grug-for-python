@@ -12,6 +12,7 @@ from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExc
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
 from grug.grug_value import GrugValue
 
+
 class GrugValueUnion(ctypes.Union):
     _fields_ = [
         ("_number", ctypes.c_double),
@@ -19,6 +20,7 @@ class GrugValueUnion(ctypes.Union):
         ("_string", ctypes.c_char_p),
         ("_id", ctypes.c_uint64),
     ]
+
 
 class GrugValueWorkaround(ctypes.Structure):
     """
@@ -37,6 +39,7 @@ class GrugValueWorkaround(ctypes.Structure):
     """
 
     _fields_ = [("_blob", ctypes.c_uint64)]
+
 
 def c_to_py_value(value: GrugValueUnion, typ: Union[str, None]):
     if typ == "number":
@@ -98,6 +101,7 @@ class GrugStateVTableStruct(ctypes.Structure):
         ("game_fn_error", game_fn_error_t),
     ]
 
+
 _g_grug_lib: ctypes.PyDLL
 
 _grug_runtime_err: Optional[
@@ -119,6 +123,7 @@ def custom_runtime_error_handler(
         on_fn_name.encode(),
         on_fn_path.encode(),
     )
+
 
 def test_grug(
     grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.PyDLL
@@ -376,7 +381,9 @@ def test_grug(
         _game_fn_error_reason = ctypes.string_at(reason).decode()
 
     @create_grug_state_t
-    def create_grug_state(tests_path: bytes, mod_api_path: bytes, unsafe_mode: bool) -> int:
+    def create_grug_state(
+        tests_path: bytes, mod_api_path: bytes, unsafe_mode: bool
+    ) -> int:
         try:
             state = grug.init(
                 runtime_error_handler=custom_runtime_error_handler,
