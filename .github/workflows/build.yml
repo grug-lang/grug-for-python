@@ -20,23 +20,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache pyenv and Python
+        id: cache-pyenv
+        uses: actions/cache@v4
+        with:
+          path: ~/.pyenv
+          key: ${{ runner.os }}-pyenv-${{ matrix.python-version }}
+
+      - name: Cache pip
+        id: cache-pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache pyright
+        id: cache-pyright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pyright-python
+          key: ${{ runner.os }}-pyright-python-v1
+
       - name: Install pyenv and build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential zlib1g-dev libssl-dev libbz2-dev \
-            libreadline-dev libsqlite3-dev libffi-dev liblzma-dev \
-            libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev \
-            curl cmake git wget
+          if [ "${{ steps.cache-pyenv.outputs.cache-hit }}" = "true" ]; then
+            echo "Python is already cached. Skipping build dependency installation!"
+          else
+            echo "Cache miss. Installing build dependencies..."
+            sudo apt-get update
+            sudo apt-get install -y \
+              build-essential zlib1g-dev libssl-dev libbz2-dev \
+              libreadline-dev libsqlite3-dev libffi-dev liblzma-dev \
+              libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev \
+              curl cmake git wget
 
-          curl https://pyenv.run | bash
+            # Only run the installer if the directory wasn't restored from cache
+            if [ ! -d "$HOME/.pyenv" ]; then
+              curl https://pyenv.run | bash
+            fi
+          fi
 
-      - name: Install Python
+      - name: Install Python ${{ matrix.python-version }}
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
+          # The -s flag tells pyenv to skip compilation if the version is already installed via cache
           pyenv install -s ${{ matrix.python-version }}
+          pyenv global ${{ matrix.python-version }}
+          python --version
 
       - name: Clone and build grug-tests
         run: |
