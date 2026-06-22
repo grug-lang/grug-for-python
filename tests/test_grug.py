@@ -467,6 +467,7 @@ class GameFnRegistrator:
         for method_name, native_name in (
             ("assert_state_is_not_null", "Utils_assert_state_is_not_null"),
             ("cause_game_fn_error", "Utils_cause_game_fn_error"),
+            ("call_on_b_fn", "Utils_call_on_b_fn"),
         ):
             self._register_method("Utils", method_name, native_name)
 
