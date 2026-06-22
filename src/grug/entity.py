@@ -74,14 +74,6 @@ class Entity:
 
         self.file.entities.add(self)
 
-        self.game_fns = file.game_fns
-
-        self.game_fn_return_types = file.game_fn_return_types
-
-        self.method_return_types = file.method_return_types
-
-        self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
-
         self.start_time: float
 
         self.local_variables: Dict[str, GrugValue] = {}
@@ -459,7 +451,7 @@ class Entity:
             )
             raise ReraisedGameFnError()
 
-        t = self.method_return_types[grug_class_name][name]
+        t = self.file.method_return_types[grug_class_name][name]
         if t is None:
             return
 
