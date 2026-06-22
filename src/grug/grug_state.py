@@ -239,8 +239,6 @@ class GrugState:
     def grug_class(self, cls: type) -> type:
         """Decorator for grug classes."""
         for name, fn in vars(cls).items():
-            if name.startswith("_"):
-                continue
             if isinstance(fn, staticmethod):
                 self._register_method_fn(cls.__name__, name, fn.__func__)
         return cls
