@@ -86,6 +86,7 @@ class GrugFile:
             f"GrugFile '{self.relative_path}' is not a directory and cannot be indexed"
         )
 
+
 @dataclass
 class GrugDir:
     """Represents a directory of grug files and subdirectories."""
@@ -256,7 +257,9 @@ class GrugState:
 
         text = grug_file_absolute_path.read_text()
         if len(text) == 0:
-            raise GrugError.new_file_name_error(Path(grug_file_relative_path), "File is empty")
+            raise GrugError.new_file_name_error(
+                Path(grug_file_relative_path), "File is empty"
+            )
 
         mtime = grug_file_absolute_path.stat().st_mtime
 
@@ -492,4 +495,3 @@ class GrugState:
 
 
 GameFn = Callable[..., Optional[GrugValue]]
-
