@@ -232,13 +232,22 @@ class GrugState:
         self._register_game_fn(fn.__name__, fn)
         return fn
 
+    def _register_game_fn(self, name: str, fn: "GameFn"):
+        self.game_fns[name] = fn
+
+    def grug_class(self, cls: type) -> type:
+        """Decorator for grug classes."""
+        for name, fn in vars(cls).items():
+            if name.startswith("_"):
+                continue
+            if isinstance(fn, staticmethod):
+                self._register_method_fn(cls.__name__, name, fn.__func__)
+        return cls
+
     def _register_method_fn(self, class_name: str, fn_name: str, fn: "GameFn"):
         if class_name not in self.classes:
             self.classes[class_name] = dict()
         self.classes[class_name][fn_name] = fn
-
-    def _register_game_fn(self, name: str, fn: "GameFn"):
-        self.game_fns[name] = fn
 
     def _compile_grug_file(self, grug_file_relative_path: str):
         mod = Path(grug_file_relative_path).parts[0]

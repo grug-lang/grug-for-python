@@ -78,8 +78,6 @@ class Entity:
 
         self.game_fn_return_types = file.game_fn_return_types
 
-        self.methods = file.methods
-
         self.method_return_types = file.method_return_types
 
         self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
@@ -331,7 +329,7 @@ class Entity:
                 receiver = self._run_expr(call_expr.receiver)
                 args.insert(0, receiver)
                 assert call_expr.receiver.result.type_name
-                return self._run_method_fn(
+                return self._run_method(
                     call_expr.fn_name, call_expr.receiver.result.type_name, *args
                 )
             else:
@@ -445,26 +443,23 @@ class Entity:
 
         return result
 
-    def _run_method_fn(
-        self, name: str, receiver_type_name: str, *args: GrugValue
+    def _run_method(
+        self, name: str, grug_class_name: str, *args: GrugValue
     ) -> Optional[GrugValue]:
-        game_fn = self.methods[receiver_type_name][name]
+        game_fn = self.file.methods[grug_class_name][name]
 
-        parent_fn_name = self.fn_name
         try:
             result = game_fn(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
-                parent_fn_name,
+                self.fn_name,
                 self.file.relative_path,
             )
             raise ReraisedGameFnError()
-        finally:
-            self.fn_name = parent_fn_name
 
-        t = self.method_return_types[receiver_type_name][name]
+        t = self.method_return_types[grug_class_name][name]
         if t is None:
             return
 
