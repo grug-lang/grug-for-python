@@ -344,37 +344,6 @@ def test_grug(
             traceback.print_exc(file=sys.stderr)
             return True
 
-    _original_run_game_fn = Entity._run_game_fn  # pyright: ignore[reportPrivateUsage]
-
-    _game_fn_error_reason: Optional[str] = None
-
-    def _test_run_game_fn(
-        self: Entity, name: str, *args: GrugValue
-    ) -> Optional[GrugValue]:
-        nonlocal _game_fn_error_reason
-
-        # Call the original method
-        result = _original_run_game_fn(self, name, *args)
-
-        # Raise _game_fn_error_reason if it's not None
-        if _game_fn_error_reason is not None:
-            reason = _game_fn_error_reason
-
-            self.state.runtime_error_handler(
-                reason,
-                GrugRuntimeErrorType.GAME_FN_ERROR,
-                self.fn_name,
-                self.file.relative_path,
-            )
-
-            _game_fn_error_reason = None
-            raise ReraisedGameFnError(reason)
-
-        return result
-
-    # Patch the method for testing
-    Entity._run_game_fn = _test_run_game_fn  # pyright: ignore[reportPrivateUsage]
-
     @game_fn_error_t
     def game_fn_error(state_ptr: int, reason: bytes) -> None:
         global _game_fn_error_reason
