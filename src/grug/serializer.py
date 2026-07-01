@@ -3,7 +3,6 @@ from io import StringIO
 from typing import Any, Dict, List, Union
 
 from .parser import (
-    Argument,
     Ast,
     BinaryExpr,
     BreakStatement,
@@ -21,6 +20,7 @@ from .parser import (
     LogicalExpr,
     NumberExpr,
     OnFn,
+    Parameter,
     ParenthesizedExpr,
     ResourceExpr,
     ReturnStatement,
@@ -152,9 +152,9 @@ class Serializer:
         return result
 
     @staticmethod
-    def _serialize_arguments(arguments: List[Argument]) -> List[Dict[str, str]]:
-        """Serialize function arguments to list of dicts."""
-        return [{"name": arg.name, "type": arg.type_name} for arg in arguments]
+    def _serialize_parameters(parameters: List[Parameter]) -> List[Dict[str, str]]:
+        """Serialize function parameters to list of dicts."""
+        return [{"name": param.name, "type": param.type_name} for param in parameters]
 
     @staticmethod
     def _serialize_global_statement(
@@ -168,9 +168,9 @@ class Serializer:
         if isinstance(global_stmt, OnFn):
             result["type"] = "GLOBAL_ON_FN"
             result["name"] = global_stmt.fn_name
-            if global_stmt.arguments:
-                result["arguments"] = Serializer._serialize_arguments(
-                    global_stmt.arguments
+            if global_stmt.parameters:
+                result["parameters"] = Serializer._serialize_parameters(
+                    global_stmt.parameters
                 )
             result["statements"] = [
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements
@@ -178,9 +178,9 @@ class Serializer:
         elif isinstance(global_stmt, HelperFn):
             result["type"] = "GLOBAL_HELPER_FN"
             result["name"] = global_stmt.fn_name
-            if global_stmt.arguments:
-                result["arguments"] = Serializer._serialize_arguments(
-                    global_stmt.arguments
+            if global_stmt.parameters:
+                result["parameters"] = Serializer._serialize_parameters(
+                    global_stmt.parameters
                 )
             if global_stmt.return_type:
                 result["return_type"] = global_stmt.return_type_name
@@ -391,19 +391,19 @@ class Serializer:
 
             indentation[0] -= 1
 
-        def apply_arguments(arguments: List[Dict[str, Any]]) -> None:
-            """Generate code for function arguments."""
-            for i, arg in enumerate(arguments):
+        def apply_parameters(parameters: List[Dict[str, Any]]) -> None:
+            """Generate code for function parameters."""
+            for i, param in enumerate(parameters):
                 if i > 0:
                     write(", ")
-                write(f'{arg["name"]}: {arg["type"]}')
+                write(f'{param["name"]}: {param["type"]}')
 
         def apply_local_fn(statement: Dict[str, Any]) -> None:
             """Generate code for a helper function."""
             write(f'local {statement["name"]}(')
 
-            if "arguments" in statement:
-                apply_arguments(statement["arguments"])
+            if "parameters" in statement:
+                apply_parameters(statement["parameters"])
 
             write(")")
 
@@ -421,8 +421,8 @@ class Serializer:
             """Generate code for an on function."""
             write(f'export {statement["name"]}(')
 
-            if "arguments" in statement:
-                apply_arguments(statement["arguments"])
+            if "parameters" in statement:
+                apply_parameters(statement["parameters"])
 
             write(") {\n")
 

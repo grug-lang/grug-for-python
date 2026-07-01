@@ -216,10 +216,10 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             entity = entity_by_id[entity_id]
             on_fn_name = on_fn_by_id[on_fn_id]
             on_fn_decl = entity.file.on_fns[on_fn_name]
-            assert len(on_fn_decl.arguments) == args_len
+            assert len(on_fn_decl.parameters) == args_len
             args = [
                 c_to_py_value(arg, argument.type_name)
-                for arg, argument in zip(c_args or [], on_fn_decl.arguments)
+                for arg, argument in zip(c_args or [], on_fn_decl.parameters)
             ]
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError):  # pragma: no cover

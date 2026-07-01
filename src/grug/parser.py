@@ -5,7 +5,7 @@ import struct
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Union, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from .error import GrugError, SourceSpan
 from .tokenizer import SPACES_PER_INDENT, Token, TokenType
@@ -215,7 +215,7 @@ Statement = Union[
 
 
 @dataclass
-class Argument:
+class Parameter:
     name: str
     type: Type
     type_name: str
@@ -229,7 +229,7 @@ class Argument:
 class OnFn:
     fn_name: str
     span: SourceSpan
-    arguments: List[Argument] = field(default_factory=lambda: [])
+    parameters: List[Parameter] = field(default_factory=lambda: [])
     body_statements: List[Statement] = field(default_factory=lambda: [])
 
 
@@ -237,7 +237,7 @@ class OnFn:
 class HelperFn:
     fn_name: str
     span: SourceSpan
-    arguments: List[Argument] = field(default_factory=lambda: [])
+    parameters: List[Parameter] = field(default_factory=lambda: [])
     return_type: Optional[Type] = None
     return_type_name: Optional[str] = None
     body_statements: List[Statement] = field(default_factory=lambda: [])
@@ -532,12 +532,12 @@ class Parser:
             return Type.ENTITY
         return Type.ID
 
-    def parse_arguments(self, i: List[int]):
-        arguments: List[Argument] = []
+    def parse_parameters(self, i: List[int]):
+        parameters: List[Parameter] = []
 
         # First argument
         name_token = self.consume_token(i)
-        arg_name = name_token.value
+        param_name = name_token.value
 
         self.consume_token_type(i, TokenType.COLON_TOKEN)
 
@@ -547,18 +547,18 @@ class Parser:
         type_token = self.consume_token(i)
 
         type_name = type_token.value
-        arg_type = Parser.parse_type(type_name)
+        param_type = Parser.parse_type(type_name)
 
-        if arg_type in (Type.RESOURCE, Type.ENTITY):
+        if param_type in (Type.RESOURCE, Type.ENTITY):
             raise self.new_error(
                 type_token.span,
-                f"The argument '{arg_name}' can't have '{type_name}' as its type"
+                f"The argument '{param_name}' can't have '{type_name}' as its type"
             )
 
-        arguments.append(
-            Argument(
-                arg_name,
-                arg_type,
+        parameters.append(
+            Parameter(
+                param_name,
+                param_type,
                 type_name,
                 name_span=name_token.span,
                 type_span=type_token.span,
@@ -575,7 +575,7 @@ class Parser:
             self.consume_space(i)
             self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             name_token = self.consume_token(i)
-            arg_name = name_token.value
+            param_name = name_token.value
 
             self.consume_token_type(i, TokenType.COLON_TOKEN)
 
@@ -585,25 +585,25 @@ class Parser:
             type_token = self.consume_token(i)
 
             type_name = type_token.value
-            arg_type = Parser.parse_type(type_name)
+            param_type = Parser.parse_type(type_name)
 
-            if arg_type in (Type.RESOURCE, Type.ENTITY):
+            if param_type in (Type.RESOURCE, Type.ENTITY):
                 raise self.new_error(
                     type_token.span,
-                    f"The argument '{arg_name}' can't have '{type_name}' as its type"
+                    f"The argument '{param_name}' can't have '{type_name}' as its type"
                 )
 
-            arguments.append(
-                Argument(
-                    arg_name,
-                    arg_type,
+            parameters.append(
+                Parameter(
+                    param_name,
+                    param_type,
                     type_name,
                     name_span=name_token.span,
                     type_span=type_token.span,
                 )
             )
 
-        return arguments
+        return parameters
 
     def parse_local_fn(self, i: List[int]):
         # local token
@@ -632,7 +632,7 @@ class Parser:
 
         token = self.peek_token(i[0])
         if token.type == TokenType.WORD_TOKEN:
-            fn.arguments = self.parse_arguments(i)
+            fn.parameters = self.parse_parameters(i)
 
         self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
 
@@ -685,7 +685,7 @@ class Parser:
         self.consume_token_type(i, TokenType.OPEN_PARENTHESIS_TOKEN)
         next_tok = self.peek_token(i[0])
         if next_tok.type == TokenType.WORD_TOKEN:
-            fn.arguments = self.parse_arguments(i)
+            fn.parameters = self.parse_parameters(i)
         self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
 
         fn.body_statements = self.parse_statements(i)
