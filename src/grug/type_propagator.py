@@ -5,7 +5,6 @@ import os
 
 from .error import GrugError, SourceSpan
 from .parser import (
-    Argument,
     Ast,
     BinaryExpr,
     CallExpr,
@@ -18,6 +17,7 @@ from .parser import (
     LogicalExpr,
     OnFn,
     ParenthesizedExpr,
+    Parameter,
     Parser,
     ResourceExpr,
     ReturnStatement,
@@ -41,7 +41,7 @@ class Variable:
 @dataclass
 class GameFn:
     fn_name: str
-    parameters: List[Argument] = field(default_factory=lambda: [])  # pragma: no cover
+    parameters: List[Parameter] = field(default_factory=lambda: [])  # pragma: no cover
     return_type: Optional[Type] = None
     return_type_name: Optional[str] = None
 
@@ -81,9 +81,9 @@ class TypePropagator:
         self.local_variables: Dict[str, Variable] = {}
         self.global_variables: Dict[str, Variable] = {}
 
-        def parse_args(lst: List[Any]):
+        def parse_params(lst: List[Any]):
             return [
-                Argument(
+                Parameter(
                     obj["name"],
                     Parser.parse_type(obj["type"]),
                     obj["type"],
@@ -98,7 +98,7 @@ class TypePropagator:
         def parse_host_fn(fn_name: str, fn: Dict[str, Any]):
             return GameFn(
                 fn_name,
-                parse_args(fn.get("parameters", [])),
+                parse_params(fn.get("parameters", [])),
                 Parser.parse_type(fn["return_type"]) if "return_type" in fn else None,
                 fn.get("return_type", None),
             )
@@ -292,7 +292,7 @@ class TypePropagator:
         if not os.path.exists(full_path):
             raise self.new_error(span, f"resource '{string}' does not exist")
 
-    def check_arguments(self, params: List[Argument], call_expr: CallExpr):
+    def check_arguments(self, params: List[Parameter], call_expr: CallExpr):
         fn_name = call_expr.fn_name
         args = call_expr.arguments
 
@@ -353,7 +353,7 @@ class TypePropagator:
             helper_fn = self.helper_fns[fn_name]
             expr.result.type = helper_fn.return_type
             expr.result.type_name = helper_fn.return_type_name
-            self.check_arguments(helper_fn.arguments, expr)
+            self.check_arguments(helper_fn.parameters, expr)
             return
 
         # Check if it's a game function
@@ -647,11 +647,11 @@ class TypePropagator:
 
         self.remove_local_variables_in_statements(statements)
 
-    def add_argument_variables(self, arguments: List[Argument]):
+    def add_parameter_variables(self, parameters: List[Parameter]):
         self.local_variables = {}
 
-        for arg in arguments:
-            self.add_local_variable(arg.name, arg.type, arg.type_name, arg.name_span)
+        for param in parameters:
+            self.add_local_variable(param.name, param.type, param.type_name, param.name_span)
 
     def fill_helper_fns(self):
         for fn_name, fn in self.helper_fns.items():
@@ -659,7 +659,7 @@ class TypePropagator:
             self.fn_return_type_name = fn.return_type_name
             self.filled_fn_name = fn_name
 
-            self.add_argument_variables(fn.arguments)
+            self.add_parameter_variables(fn.parameters)
 
             self.fill_statements(fn.body_statements)
 
@@ -710,19 +710,19 @@ class TypePropagator:
 
             params = self.entity_on_functions[expected_fn_name].get("parameters", [])
 
-            if len(fn.arguments) != len(params):
-                if len(fn.arguments) < len(params):
+            if len(fn.parameters) != len(params):
+                if len(fn.parameters) < len(params):
                     raise self.new_error(
                         fn.span,
-                        f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.arguments)]['name']}' with type {params[len(fn.arguments)]['type']}",
+                        f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.parameters)]['name']}' with type {params[len(fn.parameters)]['type']}",
                     )
                 else:
                     raise self.new_error(
-                        fn.arguments[len(params)].name_span,
-                        f"Function '{expected_fn_name}' got an unexpected extra parameter '{fn.arguments[len(params)].name}' with type {fn.arguments[len(params)].type_name}",
+                        fn.parameters[len(params)].name_span,
+                        f"Function '{expected_fn_name}' got an unexpected extra parameter '{fn.parameters[len(params)].name}' with type {fn.parameters[len(params)].type_name}",
                     )
 
-            for arg, param in zip(fn.arguments, params):
+            for arg, param in zip(fn.parameters, params):
                 if arg.name != param["name"]:
                     raise self.new_error(
                         arg.name_span,
@@ -735,7 +735,7 @@ class TypePropagator:
                         f"Function '{expected_fn_name}' its '{param['name']}' parameter was supposed to have the type {param['type']}, but got {arg.type_name}",
                     )
 
-            self.add_argument_variables(fn.arguments)
+            self.add_parameter_variables(fn.parameters)
             self.fill_statements(fn.body_statements)
 
     def check_global_expr(self, expr: Expr, name: str):

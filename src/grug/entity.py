@@ -140,12 +140,12 @@ class Entity:
         self.local_variables = {}
 
         # Assign and verify argument types
-        for arg, argument in zip(args, on_fn.arguments):
+        for arg, parameter in zip(args, on_fn.parameters):
             assert isinstance(
-                arg, self._get_expected_py_type(argument.type_name)
-            ), f"Argument '{argument.name}' of {on_fn_name}() must be {argument.type_name}, got {type(arg).__name__}"
+                arg, self._get_expected_py_type(parameter.type_name)
+            ), f"Argument '{parameter.name}' of {on_fn_name}() must be {parameter.type_name}, got {type(arg).__name__}"
 
-            self.local_variables[argument.name] = arg
+            self.local_variables[parameter.name] = arg
 
         old_fn_depth = self.state.fn_depth
         self.state.fn_depth += 1
@@ -378,8 +378,8 @@ class Entity:
         parent_local_variables = self.local_variables
         self.local_variables = {}
 
-        for arg, argument in zip(args, helper_fn.arguments):
-            self.local_variables[argument.name] = arg
+        for arg, parameter in zip(args, helper_fn.parameters):
+            self.local_variables[parameter.name] = arg
 
         old_fn_depth = self.state.fn_depth
         self.state.fn_depth += 1

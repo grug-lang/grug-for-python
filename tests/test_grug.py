@@ -259,10 +259,10 @@ def test_grug(
 
             on_fn_decl = file.on_fns[on_fn_name]
 
-            assert len(on_fn_decl.arguments) == args_len
+            assert len(on_fn_decl.parameters) == args_len
             args = [
                 c_to_py_value(arg, argument.type_name)
-                for arg, argument in zip(c_args or [], on_fn_decl.arguments)
+                for arg, argument in zip(c_args or [], on_fn_decl.parameters)
             ]
 
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
