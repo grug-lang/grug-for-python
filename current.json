@@ -1,0 +1,48 @@
+[
+    {
+        "type": "GLOBAL_ON_FN",
+        "name": "a",
+        "statements": [
+            {
+                "type": "VARIABLE_STATEMENT",
+                "name": "x",
+                "variable_type": "VecNumber",
+                "assignment": {
+                    "type": "CALL_EXPR",
+                    "name": "vec_number_new"
+                }
+            },
+            {
+                "type": "CALL_STATEMENT",
+                "name": "push",
+                "receiver": {
+                    "type": "IDENTIFIER_EXPR",
+                    "str": "x"
+                },
+                "arguments": [
+                    {
+                        "type": "NUMBER_EXPR",
+                        "value": "41"
+                    }
+                ]
+            },
+            {
+                "type": "VARIABLE_STATEMENT",
+                "name": "y",
+                "variable_type": "number",
+                "assignment": {
+                    "type": "BINARY_EXPR",
+                    "left_expr": {
+                        "type": "CALL_EXPR",
+                        "name": "pop"
+                    },
+                    "operator": "PLUS_TOKEN",
+                    "right_expr": {
+                        "type": "NUMBER_EXPR",
+                        "value": "1"
+                    }
+                }
+            }
+        ]
+    }
+]
