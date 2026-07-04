@@ -85,6 +85,8 @@ class Serializer:
         elif isinstance(expr, CallExpr):
             result["type"] = "CALL_EXPR"
             result["name"] = expr.fn_name
+            if expr.receiver:
+                result["receiver"] = Serializer._serialize_expr(expr.receiver)
             if expr.arguments:
                 result["arguments"] = [
                     Serializer._serialize_expr(arg) for arg in expr.arguments
@@ -261,6 +263,9 @@ class Serializer:
                 write(f" {operator} ")
                 apply_expr(expr["right_expr"])
             elif expr_type == "CALL_EXPR":
+                if "receiver" in expr:
+                    apply_expr(expr["receiver"])
+                    write(".")
                 write(f'{expr["name"]}(')
                 if "arguments" in expr:
                     for i, arg in enumerate(expr["arguments"]):
