@@ -11,6 +11,8 @@ SPACES_PER_INDENT = 4
 class TokenType(Enum):
     OPEN_PARENTHESIS_TOKEN = auto()
     CLOSE_PARENTHESIS_TOKEN = auto()
+    OPEN_BRACKET_TOKEN = auto()
+    CLOSE_BRACKET_TOKEN = auto()
     OPEN_BRACE_TOKEN = auto()
     CLOSE_BRACE_TOKEN = auto()
     PLUS_TOKEN = auto()
@@ -54,6 +56,8 @@ class TokenType(Enum):
         return {
             TokenType.OPEN_PARENTHESIS_TOKEN: "'('",
             TokenType.CLOSE_PARENTHESIS_TOKEN: "')'",
+            TokenType.OPEN_BRACKET_TOKEN: "'['",
+            TokenType.CLOSE_BRACKET_TOKEN: "']'",
             TokenType.OPEN_BRACE_TOKEN: "'{'",
             TokenType.CLOSE_BRACE_TOKEN: "'}'",
             TokenType.PLUS_TOKEN: "'+'",
@@ -130,6 +134,12 @@ class Tokenizer:
                 i += 1
             elif c == ")":
                 add_token(TokenType.CLOSE_PARENTHESIS_TOKEN, c, i)
+                i += 1
+            elif c == "[":
+                add_token(TokenType.OPEN_BRACKET_TOKEN, c, i)
+                i += 1
+            elif c == "]":
+                add_token(TokenType.CLOSE_BRACKET_TOKEN, c, i)
                 i += 1
             elif c == "{":
                 add_token(TokenType.OPEN_BRACE_TOKEN, c, i)
