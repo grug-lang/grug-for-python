@@ -15,6 +15,36 @@ MAX_PARSING_DEPTH = 100
 MIN_F64 = struct.unpack("!d", struct.pack("!Q", 0x0010000000000000))[0]
 MAX_F64 = struct.unpack("!d", struct.pack("!Q", 0x7FEFFFFFFFFFFFFF))[0]
 
+class PrimitiveType(Enum):
+    VOID = auto()
+    BOOL = auto()
+    NUMBER = auto()
+    STRING = auto()
+
+@dataclass(frozen=True)
+class ExistentialType:
+    idx: int
+
+@dataclass(frozen=True)
+class IdType:
+    name: str
+    generics: List[Type] = field(default_factory=lambda: [])
+
+@dataclass(frozen=True)
+class ResourceStrType:
+    extension: str
+
+@dataclass(frozen=True)
+class EntityStrType:
+    entity_type: Optional[str]
+
+Type = Union[
+    PrimitiveType,
+    IdType,
+    ResourceStrType,
+    EntityStrType,
+    ExistentialType,
+]
 
 @dataclass
 class ParserError(Exception):
@@ -22,59 +52,44 @@ class ParserError(Exception):
     message: str
 
 
-class Type(Enum):
-    BOOL = auto()
-    NUMBER = auto()
-    STRING = auto()
-    ID = auto()
-    RESOURCE = auto()
-    ENTITY = auto()
-
-
-@dataclass
-class Result:
-    type: Optional[Type] = None
-    type_name: Optional[str] = None
-
-
 @dataclass
 class TrueExpr:
     expr_span: SourceSpan
-    result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
+    result: Type = field(default_factory=lambda: PrimitiveType.BOOL)
 
 
 @dataclass
 class FalseExpr:
     expr_span: SourceSpan
-    result: Result = field(default_factory=lambda: Result(Type.BOOL, "bool"))
+    result: Type = field(default_factory=lambda: PrimitiveType.BOOL)
 
 
 @dataclass
 class StringExpr:
     string: str
     expr_span: SourceSpan
-    result: Result = field(default_factory=lambda: Result(Type.STRING, "string"))
+    result: Type = field(default_factory=lambda: PrimitiveType.STRING)
 
 
 @dataclass
 class ResourceExpr:
     string: str
     expr_span: SourceSpan
-    result: Result = field(default_factory=lambda: Result(Type.RESOURCE, "resource"))
+    result: Type = field(default_factory=lambda: ResourceStrType(extension=""))
 
 
 @dataclass
 class EntityExpr:
     string: str
     expr_span: SourceSpan
-    result: Result = field(default_factory=lambda: Result(Type.ENTITY, "entity"))
+    result: Type = field(default_factory=lambda: EntityStrType(entity_type=None))
 
 
 @dataclass
 class IdentifierExpr:
     name: str
     expr_span: SourceSpan
-    result: Result = field(default_factory=Result)
+    result: Type = field(default_factory=lambda: PrimitiveType.VOID)
 
 
 @dataclass
@@ -82,7 +97,7 @@ class NumberExpr:
     value: float
     string: str
     expr_span: SourceSpan
-    result: Result = field(default_factory=lambda: Result(Type.NUMBER, "number"))
+    result: Type = field(default_factory=lambda: PrimitiveType.NUMBER)
 
 
 @dataclass
@@ -91,7 +106,7 @@ class UnaryExpr:
     expr: Expr
     expr_span: SourceSpan
     op_span: SourceSpan
-    result: Result = field(default_factory=Result)
+    result: Type = field(default_factory=lambda: PrimitiveType.VOID)
 
 
 @dataclass
@@ -101,7 +116,7 @@ class BinaryExpr:
     right_expr: Expr
     expr_span: SourceSpan
     op_span: SourceSpan
-    result: Result = field(default_factory=Result)
+    result: Type = field(default_factory=lambda: PrimitiveType.VOID)
 
 
 @dataclass
@@ -111,7 +126,7 @@ class LogicalExpr:
     right_expr: Expr
     expr_span: SourceSpan
     op_span: SourceSpan
-    result: Result = field(default_factory=Result)
+    result: Type = field(default_factory=lambda: PrimitiveType.BOOL)
 
 
 @dataclass
@@ -121,14 +136,14 @@ class CallExpr:
     expr_span: SourceSpan
     name_span: SourceSpan
     arguments: List[Expr] = field(default_factory=lambda: [])
-    result: Result = field(default_factory=Result)
+    result: Type = field(default_factory=lambda: PrimitiveType.VOID)
 
 
 @dataclass
 class ParenthesizedExpr:
     expr: Expr
     expr_span: SourceSpan
-    result: Result = field(default_factory=Result)
+    result: Type = field(default_factory=lambda: PrimitiveType.VOID)
 
 
 Expr = Union[
@@ -151,7 +166,6 @@ Expr = Union[
 class VariableStatement:
     name: str
     type: Optional[Type]
-    type_name: Optional[str]
     expr: Expr
     name_span: SourceSpan
 
@@ -213,17 +227,12 @@ Statement = Union[
     CommentStatement,
 ]
 
-
-@dataclass
+@dataclass(frozen=True)
 class Parameter:
     name: str
     type: Type
-    type_name: str
     name_span: SourceSpan
     type_span: SourceSpan
-    resource_extension: Optional[str] = None
-    entity_type: Optional[str] = None
-
 
 @dataclass
 class OnFn:
@@ -519,18 +528,63 @@ class Parser:
         return statement
 
     @staticmethod
-    def parse_type(type_str: str):
-        if type_str == "bool":
-            return Type.BOOL
-        if type_str == "number":
-            return Type.NUMBER
-        if type_str == "string":
-            return Type.STRING
-        if type_str == "resource":
-            return Type.RESOURCE
-        if type_str == "entity":
-            return Type.ENTITY
-        return Type.ID
+    def type_to_string(ty: Type) -> str:
+        if ty == PrimitiveType.VOID:
+            return "void"
+        if ty == PrimitiveType.BOOL:
+            return "bool"
+        if ty == PrimitiveType.NUMBER:
+            return "number"
+        if ty == PrimitiveType.STRING:
+            return "string"
+        if isinstance(ty, ResourceStrType):
+            return "resource"
+        if isinstance(ty, EntityStrType):
+            return "entity"
+        if isinstance(ty, ExistentialType):
+            return f"${ty.idx}"
+        assert isinstance(ty, IdType)
+        if not ty.generics:
+            return ty.name
+        generics = ", ".join(Parser.type_to_string(generic) for generic in ty.generics)
+        return f"{ty.name}[{generics}]"
+
+    def parse_type(self, i: List[int]) -> Tuple[Type, SourceSpan]:
+        type_token = self.consume_token_type(i, TokenType.WORD_TOKEN)
+        type_name = type_token.value
+
+        if type_name == "void":
+            return PrimitiveType.VOID, type_token.span
+        if type_name == "bool":
+            return PrimitiveType.BOOL, type_token.span
+        if type_name == "number":
+            return PrimitiveType.NUMBER, type_token.span
+        if type_name == "string":
+            return PrimitiveType.STRING, type_token.span
+        if type_name == "resource":
+            return ResourceStrType(extension=""), type_token.span
+        if type_name == "entity":
+            return EntityStrType(entity_type=None), type_token.span
+
+        generics: List[Type] = []
+        if (
+            i[0] < len(self.tokens)
+            and self.peek_token(i[0]).type == TokenType.OPEN_BRACKET_TOKEN
+        ):
+            i[0] += 1
+            generics.append(self.parse_type(i)[0])
+
+            while (
+                i[0] < len(self.tokens)
+                and self.peek_token(i[0]).type == TokenType.COMMA_TOKEN
+            ):
+                i[0] += 1
+                self.consume_space(i)
+                generics.append(self.parse_type(i)[0])
+
+            self.consume_token_type(i, TokenType.CLOSE_BRACKET_TOKEN)
+
+        return IdType(type_name, generics), type_token.span
 
     def parse_parameters(self, i: List[int]):
         parameters: List[Parameter] = []
@@ -543,25 +597,20 @@ class Parser:
 
         self.consume_space(i)
 
-        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
-        type_token = self.consume_token(i)
+        param_type, type_span = self.parse_type(i)
 
-        type_name = type_token.value
-        param_type = Parser.parse_type(type_name)
-
-        if param_type in (Type.RESOURCE, Type.ENTITY):
+        if isinstance(param_type, (ResourceStrType, EntityStrType)):
             raise self.new_error(
-                type_token.span,
-                f"The argument '{param_name}' can't have '{type_name}' as its type"
+                type_span,
+                f"The argument '{param_name}' can't have '{self.type_to_string(param_type)}' as its type"
             )
 
         parameters.append(
             Parameter(
                 param_name,
                 param_type,
-                type_name,
                 name_span=name_token.span,
-                type_span=type_token.span,
+                type_span=type_span,
             )
         )
 
@@ -581,25 +630,20 @@ class Parser:
 
             self.consume_space(i)
 
-            self.assert_token_type(i[0], TokenType.WORD_TOKEN)
-            type_token = self.consume_token(i)
+            param_type, type_span = self.parse_type(i)
 
-            type_name = type_token.value
-            param_type = Parser.parse_type(type_name)
-
-            if param_type in (Type.RESOURCE, Type.ENTITY):
+            if isinstance(param_type, (ResourceStrType, EntityStrType)):
                 raise self.new_error(
-                    type_token.span,
-                    f"The argument '{param_name}' can't have '{type_name}' as its type"
+                    type_span,
+                    f"The argument '{param_name}' can't have '{self.type_to_string(param_type)}' as its type"
                 )
 
             parameters.append(
                 Parameter(
                     param_name,
                     param_type,
-                    type_name,
                     name_span=name_token.span,
-                    type_span=type_token.span,
+                    type_span=type_span,
                 )
             )
 
@@ -639,13 +683,13 @@ class Parser:
         self.assert_token_type(i[0], TokenType.SPACE_TOKEN)
         token = self.peek_token(i[0] + 1)
         if token.type == TokenType.WORD_TOKEN:
-            i[0] += 2
-            fn.return_type = Parser.parse_type(token.value)
-            fn.return_type_name = token.value
+            i[0] += 1
+            fn.return_type, type_span = self.parse_type(i)
+            fn.return_type_name = self.type_to_string(fn.return_type)
 
-            if fn.return_type in (Type.RESOURCE, Type.ENTITY):
+            if isinstance(fn.return_type, (ResourceStrType, EntityStrType)):
                 raise self.new_error(
-                    token.span,
+                    type_span,
                     f"The function '{fn.fn_name}' can't have '{fn.return_type_name}' as its return type"
                 )
 
@@ -812,7 +856,6 @@ class Parser:
         var_name = var_token.value
 
         var_type = None
-        var_type_name = None
 
         if self.peek_token(i[0]).type == TokenType.COLON_TOKEN:
             i[0] += 1
@@ -825,16 +868,12 @@ class Parser:
 
             self.consume_space(i)
 
-            self.assert_token_type(i[0], TokenType.WORD_TOKEN)
-            type_token = self.consume_token(i)
+            var_type, type_span = self.parse_type(i)
 
-            var_type_name = type_token.value
-            var_type = Parser.parse_type(var_type_name)
-
-            if var_type in (Type.RESOURCE, Type.ENTITY):
+            if isinstance(var_type, (ResourceStrType, EntityStrType)):
                 raise self.new_error(
-                    type_token.span,
-                    f"The variable '{var_name}' can't have '{var_type_name}' as its type"
+                    type_span,
+                    f"The variable '{var_name}' can't have '{self.type_to_string(var_type)}' as its type"
                 )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
@@ -859,7 +898,7 @@ class Parser:
 
         expr = self.parse_expression(i)
 
-        return VariableStatement(var_name, var_type, var_type_name, expr, var_token.span)
+        return VariableStatement(var_name, var_type, expr, var_token.span)
 
     def parse_global_variable(self, i: List[int]):
         name_token = self.consume_token(i)
@@ -874,21 +913,17 @@ class Parser:
         self.consume_token_type(i, TokenType.COLON_TOKEN)
         self.consume_space(i)
 
-        self.assert_token_type(i[0], TokenType.WORD_TOKEN)
-        type_token = self.consume_token(i)
+        global_type, type_span = self.parse_type(i)
 
-        global_type_name = type_token.value
-        global_type = Parser.parse_type(global_type_name)
-
-        if global_type in (Type.RESOURCE, Type.ENTITY):
+        if isinstance(global_type, (ResourceStrType, EntityStrType)):
             raise self.new_error(
-                type_token.span,
-                f"The global variable '{global_name}' can't have '{global_type_name}' as its type"
+                type_span,
+                f"The global variable '{global_name}' can't have '{self.type_to_string(global_type)}' as its type"
             )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
             raise self.new_error(
-                SourceSpan(type_token.span.line, type_token.span.offset + len(type_token.value)),
+                type_span,
                 f"The global variable '{global_name}' was not assigned a value"
             )
 
@@ -899,7 +934,7 @@ class Parser:
         expr = self.parse_expression(i)
 
         return VariableStatement(
-            global_name, global_type, global_type_name, expr, name_token.span
+            global_name, global_type, expr, name_token.span
         )
 
     def parse_unary(self, i: List[int]):
