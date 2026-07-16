@@ -4,11 +4,10 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from .error import GrugError, SourceSpan
-
-HostFn = Callable[..., Any]
+from .grug_value import HostFn
 
 class PrimitiveType(Enum):
     VOID = auto()
@@ -85,6 +84,65 @@ class ModApi:
     entities: Dict[str, ModApiEntity] = field(default_factory=lambda: {})
     classes: Dict[str, ModApiClass] = field(default_factory=lambda: {})
     host_fns: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
+
+    @staticmethod
+    def new_registration_error(message: str) -> GrugError:
+        error_string = f"""\
+Error: {message}
+"""
+        return GrugError(
+            function_name="",
+            file_path=Path(""),
+            source_line="",
+            span=SourceSpan(0, 0),
+            error_message=message,
+            error_string=error_string,
+        )
+
+    def register_fn(
+        self, class_name: Optional[str], fn_name: str, ptr: HostFn
+    ) -> None:
+        if class_name is not None:
+            mod_api_class = self.classes.get(class_name)
+            if mod_api_class is None:
+                raise self.new_registration_error(
+                    f"Class with name '{class_name}' is not found in mod_api.json"
+                )
+
+            host_fn_data = mod_api_class.methods.get(fn_name)
+            if host_fn_data is None:
+                raise self.new_registration_error(
+                    f"Class with name '{class_name}' does not contain method with name '{fn_name}'"
+                )
+
+            if len(host_fn_data.generics) != 0:
+                raise self.new_registration_error(
+                    f"Host method '{fn_name}' on class '{class_name}' is generic"
+                )
+
+            if host_fn_data.fn_ptr is not None:
+                raise self.new_registration_error(
+                    f"Host method named '{fn_name}' on class '{class_name}' has already been registered"
+                )
+
+            host_fn_data.fn_ptr = ptr
+            return
+
+        host_fn_data = self.host_fns.get(fn_name)
+        if host_fn_data is None:
+            raise self.new_registration_error(
+                f"Host function named '{fn_name}' is not found in mod_api.json"
+            )
+
+        if len(host_fn_data.generics) != 0:
+            raise self.new_registration_error(f"Host function '{fn_name}' is generic")
+
+        if host_fn_data.fn_ptr is not None:
+            raise self.new_registration_error(
+                f"Host function named '{fn_name}' has already been registered"
+            )
+
+        host_fn_data.fn_ptr = ptr
 
 @dataclass
 class ModApiParseContext:
@@ -549,4 +607,3 @@ Error: {error_message}
     context.pop_path()
 
     return ModApi(entities=entities, classes=classes, host_fns=host_fns)
-

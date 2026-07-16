@@ -4,6 +4,8 @@ from typing import Dict, List, Optional
 from grug.grug_state import GrugFile, GrugRuntimeErrorType
 from grug.grug_value import GrugValue
 
+from .mod_api import Type, PrimitiveType, ResourceStrType, EntityStrType
+
 from .parser import (
     BinaryExpr,
     BreakStatement,
@@ -175,12 +177,12 @@ class Entity:
             self.state.executed_entity = old_executed_entity
             self.state.executed_file = old_executed_file
 
-    def _get_expected_py_type(self, expected_arg_type_name: str):
-        if expected_arg_type_name == "number":
+    def _get_expected_py_type(self, type: Type):
+        if type is PrimitiveType.NUMBER:
             return float
-        elif expected_arg_type_name == "bool":
+        if type is PrimitiveType.BOOL:
             return bool
-        elif expected_arg_type_name in ("string", "resource", "entity"):
+        if type is PrimitiveType.STRING or isinstance(type, ResourceStrType) or isinstance(type, EntityStrType):
             return str
         return object
 
@@ -409,10 +411,12 @@ class Entity:
             self.local_variables = parent_local_variables
 
     def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
-        game_fn = self.file.game_fns[name]
+        host_fn = self.file.mod_api.host_fns[name]
+        # TODO: Use the callable from the CallExpr node instead of from the mod_api
+        assert(host_fn)
 
         try:
-            result = game_fn(self.state, *args)
+            result = host_fn.fn_ptr(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
@@ -422,8 +426,8 @@ class Entity:
             )
             raise ReraisedGameFnError()
 
-        t = self.file.game_fn_return_types[name]
-        if t is None:
+        t = host_fn.return_type
+        if t is PrimitiveType.VOID:
             return
 
         expected_type = self._get_expected_py_type(t)
@@ -435,12 +439,14 @@ class Entity:
         return result
 
     def _run_method(
-        self, name: str, grug_class_name: str, *args: GrugValue
+        self, name: str, class_name: str, *args: GrugValue
     ) -> Optional[GrugValue]:
-        game_fn = self.file.methods[grug_class_name][name]
+        host_fn = self.file.mod_api.classes[class_name].methods[name]
+        # TODO: Use the callable from the CallExpr node instead of from the mod_api
+        assert(host_fn)
 
         try:
-            result = game_fn(self.state, *args)
+            result = host_fn.fn_ptr(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
@@ -450,8 +456,8 @@ class Entity:
             )
             raise ReraisedGameFnError()
 
-        t = self.file.method_return_types[grug_class_name][name]
-        if t is None:
+        t = host_fn.return_type
+        if t is PrimitiveType.VOID:
             return
 
         expected_type = self._get_expected_py_type(t)

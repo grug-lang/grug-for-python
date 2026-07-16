@@ -8,23 +8,23 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
     Dict,
     List,
     Optional,
     Sequence,
     Set,
-    cast,
 )
 
-from grug.grug_value import GrugValue
+from .grug_value import HostFn
 
+from .mod_api import ModApi
 from .error import GrugError
 from .parser import HelperFn, OnFn, Parser, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
 from .type_propagator import TypePropagator
+from .mod_api import ModApi, get_mod_api
 
 if TYPE_CHECKING:  # pragma: no cover
     from .entity import Entity
@@ -44,7 +44,7 @@ GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
 
 class GrugPackage:
-    def __init__(self, *, prefix: str, game_fns: Sequence["GameFn"]):
+    def __init__(self, *, prefix: str, game_fns: Sequence[HostFn]):
         self.prefix = prefix
         self.game_fns = game_fns
 
@@ -65,10 +65,8 @@ class GrugFile:
     global_variables: List[VariableStatement]
     on_fns: Dict[str, OnFn]
     helper_fns: Dict[str, HelperFn]
-    game_fns: Dict[str, "GameFn"]
-    methods: Dict[str, Dict[str, "GameFn"]]
-    game_fn_return_types: Dict[str, Optional[str]]
-    method_return_types: Dict[str, Dict[str, Optional[str]]]
+
+    mod_api: ModApi
 
     state: "GrugState"
     mtime: float
@@ -134,20 +132,14 @@ class GrugState:
     ):
         self.runtime_error_handler = runtime_error_handler
 
-        with open(mod_api_path) as f:
-            raw = json.load(f)
-        if not isinstance(raw, dict):
-            raise RuntimeError("Error: mod API JSON root must be an object")
-        self.mod_api: Dict[str, Any] = cast(Dict[str, Any], raw)
-
-        self._assert_mod_api()
+        self.mod_api = get_mod_api(Path(mod_api_path))
 
         self.mods_dir_path = Path(mods_dir_path)
 
         self.on_fn_time_limit_ms = on_fn_time_limit_ms
 
-        self.game_fns: Dict[str, "GameFn"] = {}
-        self.classes: Dict[str, Dict[str, "GameFn"]] = {}
+        self.game_fns: Dict[str, HostFn] = {}
+        self.classes: Dict[str, Dict[str, HostFn]] = {}
         self._add_game_fns_from_packages(packages)
 
         self.next_id = 0
@@ -166,53 +158,6 @@ class GrugState:
         assert self._mods
         return self._mods
 
-    def _assert_mod_api(self):
-        entities = self.mod_api.get("entities")
-        if not isinstance(entities, dict):
-            raise GrugError.new_init_error("Error: 'entities' must be a JSON object")
-
-        entities_dict = cast(Dict[str, Any], entities)
-        for entity_name, entity in entities_dict.items():
-            if not isinstance(entity, dict):
-                raise GrugError.new_init_error(
-                    f"Error: entity '{entity_name}' must be a JSON object"
-                )
-
-            entity_dict = cast(Dict[str, Any], entity)
-            export_functions = entity_dict.get("export_functions")
-            if export_functions is None:
-                continue
-
-            if not isinstance(export_functions, list):
-                raise GrugError.new_init_error(
-                    f"Error: 'export_functions' for entity '{entity_name}' must be a JSON array"
-                )
-
-        classes = self.mod_api.get("classes")
-        if not isinstance(classes, dict):
-            raise GrugError.new_init_error("Error: 'classes' must be a JSON object")
-
-        classes_dict = cast(Dict[str, Any], classes)
-        for class_name, class_items in classes_dict.items():
-            if not isinstance(class_items, dict):
-                raise GrugError.new_init_error(
-                    f"Error: entity '{class_name}' must be a JSON object"
-                )
-
-            class_items_dict = cast(Dict[str, Any], class_items)
-            methods = class_items_dict.get("methods")
-            if methods is None: #pragma: no cover
-                continue
-
-            if not isinstance(methods, dict):
-                raise GrugError.new_init_error(
-                    f"Error: 'methods' for class '{class_name}' must be a JSON object"
-                )
-
-        host_functions = self.mod_api.get("host_functions")
-        if not isinstance(host_functions, dict):
-            raise GrugError.new_init_error("Error: 'host_functions' must be a JSON object")
-
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:
             for game_fn in pkg.game_fns:
@@ -228,13 +173,13 @@ class GrugState:
                 )
                 self._register_game_fn(name, game_fn)
 
-    def game_fn(self, fn: "GameFn") -> "GameFn":
+    def game_fn(self, fn: HostFn) -> HostFn:
         """Decorator for game functions."""
         self._register_game_fn(fn.__name__, fn)
         return fn
 
-    def _register_game_fn(self, name: str, fn: "GameFn"):
-        self.game_fns[name] = fn
+    def _register_game_fn(self, name: str, fn: HostFn):
+        self.mod_api.register_fn(None, name, fn)
 
     def grug_class(self, cls: type) -> type:
         """Decorator for grug classes."""
@@ -243,10 +188,8 @@ class GrugState:
                 self._register_method_fn(cls.__name__, name, fn.__func__)
         return cls
 
-    def _register_method_fn(self, class_name: str, fn_name: str, fn: "GameFn"):
-        if class_name not in self.classes:
-            self.classes[class_name] = dict()
-        self.classes[class_name][fn_name] = fn
+    def _register_method_fn(self, class_name: str, fn_name: str, fn: HostFn):
+        self.mod_api.register_fn(class_name, fn_name, fn)
 
     def _compile_grug_file(self, grug_file_relative_path: str):
         mod = Path(grug_file_relative_path).parts[0]
@@ -285,29 +228,13 @@ class GrugState:
 
         helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
 
-        method_return_types = {
-            class_name: {
-                fn_name: fn.get("return_type")
-                for fn_name, fn in class_items["methods"].items()
-            }
-            for class_name, class_items in self.mod_api["classes"].items()
-        }
-
-        game_fn_return_types = {
-            fn_name: fn.get("return_type")
-            for fn_name, fn in self.mod_api["host_functions"].items()
-        }
-
         return GrugFile(
             grug_file_relative_path,
             mod,
             global_variables,
             on_fns,
             helper_fns,
-            self.game_fns,
-            self.classes,
-            game_fn_return_types,
-            method_return_types,
+            self.mod_api,
             self,
             mtime,
         )
@@ -492,4 +419,3 @@ class GrugState:
         return Serializer.ast_to_grug(ast)
 
 
-GameFn = Callable[..., Optional[GrugValue]]
