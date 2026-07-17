@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 
 from .error import GrugError, SourceSpan
 from .tokenizer import SPACES_PER_INDENT, Token, TokenType
+from .grug_value import HostFn
 
 MAX_PARSING_DEPTH = 100
 
@@ -21,22 +22,46 @@ class PrimitiveType(Enum):
     NUMBER = auto()
     STRING = auto()
 
+    def __str__(self) -> str:
+        if self == PrimitiveType.VOID:
+            return "void"
+        elif self == PrimitiveType.BOOL:
+            return "bool"
+        elif self == PrimitiveType.NUMBER:
+            return "number"
+        return "string"
+
 @dataclass(frozen=True)
 class ExistentialType:
     idx: int
+
+    def __str__(self):
+        return f"${self.idx}"
 
 @dataclass(frozen=True)
 class IdType:
     name: str
     generics: List[Type] = field(default_factory=lambda: [])
 
+    def __str__(self):
+        if len(self.generics) != 0:
+            generics = ", ".join(f"{generic}" for generic in self.generics)
+            return f"{self.name}[{generics}"
+        return self.name
+
 @dataclass(frozen=True)
 class ResourceStrType:
     extension: str
 
+    def __str__(self):
+        return "resource"
+
 @dataclass(frozen=True)
 class EntityStrType:
     entity_type: Optional[str]
+
+    def __str__(self):
+        return "entity"
 
 Type = Union[
     PrimitiveType,
@@ -136,6 +161,7 @@ class CallExpr:
     expr_span: SourceSpan
     name_span: SourceSpan
     arguments: List[Expr] = field(default_factory=lambda: [])
+    fn_ptr: Optional[HostFn] = None
     result: Type = field(default_factory=lambda: PrimitiveType.VOID)
 
 
@@ -247,8 +273,7 @@ class HelperFn:
     fn_name: str
     span: SourceSpan
     parameters: List[Parameter] = field(default_factory=lambda: [])
-    return_type: Optional[Type] = None
-    return_type_name: Optional[str] = None
+    return_type: Type = PrimitiveType.VOID
     body_statements: List[Statement] = field(default_factory=lambda: [])
 
 
@@ -527,28 +552,6 @@ class Parser:
         self.decrease_parsing_depth()
         return statement
 
-    @staticmethod
-    def type_to_string(ty: Type) -> str:
-        if ty == PrimitiveType.VOID:
-            return "void"
-        if ty == PrimitiveType.BOOL:
-            return "bool"
-        if ty == PrimitiveType.NUMBER:
-            return "number"
-        if ty == PrimitiveType.STRING:
-            return "string"
-        if isinstance(ty, ResourceStrType):
-            return "resource"
-        if isinstance(ty, EntityStrType):
-            return "entity"
-        if isinstance(ty, ExistentialType):
-            return f"${ty.idx}"
-        assert isinstance(ty, IdType)
-        if not ty.generics:
-            return ty.name
-        generics = ", ".join(Parser.type_to_string(generic) for generic in ty.generics)
-        return f"{ty.name}[{generics}]"
-
     def parse_type(self, i: List[int]) -> Tuple[Type, SourceSpan]:
         type_token = self.consume_token_type(i, TokenType.WORD_TOKEN)
         type_name = type_token.value
@@ -602,7 +605,7 @@ class Parser:
         if isinstance(param_type, (ResourceStrType, EntityStrType)):
             raise self.new_error(
                 type_span,
-                f"The argument '{param_name}' can't have '{self.type_to_string(param_type)}' as its type"
+                f"The argument '{param_name}' can't have '{param_type}' as its type"
             )
 
         parameters.append(
@@ -635,7 +638,7 @@ class Parser:
             if isinstance(param_type, (ResourceStrType, EntityStrType)):
                 raise self.new_error(
                     type_span,
-                    f"The argument '{param_name}' can't have '{self.type_to_string(param_type)}' as its type"
+                    f"The argument '{param_name}' can't have '{param_type}' as its type"
                 )
 
             parameters.append(
@@ -685,12 +688,11 @@ class Parser:
         if token.type == TokenType.WORD_TOKEN:
             i[0] += 1
             fn.return_type, type_span = self.parse_type(i)
-            fn.return_type_name = self.type_to_string(fn.return_type)
 
             if isinstance(fn.return_type, (ResourceStrType, EntityStrType)):
                 raise self.new_error(
                     type_span,
-                    f"The function '{fn.fn_name}' can't have '{fn.return_type_name}' as its return type"
+                    f"The function '{fn.fn_name}' can't have '{fn.return_type}' as its return type"
                 )
 
         self.indentation = 0
@@ -873,7 +875,7 @@ class Parser:
             if isinstance(var_type, (ResourceStrType, EntityStrType)):
                 raise self.new_error(
                     type_span,
-                    f"The variable '{var_name}' can't have '{self.type_to_string(var_type)}' as its type"
+                    f"The variable '{var_name}' can't have '{var_type}' as its type"
                 )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
@@ -918,7 +920,7 @@ class Parser:
         if isinstance(global_type, (ResourceStrType, EntityStrType)):
             raise self.new_error(
                 type_span,
-                f"The global variable '{global_name}' can't have '{self.type_to_string(global_type)}' as its type"
+                f"The global variable '{global_name}' can't have '{global_type}' as its type"
             )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
