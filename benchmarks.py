@@ -218,8 +218,8 @@ def run_benchmarks(mod_api_path: str, mods_dir_path: str, benchmark_lib: ctypes.
             on_fn_decl = entity.file.on_fns[on_fn_name]
             assert len(on_fn_decl.parameters) == args_len
             args = [
-                c_to_py_value(arg, argument.type_name)
-                for arg, argument in zip(c_args or [], on_fn_decl.parameters)
+                c_to_py_value(arg, param.type)
+                for arg, param in zip(c_args or [], on_fn_decl.parameters)
             ]
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError):  # pragma: no cover
@@ -253,7 +253,7 @@ class BenchmarkGameFnRegistrator:
         self.benchmark_lib = benchmark_lib
 
     def register_game_fns(self) -> None:
-        for name in self.state.mod_api["host_functions"]:
+        for name in self.state.mod_api.host_fns.keys():
             self._register_fn(name)
 
     def _get_c_args(self, *args: GrugValue):
@@ -271,9 +271,9 @@ class BenchmarkGameFnRegistrator:
         return c_args
 
     def _unpack_workaround(
-        self, c_workaround: GrugValueWorkaround, return_type: Optional[str]
+        self, c_workaround: GrugValueWorkaround, return_type: Type
     ) -> Optional[GrugValue]:
-        if return_type is None:
+        if return_type is PrimitiveType.VOID:
             return None
 
         value = GrugValueUnion()
@@ -291,7 +291,7 @@ class BenchmarkGameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api["host_functions"][name].get("return_type")
+        return_type = self.state.mod_api.host_fns[name].return_type
 
         def fn(state: GrugState, *args: GrugValue) -> Optional[GrugValue]:
             del state

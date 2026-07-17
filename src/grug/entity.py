@@ -2,9 +2,9 @@ import time
 from typing import Dict, List, Optional
 
 from grug.grug_state import GrugFile, GrugRuntimeErrorType
-from grug.grug_value import GrugValue
+from grug.grug_value import GrugValue, HostFn
 
-from .mod_api import Type, PrimitiveType, ResourceStrType, EntityStrType
+from .parser import Type, PrimitiveType, ResourceStrType, EntityStrType
 
 from .parser import (
     BinaryExpr,
@@ -144,8 +144,8 @@ class Entity:
         # Assign and verify argument types
         for arg, parameter in zip(args, on_fn.parameters):
             assert isinstance(
-                arg, self._get_expected_py_type(parameter.type_name)
-            ), f"Argument '{parameter.name}' of {on_fn_name}() must be {parameter.type_name}, got {type(arg).__name__}"
+                arg, self._get_expected_py_type(parameter.type)
+            ), f"Argument '{parameter.name}' of {on_fn_name}() must be {parameter.type}, got {type(arg).__name__}"
 
             self.local_variables[parameter.name] = arg
 
@@ -321,12 +321,11 @@ class Entity:
         elif call_expr.receiver:
             receiver = self._run_expr(call_expr.receiver)
             args.insert(0, receiver)
-            assert call_expr.receiver.result.type_name
-            return self._run_method(
-                call_expr.fn_name, call_expr.receiver.result.type_name, *args
-            )
+            assert call_expr.fn_ptr
+            return self._run_host_fn(call_expr.fn_name, call_expr.fn_ptr, call_expr.result, receiver, *args)
         else:
-            return self._run_game_fn(call_expr.fn_name, *args)
+            assert call_expr.fn_ptr
+            return self._run_host_fn(call_expr.fn_name, call_expr.fn_ptr, call_expr.result, *args)
 
     def _run_if_statement(self, statement: IfStatement):
         while True:
@@ -410,43 +409,11 @@ class Entity:
             self.state.fn_depth = old_fn_depth
             self.local_variables = parent_local_variables
 
-    def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
-        host_fn = self.file.mod_api.host_fns[name]
-        # TODO: Use the callable from the CallExpr node instead of from the mod_api
-        assert(host_fn)
-
-        try:
-            result = host_fn.fn_ptr(self.state, *args)
-        except GameFnError as e:
-            self.state.runtime_error_handler(
-                e.reason,
-                GrugRuntimeErrorType.GAME_FN_ERROR,
-                self.fn_name,
-                self.file.relative_path,
-            )
-            raise ReraisedGameFnError()
-
-        t = host_fn.return_type
-        if t is PrimitiveType.VOID:
-            return
-
-        expected_type = self._get_expected_py_type(t)
-
-        assert isinstance(
-            result, expected_type
-        ), f"Return value of game function {name}() must be {expected_type.__name__}, got {type(result).__name__}"
-
-        return result
-
-    def _run_method(
-        self, name: str, class_name: str, *args: GrugValue
+    def _run_host_fn(
+            self, fn_name: str, fn: HostFn, return_type: Type, *args: GrugValue
     ) -> Optional[GrugValue]:
-        host_fn = self.file.mod_api.classes[class_name].methods[name]
-        # TODO: Use the callable from the CallExpr node instead of from the mod_api
-        assert(host_fn)
-
         try:
-            result = host_fn.fn_ptr(self.state, *args)
+            result = fn(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
@@ -456,14 +423,13 @@ class Entity:
             )
             raise ReraisedGameFnError()
 
-        t = host_fn.return_type
-        if t is PrimitiveType.VOID:
+        if return_type is PrimitiveType.VOID:
             return
 
-        expected_type = self._get_expected_py_type(t)
+        expected_type = self._get_expected_py_type(return_type)
 
         assert isinstance(
             result, expected_type
-        ), f"Return value of game function {name}() must be {expected_type.__name__}, got {type(result).__name__}"
+        ), f"Return value of game function {fn_name}() must be {expected_type.__name__}, got {type(result).__name__}"
 
         return result

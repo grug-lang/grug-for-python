@@ -3,6 +3,12 @@ from io import StringIO
 from typing import Any, Dict, List, Union
 
 from .parser import (
+    Type,
+    PrimitiveType,
+    ResourceStrType,
+    EntityStrType,
+    IdType,
+    ExistentialType,
     Ast,
     BinaryExpr,
     BreakStatement,
@@ -107,7 +113,7 @@ class Serializer:
             result["type"] = "VARIABLE_STATEMENT"
             result["name"] = stmt.name
             if stmt.type:
-                result["variable_type"] = stmt.type_name
+                result["variable_type"] = Serializer._serialize_type(stmt.type)
             result["assignment"] = Serializer._serialize_expr(stmt.expr)
         elif isinstance(stmt, CallStatement):
             result["type"] = "CALL_STATEMENT"
@@ -154,9 +160,9 @@ class Serializer:
         return result
 
     @staticmethod
-    def _serialize_parameters(parameters: List[Parameter]) -> List[Dict[str, str]]:
+    def _serialize_parameters(parameters: List[Parameter]) -> List[Dict[str, Any]]:
         """Serialize function parameters to list of dicts."""
-        return [{"name": param.name, "type": param.type_name} for param in parameters]
+        return [{"name": param.name, "type": Serializer._serialize_type(param.type)} for param in parameters]
 
     @staticmethod
     def _serialize_global_statement(
@@ -185,14 +191,15 @@ class Serializer:
                     global_stmt.parameters
                 )
             if global_stmt.return_type:
-                result["return_type"] = global_stmt.return_type_name
+                result["return_type"] = Serializer._serialize_type(global_stmt.return_type)
             result["statements"] = [
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements
             ]
         elif isinstance(global_stmt, VariableStatement):
             result["type"] = "GLOBAL_VARIABLE"
             result["name"] = global_stmt.name
-            result["variable_type"] = global_stmt.type_name
+            assert(global_stmt.type)
+            result["variable_type"] = Serializer._serialize_type(global_stmt.type)
             result["assignment"] = Serializer._serialize_expr(global_stmt.expr)
         elif isinstance(global_stmt, CommentStatement):
             result["type"] = "GLOBAL_COMMENT"
@@ -200,6 +207,33 @@ class Serializer:
         else:
             assert isinstance(global_stmt, EmptyLineStatement)
             result["type"] = "GLOBAL_EMPTY_LINE"
+
+        return result
+
+    @staticmethod
+    def _serialize_type(type: Type) -> Dict[str, Any]:
+        result = {}
+        if isinstance(type, PrimitiveType):
+            result = {"name": str(type)}
+        if isinstance(type, IdType):
+            result = {
+                "name": type.name,
+                "generics": [
+                    Serializer._serialize_type(generic) for generic in type.generics
+                ]
+            }
+        if isinstance(type, ResourceStrType):
+            result = {
+                "name": "resource",
+                "resource_extension": type.extension
+            }
+        if isinstance(type, EntityStrType):
+            result = {
+                "name": "resource",
+                "entity_type": type.entity_type
+            }
+        if isinstance(type, ExistentialType):
+            raise RuntimeError("Cannot serialize existential type")
 
         return result
 

@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Dict, List, Optional, Union
 import os
 
 from .error import GrugError, SourceSpan
@@ -18,36 +18,27 @@ from .parser import (
     OnFn,
     ParenthesizedExpr,
     Parameter,
-    Parser,
     ResourceExpr,
     ReturnStatement,
     Statement,
     StringExpr,
     Type,
+    PrimitiveType,
+	IdType,
+	EntityStrType,
+	ResourceStrType,
     UnaryExpr,
     VariableStatement,
     WhileStatement,
 )
 from .tokenizer import TokenType
+from .mod_api import ModApi
 
 
 @dataclass
 class Variable:
     name: str
-    type: Optional[Type]
-    type_name: Optional[str]
-
-
-@dataclass
-class GameFn:
-    fn_name: str
-    parameters: List[Parameter] = field(default_factory=lambda: [])  # pragma: no cover
-    return_type: Optional[Type] = None
-    return_type_name: Optional[str] = None
-
-
-ModApi = Dict[str, Dict[str, Any]]
-
+    type: Type
 
 class TypePropagator:
     def __init__(
@@ -75,49 +66,14 @@ class TypePropagator:
         self.helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
 
         self.fn_return_type = None
-        self.fn_return_type_name = None
-        self.filled_fn_name = None
+        self.filled_fn_name: Optional[str] = None
 
         self.local_variables: Dict[str, Variable] = {}
         self.global_variables: Dict[str, Variable] = {}
 
-        def parse_params(lst: List[Any]):
-            return [
-                Parameter(
-                    obj["name"],
-                    Parser.parse_type(obj["type"]),
-                    obj["type"],
-                    SourceSpan(0, 0),
-                    SourceSpan(0, 0),
-                    obj.get("resource_extension"),
-                    obj.get("entity_type"),
-                )
-                for obj in lst
-            ]
-
-        def parse_host_fn(fn_name: str, fn: Dict[str, Any]):
-            return GameFn(
-                fn_name,
-                parse_params(fn.get("parameters", [])),
-                Parser.parse_type(fn["return_type"]) if "return_type" in fn else None,
-                fn.get("return_type", None),
-            )
-
-        self.host_functions = {
-            fn_name: parse_host_fn(fn_name, fn)
-            for fn_name, fn in mod_api["host_functions"].items()
-        }
-        self.classes = {
-            class_name: {
-                method_name: parse_host_fn(method_name, method_items)
-                for method_name, method_items in cast(Dict[str, Any], class_items)["methods"].items()
-            }
-            for class_name, class_items in mod_api["classes"].items()
-        }
-
         self.entity_on_functions = {
-            values["name"]: values
-            for values in mod_api["entities"][entity_type].get("export_functions", [])
+            name: export_fn
+            for (name, export_fn) in mod_api.entities[entity_type].export_fns
         }
 
     def new_error(self, err_span: SourceSpan, error_message: str) -> GrugError:
@@ -130,14 +86,14 @@ class TypePropagator:
         )
 
     def add_global_variable(
-        self, name: str, var_type: Type, type_name: str, span: SourceSpan
+        self, name: str, var_type: Type, span: SourceSpan
     ):
         if name in self.global_variables:
             raise self.new_error(
                 span, f"The global variable '{name}' shadows an earlier global variable"
             )
 
-        var = Variable(name, var_type, type_name)
+        var = Variable(name, var_type)
         self.global_variables[name] = var
 
     def get_variable(self, name: str):
@@ -148,7 +104,7 @@ class TypePropagator:
         return None
 
     def add_local_variable(
-        self, name: str, var_type: Type, type_name: str, span: SourceSpan
+        self, name: str, var_type: Type, span: SourceSpan
     ):
         if name in self.local_variables:
             raise self.new_error(
@@ -160,23 +116,8 @@ class TypePropagator:
                 span, f"The local variable '{name}' shadows an earlier global variable"
             )
 
-        var = Variable(name, var_type, type_name)
+        var = Variable(name, var_type)
         self.local_variables[name] = var
-
-    def are_incompatible_types(
-        self,
-        first_type: Optional[Type],
-        first_type_name: Optional[str],
-        second_type: Optional[Type],
-        second_type_name: Optional[str],
-    ):
-        if first_type != second_type:
-            return True
-        if (
-            first_type_name == "id" and second_type == Type.ID
-        ) or first_type_name == second_type_name:
-            return False
-        return True
 
     def validate_entity_string(self, string: str, span: SourceSpan):
         if not string:
@@ -299,22 +240,21 @@ class TypePropagator:
         if len(args) < len(params):
             raise self.new_error(
                 call_expr.name_span,
-                f"Function call '{fn_name}' expected the argument '{params[len(args)].name}' with type {params[len(args)].type_name}",
+                f"Function call '{fn_name}' expected the argument '{params[len(args)].name}' with type {params[len(args)].type}",
             )
 
         if len(args) > len(params):
             raise self.new_error(
-                call_expr.arguments[len(params)].expr_span,
-                f"Function call '{fn_name}' got an unexpected extra argument with type {call_expr.arguments[len(params)].result.type_name}",
+                call_expr.arguments[len(params)].expr_span, f"Function call '{fn_name}' got an unexpected extra argument with type {call_expr.arguments[len(params)].result}",
             )
 
         for arg, param in zip(args, params):
-            if isinstance(arg, StringExpr) and param.type == Type.ENTITY:
+            if isinstance(arg, StringExpr) and isinstance(param.type, EntityStrType):
                 raise self.new_error(
                     arg.expr_span,
                     f"The host function '{fn_name}' expects an entity string, so put an 'e' in front of string \"{arg.string}\"",
                 )
-            elif isinstance(arg, StringExpr) and param.type == Type.RESOURCE:
+            if isinstance(arg, StringExpr) and isinstance(param.type, ResourceStrType):
                 raise self.new_error(
                     arg.expr_span,
                     f"The host function '{fn_name}' expects a resource string, so put an 'r' in front of string \"{arg.string}\"",
@@ -323,22 +263,22 @@ class TypePropagator:
             if isinstance(arg, EntityExpr):
                 self.validate_entity_string(arg.string, arg.expr_span)
             elif isinstance(arg, ResourceExpr):
+                param_type = param.type
+                assert(isinstance(param_type, ResourceStrType))
                 self.validate_resource_string(
-                    arg.string, param.resource_extension, arg.expr_span
+                    arg.string, param_type.extension, arg.expr_span
                 )
 
-            if not arg.result.type:
+            if not arg.result:
                 raise self.new_error(
                     arg.expr_span,
-                    f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got a function call that doesn't return anything",
+                    f"Function call '{fn_name}' expected the type {param.type} for argument '{param.name}', but got a function call that doesn't return anything",
                 )
 
-            if self.are_incompatible_types(
-                param.type, param.type_name, arg.result.type, arg.result.type_name
-            ):
+            if param.type != arg.result:
                 raise self.new_error(
                     arg.expr_span,
-                    f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got {arg.result.type_name}",
+                    f"Function call '{fn_name}' expected the type {param.type} for argument '{param.name}', but got {arg.result}",
                 )
 
     def fill_call_expr(self, expr: CallExpr):
@@ -351,17 +291,15 @@ class TypePropagator:
         # Check if it's a helper function
         if fn_name in self.helper_fns:
             helper_fn = self.helper_fns[fn_name]
-            expr.result.type = helper_fn.return_type
-            expr.result.type_name = helper_fn.return_type_name
+            expr.result = helper_fn.return_type
             self.check_arguments(helper_fn.parameters, expr)
             return
 
         # Check if it's a game function
-        if fn_name in self.host_functions:
-            game_fn = self.host_functions[fn_name]
-            expr.result.type = game_fn.return_type
-            expr.result.type_name = game_fn.return_type_name
-            self.check_arguments(game_fn.parameters, expr)
+        if fn_name in self.mod_api.host_fns:
+            host_fn = self.mod_api.host_fns[fn_name]
+            expr.result = host_fn.return_type
+            self.check_arguments(host_fn.parameters, expr)
             return
 
         if fn_name.startswith("_"):
@@ -397,33 +335,32 @@ class TypePropagator:
                 )
 
         self.fill_expr(expr.receiver)
-        if expr.receiver.result.type == Type.ID:
-            receiver_type_name = expr.receiver.result.type_name
+        if isinstance(expr.receiver.result, IdType):
+            receiver_type = expr.receiver.result
         else:
             raise self.new_error(
                 expr.expr_span,
-                f"Cannot call method on '{expr.receiver.result.type_name}' type",
+                f"Cannot call method on '{expr.receiver.result}' type",
             )
 
         for arg in expr.arguments:
             self.fill_expr(arg)
 
-        if receiver_type_name in self.classes:
-            available_methods = self.classes[receiver_type_name]
+        if receiver_type in self.mod_api.classes:
+            available_methods = self.mod_api.classes[receiver_type.name].methods
             if expr.fn_name not in available_methods:
                 raise self.new_error(
                     expr.expr_span,
-                    f"Cannot find method '{expr.fn_name}' on type '{receiver_type_name}'",
+                    f"Cannot find method '{expr.fn_name}' on type '{receiver_type}'",
                 )
             method = available_methods[expr.fn_name]
             self.check_arguments(method.parameters, expr)
-            expr.result.type = method.return_type
-            expr.result.type_name = method.return_type_name
+            expr.result = method.return_type
             return
         else:
             raise self.new_error(
                 expr.expr_span,
-                f"Type '{receiver_type_name}' does not have any methods",
+                f"Type '{receiver_type}' does not have any methods",
             )
 
     def fill_binary_expr(self, expr: Union[BinaryExpr, LogicalExpr]):
@@ -435,39 +372,35 @@ class TypePropagator:
 
         op = expr.operator
 
-        if left.result.type == Type.STRING and right.result.type == Type.STRING:
+        if left.result == PrimitiveType.STRING and right.result == PrimitiveType.STRING:
             if op not in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
-                if op == TokenType.PLUS_TOKEN and right.result.type == Type.STRING:
+                if op == TokenType.PLUS_TOKEN and right.result == PrimitiveType.STRING:
                     raise self.new_error(expr.op_span, "cannot add strings with '+'")
                 raise self.new_error(
                     expr.op_span, f"You can't use the {op} operator on strings"
                 )
 
-        is_id = left.result.type_name == "id" or right.result.type_name == "id"
-        if not is_id and left.result.type_name != right.result.type_name:
+        if left.result != right.result:
             raise self.new_error(
                 expr.op_span,
-                f"The left and right operand of a binary expression ({op}) must have the same type, but got {left.result.type_name} and {right.result.type_name}",
+                f"The left and right operand of a binary expression ({op}) must have the same type, but got {left.result} and {right.result}",
             )
 
         if op in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
-            expr.result.type = Type.BOOL
-            expr.result.type_name = "bool"
+            expr.result = PrimitiveType.BOOL
         elif op in (
             TokenType.GREATER_OR_EQUAL_TOKEN,
             TokenType.GREATER_TOKEN,
             TokenType.LESS_OR_EQUAL_TOKEN,
             TokenType.LESS_TOKEN,
         ):
-            if left.result.type != Type.NUMBER:
+            if left.result != PrimitiveType.NUMBER:
                 raise self.new_error(expr.op_span, f"{op} operator expects number")
-            expr.result.type = Type.BOOL
-            expr.result.type_name = "bool"
+            expr.result = PrimitiveType.BOOL
         elif op in (TokenType.AND_TOKEN, TokenType.OR_TOKEN):
-            if left.result.type != Type.BOOL:
+            if left.result != PrimitiveType.BOOL:
                 raise self.new_error(expr.op_span, f"{op} operator expects bool")
-            expr.result.type = Type.BOOL
-            expr.result.type_name = "bool"
+            expr.result = PrimitiveType.BOOL
         else:
             assert op in (
                 TokenType.PLUS_TOKEN,
@@ -476,10 +409,9 @@ class TypePropagator:
                 TokenType.DIVISION_TOKEN,
             )
 
-            if left.result.type != Type.NUMBER:
+            if left.result != PrimitiveType.NUMBER:
                 raise self.new_error(expr.op_span, f"{op} operator expects number")
-            expr.result.type = left.result.type
-            expr.result.type_name = left.result.type_name
+            expr.result = PrimitiveType.NUMBER
 
     def fill_expr(self, expr: Expr):
         if isinstance(expr, IdentifierExpr):
@@ -488,8 +420,7 @@ class TypePropagator:
                 raise self.new_error(
                     expr.expr_span, f"The variable '{expr.name}' does not exist"
                 )
-            expr.result.type = var.type
-            expr.result.type_name = var.type_name
+            expr.result = var.type
         elif isinstance(expr, UnaryExpr):
             op = expr.operator
             inner = expr.expr
@@ -502,21 +433,20 @@ class TypePropagator:
                 )
 
             self.fill_expr(inner)
-            expr.result.type = inner.result.type
-            expr.result.type_name = inner.result.type_name
+            expr.result = inner.result
 
             if op == TokenType.NOT_TOKEN:
-                if expr.result.type != Type.BOOL:
+                if expr.result != PrimitiveType.BOOL:
                     raise self.new_error(
                         expr.op_span,
-                        f"Found 'not' before {expr.result.type_name}, but it can only be put before a bool",
+                        f"Found 'not' before {expr.result}, but it can only be put before a bool",
                     )
             else:
                 assert op == TokenType.MINUS_TOKEN
-                if expr.result.type != Type.NUMBER:
+                if expr.result != PrimitiveType.NUMBER:
                     raise self.new_error(
                         expr.op_span,
-                        f"Found '-' before {expr.result.type_name}, but it can only be put before a number",
+                        f"Found '-' before {expr.result}, but it can only be put before a number",
                     )
         elif isinstance(expr, (BinaryExpr, LogicalExpr)):
             self.fill_binary_expr(expr)
@@ -527,8 +457,7 @@ class TypePropagator:
                 self.fill_method_expr(expr)
         elif isinstance(expr, ParenthesizedExpr):
             self.fill_expr(expr.expr)
-            expr.result.type = expr.expr.result.type
-            expr.result.type_name = expr.expr.result.type_name
+            expr.result = expr.expr.result
 
     def fill_variable_statement(self, stmt: VariableStatement):
         # This call has to happen before the `add_local_variable()` we do below,
@@ -538,21 +467,14 @@ class TypePropagator:
         var = self.get_variable(stmt.name)
 
         if stmt.type:
-            assert stmt.type_name
-
-            if self.are_incompatible_types(
-                stmt.type,
-                stmt.type_name,
-                stmt.expr.result.type,
-                stmt.expr.result.type_name,
-            ):
+            if stmt.type != stmt.expr.result:
                 raise self.new_error(
                     stmt.expr.expr_span,
-                    f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}",
+                    f"Can't assign {stmt.expr.result} to '{stmt.name}', which has type {stmt.type}",
                 )
 
             self.add_local_variable(
-                stmt.name, stmt.type, stmt.type_name, stmt.name_span
+                stmt.name, stmt.type, stmt.name_span
             )
         else:
             if not var:
@@ -561,20 +483,15 @@ class TypePropagator:
                     f"Can't assign to the variable '{stmt.name}', since it does not exist",
                 )
 
-            if stmt.name in self.global_variables and var.type == Type.ID:
+            if stmt.name in self.global_variables and isinstance(var.type, IdType):
                 raise self.new_error(
                     stmt.expr.expr_span, "Global id variables can't be reassigned"
                 )
 
-            if self.are_incompatible_types(
-                var.type,
-                var.type_name,
-                stmt.expr.result.type,
-                stmt.expr.result.type_name,
-            ):
+            if var.type != stmt.expr.result:
                 raise self.new_error(
                     stmt.expr.expr_span,
-                    f"Can't assign {stmt.expr.result.type_name} to '{var.name}', which has type {var.type_name}",
+                    f"Can't assign {stmt.expr.result} to '{var.name}', which has type {var.type}",
                 )
 
     def remove_local_variables_in_statements(self, statements: List[Statement]):
@@ -598,10 +515,10 @@ class TypePropagator:
             elif isinstance(stmt, IfStatement):
                 while True:
                     self.fill_expr(stmt.condition)
-                    if stmt.condition.result.type != Type.BOOL:
+                    if stmt.condition.result != PrimitiveType.BOOL:
                         raise self.new_error(
                             stmt.condition.expr_span,
-                            f"If condition must be bool but got '{stmt.condition.result.type_name}'",
+                            f"If condition must be bool but got '{stmt.condition.result}'",
                         )
                     self.fill_statements(stmt.if_body)
                     if len(stmt.else_body) == 1 and isinstance(
@@ -621,27 +538,22 @@ class TypePropagator:
                             f"Function '{self.filled_fn_name}' wasn't supposed to return any value",
                         )
 
-                    if self.are_incompatible_types(
-                        self.fn_return_type,
-                        self.fn_return_type_name,
-                        stmt.value.result.type,
-                        stmt.value.result.type_name,
-                    ):
+                    if self.fn_return_type != stmt.value.result:
                         raise self.new_error(
                             stmt.value.expr_span,
-                            f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name}, not {stmt.value.result.type_name}",
+                            f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type}, not {stmt.value.result}",
                         )
                 elif self.fn_return_type:
                     raise self.new_error(
                         stmt.return_span,
-                        f"Function '{self.filled_fn_name}' is supposed to return a value of type {self.fn_return_type_name}",
+                        f"Function '{self.filled_fn_name}' is supposed to return a value of type {self.fn_return_type}",
                     )
             elif isinstance(stmt, WhileStatement):
                 self.fill_expr(stmt.condition)
-                if stmt.condition.result.type != Type.BOOL:
+                if stmt.condition.result != PrimitiveType.BOOL:
                     raise self.new_error(
                         stmt.condition.expr_span,
-                        f"While condition must be bool but got '{stmt.condition.result.type_name}'",
+                        f"While condition must be bool but got '{stmt.condition.result}'",
                     )
                 self.fill_statements(stmt.body_statements)
 
@@ -651,12 +563,11 @@ class TypePropagator:
         self.local_variables = {}
 
         for param in parameters:
-            self.add_local_variable(param.name, param.type, param.type_name, param.name_span)
+            self.add_local_variable(param.name, param.type, param.name_span)
 
     def fill_helper_fns(self):
         for fn_name, fn in self.helper_fns.items():
             self.fn_return_type = fn.return_type
-            self.fn_return_type_name = fn.return_type_name
             self.filled_fn_name = fn_name
 
             self.add_parameter_variables(fn.parameters)
@@ -670,7 +581,7 @@ class TypePropagator:
                 if not isinstance(fn.body_statements[-1], ReturnStatement):
                     raise self.new_error(
                         fn.span,
-                        f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type_name} as its last line",
+                        f"Function '{self.filled_fn_name}' is supposed to return {self.fn_return_type} as its last line",
                     )
 
     def fill_on_fns(self):
@@ -705,34 +616,33 @@ class TypePropagator:
             previous_on_fn_index = current_parser_index
 
             self.fn_return_type = None
-            self.fn_return_type_name = None
             self.filled_fn_name = expected_fn_name
 
-            params = self.entity_on_functions[expected_fn_name].get("parameters", [])
+            params = self.entity_on_functions[expected_fn_name].parameters
 
             if len(fn.parameters) != len(params):
                 if len(fn.parameters) < len(params):
                     raise self.new_error(
                         fn.span,
-                        f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.parameters)]['name']}' with type {params[len(fn.parameters)]['type']}",
+                        f"Function '{expected_fn_name}' expected the parameter '{params[len(fn.parameters)].name}' with type {params[len(fn.parameters)].type}",
                     )
                 else:
                     raise self.new_error(
                         fn.parameters[len(params)].name_span,
-                        f"Function '{expected_fn_name}' got an unexpected extra parameter '{fn.parameters[len(params)].name}' with type {fn.parameters[len(params)].type_name}",
+                        f"Function '{expected_fn_name}' got an unexpected extra parameter '{fn.parameters[len(params)].name}' with type {fn.parameters[len(params)].type}",
                     )
 
             for arg, param in zip(fn.parameters, params):
-                if arg.name != param["name"]:
+                if arg.name != param.name:
                     raise self.new_error(
                         arg.name_span,
-                        f"Function '{expected_fn_name}' its '{arg.name}' parameter was supposed to be named '{param['name']}'",
+                        f"Function '{expected_fn_name}' its '{arg.name}' parameter was supposed to be named '{param.name}'",
                     )
 
-                if arg.type_name != param["type"]:
+                if arg.type != param.type:
                     raise self.new_error(
                         arg.type_span,
-                        f"Function '{expected_fn_name}' its '{param['name']}' parameter was supposed to have the type {param['type']}, but got {arg.type_name}",
+                        f"Function '{expected_fn_name}' its '{param.name}' parameter was supposed to have the type {param.type}, but got {arg.type}",
                     )
 
             self.add_parameter_variables(fn.parameters)
@@ -758,14 +668,13 @@ class TypePropagator:
 
     def fill_global_variables(self):
         # Add the implicit 'me' variable
-        self.global_variables["me"] = Variable("me", Type.ID, self.file_entity_type)
+        self.global_variables["me"] = Variable("me", IdType(self.file_entity_type))
 
         # Process global variable statements
         for stmt in self.ast:
             if isinstance(stmt, VariableStatement):
                 # Global variables are guaranteed to be initialized
                 assert stmt.type
-                assert stmt.type_name
                 assert stmt.expr
 
                 self.check_global_expr(stmt.expr, stmt.name)
@@ -779,19 +688,14 @@ class TypePropagator:
                             "Global variables can't be assigned 'me'",
                         )
 
-                if self.are_incompatible_types(
-                    stmt.type,
-                    stmt.type_name,
-                    stmt.expr.result.type,
-                    stmt.expr.result.type_name,
-                ):
+                if stmt.type != stmt.expr.result:
                     raise self.new_error(
                         stmt.expr.expr_span,
-                        f"Can't assign {stmt.expr.result.type_name} to '{stmt.name}', which has type {stmt.type_name}",
+                        f"Can't assign {stmt.expr.result} to '{stmt.name}', which has type {stmt.type}",
                     )
 
                 self.add_global_variable(
-                    stmt.name, stmt.type, stmt.type_name, stmt.name_span
+                    stmt.name, stmt.type, stmt.name_span
                 )
 
     def fill(self):

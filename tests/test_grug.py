@@ -11,6 +11,7 @@ import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
 from grug.grug_value import GrugValue
+from grug.parser import Type, PrimitiveType
 
 
 class GrugValueUnion(ctypes.Union):
@@ -41,12 +42,12 @@ class GrugValueWorkaround(ctypes.Structure):
     _fields_ = [("_blob", ctypes.c_uint64)]
 
 
-def c_to_py_value(value: GrugValueUnion, typ: Union[str, None]):
-    if typ == "number":
+def c_to_py_value(value: GrugValueUnion, typ: Type):
+    if typ == PrimitiveType.NUMBER:
         return float(value._number)
-    if typ == "bool":
+    if typ == PrimitiveType.BOOL:
         return bool(value._bool)
-    if typ == "string":
+    if typ == PrimitiveType.STRING:
         return ctypes.string_at(value._string).decode()
     return int(value._id)
 
@@ -261,8 +262,8 @@ def test_grug(
 
             assert len(on_fn_decl.parameters) == args_len
             args = [
-                c_to_py_value(arg, argument.type_name)
-                for arg, argument in zip(c_args or [], on_fn_decl.parameters)
+                c_to_py_value(arg, param.type)
+                for arg, param in zip(c_args or [], on_fn_decl.parameters)
             ]
 
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
@@ -491,7 +492,7 @@ class GameFnRegistrator:
         return c_args, keepalive
 
     def _unpack_workaround(
-        self, c_workaround: GrugValueWorkaround, return_type: Union[str, None]
+        self, c_workaround: GrugValueWorkaround, return_type: Type
     ) -> GrugValue:
         """
         Creates a GrugValueUnion, and copies the bits from GrugValueWorkaround into it.
@@ -533,7 +534,7 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api["host_functions"][name].get("return_type")
+        return_type = self.state.mod_api.host_fns[name].return_type
 
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
@@ -560,9 +561,7 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api["classes"][class_name]["methods"][name].get(
-            "return_type"
-        )
+        return_type = self.state.mod_api.classes[class_name].methods[name].return_type
 
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)

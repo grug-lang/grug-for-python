@@ -2,57 +2,20 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .error import GrugError, SourceSpan
 from .grug_value import HostFn
 
-class PrimitiveType(Enum):
-    VOID = auto()
-    BOOL = auto()
-    NUMBER = auto()
-    STRING = auto()
-
-@dataclass(frozen=True)
-class ExistentialType:
-    idx: int
-
-@dataclass(frozen=True)
-class IdType:
-    name: str
-    generics: List[Type] = field(default_factory=lambda: [])
-
-@dataclass(frozen=True)
-class ResourceStrType:
-    extension: str
-
-@dataclass(frozen=True)
-class EntityStrType:
-    entity_type: Optional[str]
-
-Type = Union[
-    PrimitiveType, 
-    IdType, 
-    ResourceStrType, 
-    EntityStrType, 
-    ExistentialType
-]
-
-@dataclass(frozen=True)
-class Parameter:
-    name: str
-    type: Type
-    name_span: SourceSpan
-    type_span: SourceSpan
+from .parser import Type, Parameter, PrimitiveType, ResourceStrType, EntityStrType, IdType, ExistentialType
 
 @dataclass
 class ModApiHostFn:
     description: str
     parameters: List[Parameter]
     generics: List[str]
-    return_type: Type = PrimitiveType.VOID
+    return_type: Type
     fn_ptr: Optional[HostFn] = None
 
 @dataclass
@@ -70,7 +33,6 @@ class ModApiEntity:
             if fn_name == name:
                 return index, export_fn
         return None
-
 
 @dataclass
 class ModApiClass:
