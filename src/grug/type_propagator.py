@@ -269,7 +269,7 @@ class TypePropagator:
                     arg.string, param_type.extension, arg.expr_span
                 )
 
-            if not arg.result:
+            if arg.result == PrimitiveType.VOID:
                 raise self.new_error(
                     arg.expr_span,
                     f"Function call '{fn_name}' expected the type {param.type} for argument '{param.name}', but got a function call that doesn't return anything",
@@ -346,7 +346,7 @@ class TypePropagator:
         for arg in expr.arguments:
             self.fill_expr(arg)
 
-        if receiver_type in self.mod_api.classes:
+        if receiver_type.name in self.mod_api.classes:
             available_methods = self.mod_api.classes[receiver_type.name].methods
             if expr.fn_name not in available_methods:
                 raise self.new_error(
@@ -395,11 +395,11 @@ class TypePropagator:
             TokenType.LESS_TOKEN,
         ):
             if left.result != PrimitiveType.NUMBER:
-                raise self.new_error(expr.op_span, f"{op} operator expects number")
+                raise self.new_error(expr.op_span, f"{op} operator expects number but got {left.result}")
             expr.result = PrimitiveType.BOOL
         elif op in (TokenType.AND_TOKEN, TokenType.OR_TOKEN):
             if left.result != PrimitiveType.BOOL:
-                raise self.new_error(expr.op_span, f"{op} operator expects bool")
+                raise self.new_error(expr.op_span, f"{op} operator expects bool but got {left.result}")
             expr.result = PrimitiveType.BOOL
         else:
             assert op in (
@@ -410,7 +410,7 @@ class TypePropagator:
             )
 
             if left.result != PrimitiveType.NUMBER:
-                raise self.new_error(expr.op_span, f"{op} operator expects number")
+                raise self.new_error(expr.op_span, f"{op} operator expects number but got {left.result}")
             expr.result = PrimitiveType.NUMBER
 
     def fill_expr(self, expr: Expr):
@@ -532,10 +532,10 @@ class TypePropagator:
                 if stmt.value:
                     self.fill_expr(stmt.value)
 
-                    if not self.fn_return_type:
+                    if self.fn_return_type == PrimitiveType.VOID:
                         raise self.new_error(
                             stmt.value.expr_span,
-                            f"Function '{self.filled_fn_name}' wasn't supposed to return any value",
+                            f"Function '{self.filled_fn_name}' wasn't supposed to return any value but it returned {stmt.value.result}",
                         )
 
                     if self.fn_return_type != stmt.value.result:
@@ -615,7 +615,7 @@ class TypePropagator:
                 )
             previous_on_fn_index = current_parser_index
 
-            self.fn_return_type = None
+            self.fn_return_type = PrimitiveType.VOID
             self.filled_fn_name = expected_fn_name
 
             params = self.entity_on_functions[expected_fn_name].parameters
