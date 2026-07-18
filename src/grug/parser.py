@@ -46,7 +46,7 @@ class IdType:
     def __str__(self):
         if len(self.generics) != 0:
             generics = ", ".join(f"{generic}" for generic in self.generics)
-            return f"{self.name}[{generics}"
+            return f"{self.name}[{generics}]"
         return self.name
 
 @dataclass(frozen=True)
@@ -308,14 +308,23 @@ class Parser:
         )
 
     @staticmethod
-    def type_contains_entity_or_resource(typ: Type) -> bool:
+    def type_contains_entity(typ: Type) -> bool:
         if isinstance(typ, EntityStrType):
             return True
+        if isinstance(typ, IdType):
+            for generic_type in typ.generics:
+                if Parser.type_contains_entity(generic_type):
+                    return True
+            return False
+        return False
+
+    @staticmethod
+    def type_contains_resource(typ: Type) -> bool:
         if isinstance(typ, ResourceStrType):
             return True
         if isinstance(typ, IdType):
             for generic_type in typ.generics:
-                if Parser.type_contains_entity_or_resource(generic_type):
+                if Parser.type_contains_resource(generic_type):
                     return True
             return False
         return False
@@ -615,10 +624,16 @@ class Parser:
 
         param_type, type_span = self.parse_type(i)
 
-        if Parser.type_contains_entity_or_resource(param_type):
+        if Parser.type_contains_entity(param_type):
             raise self.new_error(
                 type_span,
-                f"The argument '{param_name}' can't contain '{param_type}' in its type"
+                f"The argument '{param_name}' can't contain 'entity' in its type"
+            )
+
+        if Parser.type_contains_resource(param_type):
+            raise self.new_error(
+                type_span,
+                f"The argument '{param_name}' can't contain 'resource' in its type"
             )
 
         parameters.append(
@@ -648,10 +663,15 @@ class Parser:
 
             param_type, type_span = self.parse_type(i)
 
-            if Parser.type_contains_entity_or_resource(param_type):
+            if Parser.type_contains_entity(param_type):
                 raise self.new_error(
                     type_span,
-                    f"The argument '{param_name}' can't contain '{param_type}' in its type"
+                    f"The argument '{param_name}' can't contain 'entity' in its type"
+                )
+            if Parser.type_contains_resource(param_type):
+                raise self.new_error(
+                    type_span,
+                    f"The argument '{param_name}' can't contain 'resource' in its type"
                 )
 
             parameters.append(
@@ -702,10 +722,16 @@ class Parser:
             i[0] += 1
             fn.return_type, type_span = self.parse_type(i)
 
-            if Parser.type_contains_entity_or_resource(fn.return_type):
+
+            if Parser.type_contains_entity(fn.return_type):
                 raise self.new_error(
                     type_span,
-                    f"The function '{fn.fn_name}' can't contain '{fn.return_type}' in its return type"
+                    f"The function '{fn.fn_name}' can't contain 'entity' in its return type"
+                )
+            if Parser.type_contains_resource(fn.return_type):
+                raise self.new_error(
+                    type_span,
+                    f"The function '{fn.fn_name}' can't contain 'resource' in its return type"
                 )
 
         self.indentation = 0
@@ -885,10 +911,15 @@ class Parser:
 
             var_type, type_span = self.parse_type(i)
 
-            if Parser.type_contains_entity_or_resource(var_type):
+            if Parser.type_contains_resource(var_type):
                 raise self.new_error(
                     type_span,
-                    f"The variable '{var_name}' can't contain '{var_type}' in its type"
+                    f"The variable '{var_name}' can't contain 'resource' in its type"
+                )
+            if Parser.type_contains_entity(var_type):
+                raise self.new_error(
+                    type_span,
+                    f"The variable '{var_name}' can't contain 'entity' in its type"
                 )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
@@ -930,10 +961,15 @@ class Parser:
 
         global_type, type_span = self.parse_type(i)
 
-        if Parser.type_contains_entity_or_resource(global_type):
+        if Parser.type_contains_resource(global_type):
             raise self.new_error(
                 type_span,
-                f"The global variable '{global_name}' can't contain '{global_type}' in its type"
+                f"The global variable '{global_name}' can't contain 'resource' in its type"
+            )
+        if Parser.type_contains_entity(global_type):
+            raise self.new_error(
+                type_span,
+                f"The global variable '{global_name}' can't contain 'entity' in its type"
             )
 
         next_token = self.peek_token(i[0])
