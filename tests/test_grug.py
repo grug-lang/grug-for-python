@@ -43,6 +43,8 @@ class GrugValueWorkaround(ctypes.Structure):
 
 
 def c_to_py_value(value: GrugValueUnion, typ: Type):
+    if typ == PrimitiveType.VOID:
+        return None
     if typ == PrimitiveType.NUMBER:
         return float(value._number)
     if typ == PrimitiveType.BOOL:

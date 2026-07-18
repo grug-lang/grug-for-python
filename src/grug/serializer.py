@@ -190,7 +190,7 @@ class Serializer:
                 result["parameters"] = Serializer._serialize_parameters(
                     global_stmt.parameters
                 )
-            if global_stmt.return_type:
+            if global_stmt.return_type != PrimitiveType.VOID:
                 result["return_type"] = Serializer._serialize_type(global_stmt.return_type)
             result["statements"] = [
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements
@@ -368,6 +368,17 @@ class Serializer:
                 apply_indentation()
                 write("}\n")
 
+        def apply_type(typ: Dict[str, Any]) -> None:
+            """Generate code for a statement."""
+            write(typ["name"])
+            if "generics" in typ:
+                write("[")
+                for i, generic in enumerate(typ["generics"]):
+                    apply_type(generic)
+                    if i == len(typ["generics"]) - 1:
+                        write(", ")
+                write("]")
+                        
         def apply_statement(statement: Dict[str, Any]) -> None:
             """Generate code for a statement."""
             stmt_type = statement["type"]
@@ -376,7 +387,8 @@ class Serializer:
                 write(statement["name"])
 
                 if "variable_type" in statement:
-                    write(f': {statement["variable_type"]}')
+                    write(f': ')
+                    apply_type(statement["variable_type"])
 
                 write(" = ")
                 assert "assignment" in statement
@@ -435,7 +447,9 @@ class Serializer:
             for i, param in enumerate(parameters):
                 if i > 0:
                     write(", ")
-                write(f'{param["name"]}: {param["type"]}')
+                write(f'{param["name"]}: ')
+                
+                apply_type(statement["type"])
 
         def apply_local_fn(statement: Dict[str, Any]) -> None:
             """Generate code for a helper function."""
@@ -472,7 +486,9 @@ class Serializer:
 
         def apply_global_variable(statement: Dict[str, Any]) -> None:
             """Generate code for a global variable."""
-            write(f'{statement["name"]}: {statement["variable_type"]} = ')
+            write(f'{statement["name"]}: ')
+            apply_type(statement["variable_type"])
+            write(f' = ')
             apply_expr(statement["assignment"])
             write("\n")
 

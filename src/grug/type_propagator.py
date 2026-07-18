@@ -299,6 +299,7 @@ class TypePropagator:
         if fn_name in self.mod_api.host_fns:
             host_fn = self.mod_api.host_fns[fn_name]
             expr.result = host_fn.return_type
+            expr.fn_ptr = host_fn.fn_ptr
             self.check_arguments(host_fn.parameters, expr)
             return
 
@@ -356,6 +357,7 @@ class TypePropagator:
             method = available_methods[expr.fn_name]
             self.check_arguments(method.parameters, expr)
             expr.result = method.return_type
+            expr.fn_ptr = host_fn.fn_ptr
             return
         else:
             raise self.new_error(
@@ -574,7 +576,7 @@ class TypePropagator:
 
             self.fill_statements(fn.body_statements)
 
-            if fn.return_type:
+            if fn.return_type != PrimitiveType.VOID:
                 # grug doesn't allow empty functions
                 assert fn.body_statements
 
