@@ -307,6 +307,19 @@ class Parser:
             error_message,
         )
 
+    @staticmethod
+    def type_contains_entity_or_resource(typ: Type) -> bool:
+        if isinstance(typ, EntityStrType):
+            return True
+        if isinstance(typ, ResourceStrType):
+            return True
+        if isinstance(typ, IdType):
+            for generic_type in typ.generics:
+                if Parser.type_contains_entity_or_resource(generic_type):
+                    return True
+            return False
+        return False
+
     def token_span(self, token_index: int) -> SourceSpan:
         if token_index < len(self.tokens):
             return self.tokens[token_index].span
@@ -602,10 +615,10 @@ class Parser:
 
         param_type, type_span = self.parse_type(i)
 
-        if isinstance(param_type, (ResourceStrType, EntityStrType)):
+        if Parser.type_contains_entity_or_resource(param_type):
             raise self.new_error(
                 type_span,
-                f"The argument '{param_name}' can't have '{param_type}' as its type"
+                f"The argument '{param_name}' can't contain '{param_type}' in its type"
             )
 
         parameters.append(
@@ -635,10 +648,10 @@ class Parser:
 
             param_type, type_span = self.parse_type(i)
 
-            if isinstance(param_type, (ResourceStrType, EntityStrType)):
+            if Parser.type_contains_entity_or_resource(param_type):
                 raise self.new_error(
                     type_span,
-                    f"The argument '{param_name}' can't have '{param_type}' as its type"
+                    f"The argument '{param_name}' can't contain '{param_type}' in its type"
                 )
 
             parameters.append(
@@ -689,10 +702,10 @@ class Parser:
             i[0] += 1
             fn.return_type, type_span = self.parse_type(i)
 
-            if isinstance(fn.return_type, (ResourceStrType, EntityStrType)):
+            if Parser.type_contains_entity_or_resource(fn.return_type):
                 raise self.new_error(
                     type_span,
-                    f"The function '{fn.fn_name}' can't have '{fn.return_type}' as its return type"
+                    f"The function '{fn.fn_name}' can't contain '{fn.return_type}' in its return type"
                 )
 
         self.indentation = 0
@@ -872,10 +885,10 @@ class Parser:
 
             var_type, type_span = self.parse_type(i)
 
-            if isinstance(var_type, (ResourceStrType, EntityStrType)):
+            if Parser.type_contains_entity_or_resource(var_type):
                 raise self.new_error(
                     type_span,
-                    f"The variable '{var_name}' can't have '{var_type}' as its type"
+                    f"The variable '{var_name}' can't contain '{var_type}' in its type"
                 )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
@@ -917,15 +930,16 @@ class Parser:
 
         global_type, type_span = self.parse_type(i)
 
-        if isinstance(global_type, (ResourceStrType, EntityStrType)):
+        if Parser.type_contains_entity_or_resource(global_type):
             raise self.new_error(
                 type_span,
-                f"The global variable '{global_name}' can't have '{global_type}' as its type"
+                f"The global variable '{global_name}' can't contain '{global_type}' in its type"
             )
 
-        if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
+        next_token = self.peek_token(i[0])
+        if next_token.type != TokenType.SPACE_TOKEN:
             raise self.new_error(
-                type_span,
+                next_token.span,
                 f"The global variable '{global_name}' was not assigned a value"
             )
 
