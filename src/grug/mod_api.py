@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .error import GrugError, SourceSpan
-from .grug_value import HostFn
+from .grug_value import HostFn, HostFnReg
 
 from .parser import Type, Parameter, PrimitiveType, ResourceStrType, EntityStrType, IdType, ExistentialType
 
@@ -17,6 +17,7 @@ class ModApiHostFn:
     generics: List[str]
     return_type: Type
     fn_ptr: Optional[HostFn] = None
+    generic_reg_fn: Optional[HostFnReg] = None
 
 @dataclass
 class ModApiExportFn:
@@ -105,6 +106,53 @@ Error: {message}
             )
 
         host_fn_data.fn_ptr = ptr
+
+    def register_generic_fn(
+        self, class_name: Optional[str], fn_name: str, ptr: HostFnReg
+    ) -> None:
+        if class_name is not None:
+            mod_api_class = self.classes.get(class_name)
+            if mod_api_class is None:
+                raise self.new_registration_error(
+                    f"Class '{class_name}' is not found in mod_api.json"
+                )
+
+            host_fn_data = mod_api_class.methods.get(fn_name)
+            if host_fn_data is None:
+                raise self.new_registration_error(
+                    f"Method {class_name}.{fn_name} is not found in mod_api.json"
+                )
+
+            if len(host_fn_data.generics) == 0:
+                raise self.new_registration_error(
+                    f"Method {class_name}.{fn_name} is not generic"
+                )
+
+            if host_fn_data.generic_reg_fn is not None:
+                raise self.new_registration_error(
+                    f"Method {fn_name}.{class_name} has already been registered"
+                )
+
+            host_fn_data.generic_reg_fn = ptr
+            return
+
+        host_fn_data = self.host_fns.get(fn_name)
+        if host_fn_data is None:
+            raise self.new_registration_error(
+                f"Host function '{fn_name}' is not found in mod_api.json"
+            )
+
+        if len(host_fn_data.generics) == 0:
+            raise self.new_registration_error(
+                f"Host function '{fn_name}' is not generic"
+            )
+
+        if host_fn_data.generic_reg_fn is not None:
+            raise self.new_registration_error(
+                f"Host function '{fn_name}' has already been registered"
+            )
+
+        host_fn_data.generic_reg_fn = ptr
 
 @dataclass
 class ModApiParseContext:
