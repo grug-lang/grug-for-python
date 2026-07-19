@@ -16,6 +16,7 @@ import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
 from grug.grug_value import GrugValue
+from grug.parser import Type, PrimitiveType
 from tests.test_grug import (  
     GrugValueUnion,
     GrugValueWorkaround,

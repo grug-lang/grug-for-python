@@ -449,7 +449,7 @@ class Serializer:
                     write(", ")
                 write(f'{param["name"]}: ')
                 
-                apply_type(statement["type"])
+                apply_type(param["type"])
 
         def apply_local_fn(statement: Dict[str, Any]) -> None:
             """Generate code for a helper function."""
