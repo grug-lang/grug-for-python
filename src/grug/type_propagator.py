@@ -410,7 +410,7 @@ class TypePropagator:
 
     @staticmethod
     def format_type_list(types: List[Type]) -> str:
-        return ", ".join(str(ty) for ty in types)
+        return "[" + ", ".join(str(ty) for ty in types) + "]"
 
     def fill_host_fn_ptr(
         self,
@@ -742,7 +742,7 @@ class TypePropagator:
         var = self.get_variable(stmt.name)
 
         if stmt.type:
-            self.verify_generics(stmt.type, stmt.name_span)
+            self.verify_generics(stmt.type, stmt.type_span)
             try:
                 self.fill_complete_expr(stmt.expr, stmt.type)
             except TypeMismatch as mismatch:
@@ -960,7 +960,7 @@ class TypePropagator:
                 assert stmt.type
                 assert stmt.expr
 
-                self.verify_generics(stmt.type, stmt.name_span)
+                self.verify_generics(stmt.type, stmt.type_span)
                 self.check_global_expr(stmt.expr, stmt.name)
                 try:
                     self.fill_complete_expr(stmt.expr, stmt.type)
