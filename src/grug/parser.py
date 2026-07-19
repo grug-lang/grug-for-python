@@ -194,6 +194,7 @@ class VariableStatement:
     type: Optional[Type]
     expr: Expr
     name_span: SourceSpan
+    type_span: SourceSpan
 
 
 @dataclass
@@ -897,6 +898,7 @@ class Parser:
         var_name = var_token.value
 
         var_type = None
+        type_span = var_token.span
 
         if self.peek_token(i[0]).type == TokenType.COLON_TOKEN:
             i[0] += 1
@@ -944,7 +946,7 @@ class Parser:
 
         expr = self.parse_expression(i)
 
-        return VariableStatement(var_name, var_type, expr, var_token.span)
+        return VariableStatement(var_name, var_type, expr, var_token.span, type_span)
 
     def parse_global_variable(self, i: List[int]):
         name_token = self.consume_token(i)
@@ -986,7 +988,7 @@ class Parser:
         expr = self.parse_expression(i)
 
         return VariableStatement(
-            global_name, global_type, expr, name_token.span
+            global_name, global_type, expr, name_token.span, type_span
         )
 
     def parse_unary(self, i: List[int]):

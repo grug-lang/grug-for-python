@@ -321,11 +321,9 @@ class Entity:
         elif call_expr.receiver:
             receiver = self._run_expr(call_expr.receiver)
             args.insert(0, receiver)
-            assert call_expr.fn_ptr
-            return self._run_host_fn(call_expr.fn_name, call_expr.fn_ptr, call_expr.result, receiver, *args)
-        else:
-            assert call_expr.fn_ptr
-            return self._run_host_fn(call_expr.fn_name, call_expr.fn_ptr, call_expr.result, *args)
+
+        assert call_expr.fn_ptr
+        return self._run_host_fn(call_expr.fn_name, call_expr.fn_ptr, call_expr.result, *args)
 
     def _run_if_statement(self, statement: IfStatement):
         while True:

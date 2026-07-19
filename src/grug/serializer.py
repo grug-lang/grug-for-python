@@ -216,12 +216,11 @@ class Serializer:
         if isinstance(type, PrimitiveType):
             result = {"name": str(type)}
         if isinstance(type, IdType):
-            result = {
-                "name": type.name,
-                "generics": [
-                    Serializer._serialize_type(generic) for generic in type.generics
-                ]
+            result: Dict[str, Any] = {
+                "name": type.name
             }
+            if len(type.generics) != 0:
+                result["generics"] = [Serializer._serialize_type(generic) for generic in type.generics]
         if isinstance(type, ResourceStrType):
             result = {
                 "name": "resource",
@@ -375,7 +374,7 @@ class Serializer:
                 write("[")
                 for i, generic in enumerate(typ["generics"]):
                     apply_type(generic)
-                    if i == len(typ["generics"]) - 1:
+                    if i != len(typ["generics"]) - 1:
                         write(", ")
                 write("]")
                         
@@ -461,7 +460,8 @@ class Serializer:
             write(")")
 
             if "return_type" in statement:
-                write(f' {statement["return_type"]}')
+                write(" ")
+                apply_type(statement["return_type"])
 
             write(" {\n")
 
