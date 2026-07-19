@@ -516,7 +516,7 @@ class GameFnRegistrator:
         self.state = state
         self.grug_lib = grug_lib
         
-        self._keepalive = []
+        self._keepalive: List[bytes] = []
 
     def register_game_fns(self):
         for name in (
@@ -603,8 +603,8 @@ class GameFnRegistrator:
 
         self._register_generic_method("Dict", "put", "dict_put")
 
-    def _get_c_args(self, *args: GrugValue):
-        c_args = (GrugValueUnion * len(args))()
+    def _get_c_args(self, *args: GrugValue) -> Tuple[List[GrugValueUnion], List[bytes]]:
+        c_args: List[GrugValueUnion] = list((GrugValueUnion * len(args))())
         keepalive: List[bytes] = []
 
         for i, v in enumerate(args):
