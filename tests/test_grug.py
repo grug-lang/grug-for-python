@@ -505,7 +505,7 @@ class GameFnRegistrator:
             ctypes.byref(value), ctypes.byref(c_workaround), ctypes.sizeof(value)
         )
         return c_to_py_value(value, return_type)
-
+    
     def _raise_game_fn_error_if_needed(self, state: GrugState):
         global _game_fn_error_reason
 

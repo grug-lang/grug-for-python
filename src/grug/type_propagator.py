@@ -36,7 +36,8 @@ from .parser import (
     WhileStatement,
 )
 from .tokenizer import TokenType
-from .mod_api import ModApi
+from .mod_api import ModApi, ModApiHostFn
+from .grug_value import HostFn
 
 
 @dataclass
@@ -407,6 +408,44 @@ class TypePropagator:
     def convert_mod_api_type(mod_api_type: Type, replacements: List[Type]) -> Type:
         return substitute_type(mod_api_type, replacements)
 
+    @staticmethod
+    def format_type_list(types: List[Type]) -> str:
+        return ", ".join(str(ty) for ty in types)
+
+    def fill_host_fn_ptr(
+        self,
+        host_fn: ModApiHostFn,
+        generics: List[Type],
+        name_span: SourceSpan,
+        function_name: str,
+        method_receiver_name: Optional[str] = None,
+    ) -> Optional[HostFn]:
+        if len(generics) == 0:
+            return host_fn.fn_ptr
+
+        if host_fn.generic_reg_fn is None:
+            if method_receiver_name is None:
+                raise RuntimeError(
+                    f"generic function {function_name} was not registered"
+                )
+            raise RuntimeError(
+                f"generic method {method_receiver_name}.{function_name} was not registered"
+            )
+
+        fn_ptr = host_fn.generic_reg_fn(generics)
+        if fn_ptr is None:
+            type_list = self.format_type_list(generics)
+            if method_receiver_name is None:
+                raise self.new_error(
+                    name_span,
+                    f"generic function '{function_name}' instantiation failed for types {type_list}",
+                )
+            raise self.new_error(
+                name_span,
+                f"generic method {method_receiver_name}.{function_name} instantiation failed for types {type_list}",
+            )
+        return fn_ptr
+
     def fill_complete_expr(self, expr: Expr, expected_type: Optional[Type]) -> Type:
         ty_ctx = TyCtx(self.filled_fn_name or "member scope", self)
         expr_type = self.fill_expr(ty_ctx, None, expr)
@@ -640,7 +679,9 @@ class TypePropagator:
                 ]
                 self.fill_arguments(fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
                 if substitutions is not None:
-                    expr.fn_ptr = host_fn.fn_ptr
+                    expr.fn_ptr = self.fill_host_fn_ptr(
+                        host_fn, generics, expr.name_span, fn_name
+                    )
                 return self.convert_mod_api_type(host_fn.return_type, generics)
 
             if fn_name.startswith("_"):
@@ -692,7 +733,9 @@ class TypePropagator:
 
         self.fill_arguments(expr.fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
         if substitutions is not None:
-            expr.fn_ptr = host_fn.fn_ptr
+            expr.fn_ptr = self.fill_host_fn_ptr(
+                host_fn, generics, expr.name_span, expr.fn_name, receiver_name
+            )
         return self.convert_mod_api_type(host_fn.return_type, generics)
 
     def fill_variable_statement(self, stmt: VariableStatement):

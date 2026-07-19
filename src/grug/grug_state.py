@@ -16,7 +16,7 @@ from typing import (
     Set,
 )
 
-from .grug_value import HostFn
+from .grug_value import HostFn, HostFnReg
 
 from .mod_api import ModApi
 from .error import GrugError
@@ -181,6 +181,14 @@ class GrugState:
     def _register_game_fn(self, name: str, fn: HostFn):
         self.mod_api.register_fn(None, name, fn)
 
+    def generic_game_fn(self, fn: HostFnReg) -> HostFnReg:
+        """Decorator for generic game functions."""
+        self._register_generic_game_fn(fn.__name__, fn)
+        return fn
+
+    def _register_generic_game_fn(self, name: str, fn: HostFnReg):
+        self.mod_api.register_generic_fn(None, name, fn)
+
     def grug_class(self, cls: type) -> type:
         """Decorator for grug classes."""
         for name, fn in vars(cls).items():
@@ -190,6 +198,11 @@ class GrugState:
 
     def _register_method_fn(self, class_name: str, fn_name: str, fn: HostFn):
         self.mod_api.register_fn(class_name, fn_name, fn)
+
+    def _register_generic_method_fn(
+        self, class_name: str, fn_name: str, fn: HostFnReg
+    ):
+        self.mod_api.register_generic_fn(class_name, fn_name, fn)
 
     def _compile_grug_file(self, grug_file_relative_path: str):
         mod = Path(grug_file_relative_path).parts[0]
