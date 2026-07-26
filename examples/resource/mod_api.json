@@ -17,7 +17,10 @@
             "parameters": [
                 {
                     "name": "filename",
-                    "type": {"name": "resource"}
+                    "type": {
+						"name": "resource",
+						"resource_extension": ""
+					}
                 }
             ]
         }

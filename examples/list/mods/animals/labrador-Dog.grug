@@ -1,59 +1,59 @@
 export run() {
-    l: List = list()
+    l: List[number] = list()
 
-    list_number_append(l, 1)
-    list_number_append(l, 2)
-    list_number_append(l, 3)
-    list_number_append(l, 4)
-    _print(l, "[1, 2, 3, 4] at the start:")
+    l.append(1)
+    l.append(2)
+    l.append(3)
+    l.append(4)
+    _print_list(l, "[1, 2, 3, 4] at the start:")
 
-    print_string("4 after len():")
-    print_number(list_len(l))
-    print_string("")
+    _print_number(l.len(), "4 after len():")
 
-    l2: List = list()
-    list_number_append(l2, 5)
-    list_number_append(l2, 6)
-    list_extend(l, l2)
-    _print(l, "[1, 2, 3, 4, 5, 6] after extend([5, 6]):")
+    l2: List[number] = list()
+    l2.append(5)
+    l2.append(6)
+    l.extend(l2)
+    _print_list(l, "[1, 2, 3, 4, 5, 6] after extend([5, 6]):")
 
-    list_number_insert(l, 2, 0)
-    _print(l, "[1, 2, 0, 3, 4, 5, 6] after insert(2, 0):")
+    l.insert(2, 0)
+    _print_list(l, "[1, 2, 0, 3, 4, 5, 6] after insert(2, 0):")
 
-    list_number_remove(l, 3)
-    _print(l, "[1, 2, 0, 4, 5, 6] after remove(3):")
+    l.remove(3)
+    _print_list(l, "[1, 2, 0, 4, 5, 6] after remove(3):")
 
-    x: number = list_number_pop(l)
-    _print(l, "[1, 2, 0, 4, 5] after pop():")
-    y: number = list_number_pop_index(l, 1)
-    _print(l, "[1, 0, 4, 5] after pop(1):")
+    x: number = l.pop()
+    _print_list(l, "[1, 2, 0, 4, 5] after pop():")
+    y: number = l.pop_index(1)
+    _print_list(l, "[1, 0, 4, 5] after pop(1):")
 
-    idx: number = list_number_index(l, 4)
-    print_string("2 after index(4):")
-    print_number(idx)
-    print_string("")
+    idx: number = l.index(4)
+    _print_number(idx, "2 after index(4):")
 
-    list_number_append(l, 4)
-    _print(l, "[1, 0, 4, 5, 4] after append(4):")
-    print_string("2 after count(4):")
-    print_number(list_number_count(l, 4))
-    print_string("")
+    l.append(4)
+    _print_list(l, "[1, 0, 4, 5, 4] after append(4):")
+    _print_number(l.count(4), "2 after count(4):")
 
-    list_sort(l)
-    _print(l, "[0, 1, 4, 4, 5] after sort():")
+    l.sort()
+    _print_list(l, "[0, 1, 4, 4, 5] after sort():")
 
-    list_reverse(l)
-    _print(l, "[5, 4, 4, 1, 0] after reverse():")
+    l.reverse()
+    _print_list(l, "[5, 4, 4, 1, 0] after reverse():")
 
-    l3: List = list_copy(l)
-    _print(l3, "[5, 4, 4, 1, 0] after copy():")
+    l3: List[number] = l.copy()
+    _print_list(l3, "[5, 4, 4, 1, 0] after copy():")
 
-    list_clear(l)
-    _print(l, "[] after clear():")
+    l.clear()
+    _print_list(l, "[] after clear():")
 }
 
-local _print(list: List, label: string) {
-    print_string(label)
-    print_list(list)
-    print_string("")
+local _print_list(list: List[number], label: string) {
+    print(label)
+    print(list)
+    print("")
+}
+
+local _print_number(list: number, label: string) {
+    print(label)
+    print(list)
+    print("")
 }

@@ -299,7 +299,7 @@
 					]
 				},
 				"pop_item": {
-					"description": "Removes a key and value and returns both as a pair, panics if the key does not exist within the dict",
+					"description": "Removes the last inserted key and value and returns both as a pair, panics if the dict is empty",
 					"return_type": {
 						"name": "Pair",
 						"generics": [
@@ -310,15 +310,7 @@
 								"name": "$V"
 							}
 						]
-					},
-					"parameters": [
-						{
-							"name": "key",
-							"type": {
-								"name": "$K"
-							}
-						}
-					]
+					}
 				},
 				"keys": {
 					"description": "Collects all keys in the dict into a list",

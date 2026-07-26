@@ -1,6 +1,6 @@
-l: List = list()
+l: List[number] = list()
 
 export run() {
-    list_number_append(l, 42)
-    print_list(l)
+    l.append(42)
+    print(l)
 }

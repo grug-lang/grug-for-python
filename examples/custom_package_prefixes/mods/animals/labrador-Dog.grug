@@ -1,7 +1,7 @@
 i: number = 0
 
 export tick() {
-    std_print_number(std_ceil(i / 3))
-    std_print_number(exp(i))
+    std_print(std_ceil(i / 3))
+    std_print(exp(i))
     i = i + 1
 }

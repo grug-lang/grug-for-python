@@ -17,7 +17,10 @@
             "parameters": [
                 {
                     "name": "name",
-                    "type": {"name": "entity"}
+                    "type": {
+						"name": "entity",
+						"entity_type": ""
+					}
                 }
             ]
         }

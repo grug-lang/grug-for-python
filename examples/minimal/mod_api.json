@@ -9,7 +9,9 @@
                     "parameters": [
                         {
                             "name": "sound",
-                            "type": {"name": "string"}
+                            "type": {
+                                "name": "string"
+                            }
                         }
                     ]
                 }
@@ -23,7 +25,9 @@
             "parameters": [
                 {
                     "name": "str",
-                    "type": {"name": "string"}
+                    "type": {
+                        "name": "string"
+                    }
                 }
             ]
         }
