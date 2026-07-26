@@ -9,7 +9,7 @@
                     "parameters": [
                         {
                             "name": "sound",
-                            "type": "string"
+                            "type": {"name": "string"}
                         }
                     ]
                 }
@@ -25,7 +25,7 @@
                     "parameters": [
                         {
                             "name": "str",
-                            "type": "string"
+                            "type": {"name": "string"}
                         }
                     ]
                 }
@@ -35,7 +35,7 @@
     "host_functions": {
         "printer": {
             "description": "Creates a Printer.",
-            "return_type": "Printer"
+            "return_type": {"name": "Printer"}
         }
     }
 }

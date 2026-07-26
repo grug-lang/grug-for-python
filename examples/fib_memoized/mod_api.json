@@ -14,33 +14,33 @@
     "host_functions": {
         "dict": {
             "description": "Creates a dict.",
-            "return_type": "Dict"
+            "return_type": {"name": "Dict"}
         },
         "dict_number_has_key": {
             "description": "Returns whether the number key is in the Dict.",
-            "return_type": "bool",
+            "return_type": {"name": "bool"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "dict_number_number_get": {
             "description": "Gets the value for a number key in a Dict. Returns 0 if the key is not present.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -49,32 +49,32 @@
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 },
                 {
                     "name": "value",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "list": {
             "description": "Creates a list.",
-            "return_type": "List"
+            "return_type": {"name": "List"}
         },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -83,7 +83,7 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         }

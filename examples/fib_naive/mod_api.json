@@ -14,18 +14,18 @@
     "host_functions": {
         "list": {
             "description": "Creates a list.",
-            "return_type": "List"
+            "return_type": {"name": "List"}
         },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -34,7 +34,7 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         }

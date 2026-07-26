@@ -300,7 +300,7 @@ class BenchmarkGameFnRegistrator:
             result: GrugValueWorkaround = c_fn(0, c_args)
             return self._unpack_workaround(result, return_type)
 
-        self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
+        self.state._register_host_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
 
 def main() -> None:
     args = parse_args()

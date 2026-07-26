@@ -4,7 +4,7 @@ from grug import GrugState
 state = grug.init()
 
 
-@state.game_fn
+@state.host_fn
 def spawn(state: GrugState, name: str):
     print(name)
 

@@ -14,21 +14,21 @@
     "host_functions": {
         "exp": {
             "description": "Calculate the exponential of n.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "std_ceil": {
             "description": "Ceiling of n, the smallest integer greater than or equal to n.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -37,7 +37,7 @@
             "parameters": [
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         }
