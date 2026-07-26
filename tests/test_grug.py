@@ -682,7 +682,7 @@ class GameFnRegistrator:
 
             return self._unpack_workaround(result, return_type)
 
-        self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
+        self.state._register_host_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
 
     def _register_generic_fn(self, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -724,7 +724,7 @@ class GameFnRegistrator:
 
             return fn
 
-        self.state._register_generic_game_fn(  # pyright: ignore[reportPrivateUsage]
+        self.state._register_generic_fn(  # pyright: ignore[reportPrivateUsage]
             name, register
         )
 

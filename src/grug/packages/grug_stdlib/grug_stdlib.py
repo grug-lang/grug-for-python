@@ -1,5 +1,5 @@
 import math
-from typing import Any, Callable, Dict, List, TypeVar, cast
+from typing import Any, Callable, Dict, List, Tuple, TypeVar, cast
 
 from grug import GrugPackage, GrugState
 from grug.entity import GameFnError
@@ -95,7 +95,7 @@ def dict_get(types: List[Type]) -> HostFn:
     return inner
 
 
-def dict_get_default(types: List[Type]) -> HostFn:
+def dict_get_or_default(types: List[Type]) -> HostFn:
     def inner(
         state: GrugState, d: Dict[object, object], key: object, default: object
     ) -> object:
@@ -104,7 +104,7 @@ def dict_get_default(types: List[Type]) -> HostFn:
     return inner
 
 
-def dict_set_default(types: List[Type]) -> HostFn:
+def dict_set_if_empty(types: List[Type]) -> HostFn:
     def inner(
         state: GrugState, d: Dict[object, object], key: object, val: object
     ) -> bool:
@@ -114,9 +114,6 @@ def dict_set_default(types: List[Type]) -> HostFn:
         return True
 
     return inner
-
-
-dict_set_default.__name__ = "dict_set_if_empty"
 
 
 def dict_pop(types: List[Type]) -> HostFn:
@@ -190,6 +187,22 @@ def dict_pop_item(types: List[Type]) -> HostFn:
         return [k, v]
 
     return inner
+
+
+dict_has_key.__name__ = "has_key"
+dict_set.__name__ = "set"
+dict_set_if_empty.__name__ = "set_if_empty"
+dict_get.__name__ = "get"
+dict_get_or_default.__name__ = "get_or_default"
+dict_clear.__name__ = "clear"
+dict_len.__name__ = "len"
+dict_pop.__name__ = "pop"
+dict_pop_item.__name__ = "pop_item"
+dict_keys.__name__ = "keys"
+dict_values.__name__ = "values"
+dict_items.__name__ = "items"
+dict_update.__name__ = "update"
+dict_copy.__name__ = "copy"
 
 # --------------------
 # List core
@@ -315,6 +328,22 @@ def list_remove(types: List[Type]) -> HostFn:
     return inner
 
 
+list_len.__name__ = "len"
+list_sort.__name__ = "sort"
+list_clear.__name__ = "clear"
+list_copy.__name__ = "copy"
+list_extend.__name__ = "extend"
+list_reverse.__name__ = "reverse"
+list_append.__name__ = "append"
+list_count.__name__ = "count"
+list_has.__name__ = "has"
+list_index.__name__ = "index"
+list_insert.__name__ = "insert"
+list_pop.__name__ = "pop"
+list_pop_index.__name__ = "pop_index"
+list_remove.__name__ = "remove"
+
+
 # --------------------
 # Printing
 # --------------------
@@ -373,40 +402,49 @@ def dict_fns() -> List[HostFnReg]:
     return [
         dict_X,
         dict_fromkeys,
-        dict_has_key,
-        dict_set,
-        dict_set_default,
-        dict_get,
-        dict_get_default,
-        dict_clear,
-        dict_len,
-        dict_pop,
-        dict_pop_item,
-        dict_keys,
-        dict_values,
-        dict_items,
-        dict_update,
-        dict_copy,
+    ]
+
+def dict_methods() -> List[Tuple[str, HostFnReg]]:
+    return [
+        ("Dict", dict_has_key),
+        ("Dict", dict_set),
+        ("Dict", dict_set_if_empty),
+        ("Dict", dict_get),
+        ("Dict", dict_get_or_default),
+        ("Dict", dict_clear),
+        ("Dict", dict_len),
+        ("Dict", dict_pop),
+        ("Dict", dict_pop_item),
+        ("Dict", dict_keys),
+        ("Dict", dict_values),
+        ("Dict", dict_items),
+        ("Dict", dict_update),
+        ("Dict", dict_copy),
     ]
 
 
 def list_fns() -> List[HostFnReg]:
     return [
         list_X,
-        list_len,
-        list_sort,
-        list_clear,
-        list_copy,
-        list_extend,
-        list_reverse,
-        list_append,
-        list_count,
-        list_has,
-        list_index,
-        list_insert,
-        list_pop,
-        list_pop_index,
-        list_remove,
+    ]
+
+
+def list_methods() -> List[Tuple[str, HostFnReg]]:
+    return [
+        ("List", list_len),
+        ("List", list_sort),
+        ("List", list_clear),
+        ("List", list_copy),
+        ("List", list_extend),
+        ("List", list_reverse),
+        ("List", list_append),
+        ("List", list_count),
+        ("List", list_has),
+        ("List", list_index),
+        ("List", list_insert),
+        ("List", list_pop),
+        ("List", list_pop_index),
+        ("List", list_remove),
     ]
 
 
@@ -426,9 +464,13 @@ def get():
 
     generic_fns.extend(dict_fns())
     generic_fns.extend(list_fns())
+    generic_methods = dict_methods()
+    generic_methods.extend(list_methods())
 
-    return GrugPackage(  # pyright: ignore[reportCallIssue]
+    return GrugPackage(
         prefix="",
         host_fns=host_fns,
         generic_fns=generic_fns,
+        methods=[],
+        generic_methods=generic_methods,
     )

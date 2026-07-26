@@ -14,24 +14,24 @@
     "host_functions": {
         "list": {
             "description": "Creates a list.",
-            "return_type": "List"
+            "return_type": {"name": "List"}
         },
         "list_clear": {
             "description": "Remove all numbers from the list.",
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
         "list_copy": {
             "description": "Return a shallow copy of a list.",
-            "return_type": "List",
+            "return_type": {"name": "List"},
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
@@ -40,21 +40,21 @@
             "parameters": [
                 {
                     "name": "list1",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "list2",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
         "list_len": {
             "description": "Returns the length of a list.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
@@ -63,39 +63,39 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "list_number_count": {
             "description": "Return the number of times n appears in the list.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "list_number_index": {
             "description": "Return the zero-based index of the first occurrence of n in the list.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -104,39 +104,39 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "index",
-                    "type": "number"
+                    "type": {"name": "number"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "list_number_pop": {
             "description": "Remove and return the last number in the list.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
         "list_number_pop_index": {
             "description": "Remove and return the number at the given index.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "index",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -145,11 +145,11 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -158,7 +158,7 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
@@ -167,7 +167,7 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
@@ -176,7 +176,7 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
@@ -185,7 +185,7 @@
             "parameters": [
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -194,7 +194,7 @@
             "parameters": [
                 {
                     "name": "str",
-                    "type": "string"
+                    "type": {"name": "string"}
                 }
             ]
         }

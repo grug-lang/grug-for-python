@@ -9,7 +9,7 @@
                     "parameters": [
                         {
                             "name": "sound",
-                            "type": "string"
+                            "type": {"name": "string"}
                         }
                     ]
                 }
@@ -23,7 +23,7 @@
             "parameters": [
                 {
                     "name": "str",
-                    "type": "string"
+                    "type": {"name": "string"}
                 }
             ]
         }

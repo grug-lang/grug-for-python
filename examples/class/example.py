@@ -12,7 +12,7 @@ class Printer:
         print(string)
 
 
-@state.game_fn
+@state.host_fn
 def printer(state: GrugState):
     return 42
 

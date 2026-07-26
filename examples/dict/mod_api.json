@@ -14,114 +14,114 @@
     "host_functions": {
         "dict": {
             "description": "Creates a dict.",
-            "return_type": "Dict"
+            "return_type": {"name": "Dict"}
         },
         "dict_clear": {
             "description": "Removes all items from the Dict.",
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
         "dict_copy": {
             "description": "Returns a shallow copy of the Dict.",
-            "return_type": "Dict",
+            "return_type": {"name": "Dict"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
         "dict_items": {
             "description": "Returns a list of key-value pairs in the Dict, where each pair is a list of [key, value].",
-            "return_type": "List",
+            "return_type": {"name": "List"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
         "dict_keys": {
             "description": "Returns a list of all keys in the Dict.",
-            "return_type": "List",
+            "return_type": {"name": "List"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
         "dict_len": {
             "description": "Returns the length of a dict.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
         "dict_number_fromkeys": {
             "description": "Creates a Dict from a list of number keys, all set to the given value.",
-            "return_type": "Dict",
+            "return_type": {"name": "Dict"},
             "parameters": [
                 {
                     "name": "keys",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "value",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "dict_number_number_get": {
             "description": "Gets the value for a number key in a Dict. Returns 0 if the key is not present.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "dict_number_number_get_default": {
             "description": "Gets the value for a number key in a Dict. This returns the default value if the key is not present.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 },
                 {
                     "name": "default",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "dict_number_number_pop": {
             "description": "Removes and returns the value for a number key in a Dict. Returns 0 if the key is not present.",
-            "return_type": "number",
+            "return_type": {"name": "number"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -130,15 +130,15 @@
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 },
                 {
                     "name": "value",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -147,25 +147,25 @@
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "key",
-                    "type": "number"
+                    "type": {"name": "number"}
                 },
                 {
                     "name": "value",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
         "dict_popitem": {
             "description": "Removes and returns an arbitrary key-value pair from the Dict as a list [key, value].",
-            "return_type": "List",
+            "return_type": {"name": "List"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
@@ -174,38 +174,38 @@
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 },
                 {
                     "name": "other",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
         "dict_values": {
             "description": "Returns a list of all values in the Dict.",
-            "return_type": "List",
+            "return_type": {"name": "List"},
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
         "list": {
             "description": "Creates a list.",
-            "return_type": "List"
+            "return_type": {"name": "List"}
         },
         "list_number_append": {
             "description": "Add a number to the end of the list.",
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 },
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -214,7 +214,7 @@
             "parameters": [
                 {
                     "name": "dict",
-                    "type": "Dict"
+                    "type": {"name": "Dict"}
                 }
             ]
         },
@@ -223,7 +223,7 @@
             "parameters": [
                 {
                     "name": "list",
-                    "type": "List"
+                    "type": {"name": "List"}
                 }
             ]
         },
@@ -232,7 +232,7 @@
             "parameters": [
                 {
                     "name": "n",
-                    "type": "number"
+                    "type": {"name": "number"}
                 }
             ]
         },
@@ -241,7 +241,7 @@
             "parameters": [
                 {
                     "name": "str",
-                    "type": "string"
+                    "type": {"name": "string"}
                 }
             ]
         }

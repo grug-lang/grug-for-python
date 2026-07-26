@@ -5,7 +5,7 @@ from grug.entity import GameFnError
 state = grug.init()
 
 
-@state.game_fn
+@state.host_fn
 def print_string(state: GrugState, string: str):
     if string == "":
         raise GameFnError("print_string() received an empty string")

@@ -4,7 +4,7 @@ from grug.grug_state import GrugState
 state = grug.init()
 
 
-@state.game_fn
+@state.host_fn
 def print_string(state: GrugState, string: str):
     print(string)  # pragma: no cover
 
