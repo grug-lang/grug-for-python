@@ -10,80 +10,525 @@
             ]
         }
     },
-	"classes": {},
+	"classes": {
+		"List": {
+			"description": "An list of values",
+			"used_generics": [
+				"$T"
+			],
+			"methods": {
+				"len": {
+					"description": "Returns the number of elements in the list",
+					"return_type": {
+						"name": "number"
+					}
+				},
+				"sort": {
+					"description": "Sorts the elements in the list"
+				},
+				"clear": {
+					"description": "Empties the list"
+				},
+				"copy": {
+					"description": "Creates a shallow copy of the list",
+					"return_type": {
+						"name": "List",
+						"generics": [
+							{
+								"name": "$T"
+							}
+						]
+					}
+				},
+				"extend": {
+					"description": "Extend one list with another",
+					"parameters": [
+						{
+							"name": "other_list",
+							"type": {
+								"name": "List",
+								"generics": [
+									{
+										"name": "$T"
+									}
+								]
+							}
+						}
+					]
+				},
+				"reverse": {
+					"description": "Reverses a list in place"
+				},
+				"append": {
+					"description": "Add an element to the end of the list",
+					"parameters": [
+						{
+							"name": "item",
+							"type": {
+								"name": "$T"
+							}
+						}
+					]
+				},
+				"count": {
+					"description": "Count the number of occurrances of the input value in the list",
+					"parameters": [
+						{
+							"name": "item",
+							"type": {
+								"name": "$T"
+							}
+						}
+					],
+					"return_type": {
+						"name": "number"
+					}
+				},
+				"has": {
+					"description": "Checks if the list contains the input value",
+					"parameters": [
+						{
+							"name": "item",
+							"type": {
+								"name": "$T"
+							}
+						}
+					],
+					"return_type": {
+						"name": "bool"
+					}
+				},
+				"index": {
+					"description": "Returns the index of the input value within the list, if it exists",
+					"parameters": [
+						{
+							"name": "item",
+							"type": {
+								"name": "$T"
+							}
+						}
+					],
+					"return_type": {
+						"name": "number"
+					}
+				},
+				"insert": {
+					"description": "Inserts a value at a particular index within the list",
+					"parameters": [
+						{
+							"name": "idx",
+							"type": {
+								"name": "number"
+							}
+						},
+						{
+							"name": "item",
+							"type": {
+								"name": "$T"
+							}
+						}
+					]
+				},
+				"pop": {
+					"description": "Removes and returns the last element, if list is not empty",
+					"return_type": {
+						"name": "$T"
+					}
+				},
+				"pop_index": {
+					"description": "Removes and returns the value at a particular index",
+					"parameters": [
+						{
+							"name": "idx",
+							"type": {
+								"name": "number"
+							}
+						}
+					],
+					"return_type": {
+						"name": "$T"
+					}
+				},
+				"remove": {
+					"description": "Removes a particular value from the list",
+					"parameters": [
+						{
+							"name": "value",
+							"type": {
+								"name": "$T"
+							}
+						}
+					]
+				}
+			}
+		},
+		"Pair": {
+			"description": "A pair of two values of different types",
+			"used_generics": [
+				"$T1",
+				"$T2"
+			],
+			"methods": {
+				"first": {
+					"description": "Gets the first item from the pair",
+					"return_type": {
+						"name": "$T1"
+					}
+				},
+				"second": {
+					"description": "Gets the second item from the pair",
+					"return_type": {
+						"name": "$T2"
+					}
+				}
+			}
+		},
+		"Dict": {
+			"description": "A Dictionary from a generic key type to a generic value type",
+			"used_generics": [
+				"$K",
+				"$V"
+			],
+			"methods": {
+				"has_key": {
+					"description": "checks if a particular key is present within the dict",
+					"return_type": {
+						"name": "bool"
+					},
+					"parameters": [
+						{
+							"name": "key",
+							"type": {
+								"name": "$K"
+							}
+						}
+					]
+				},
+				"set": {
+					"description": "Set the value associated with a key to the value, overwrites the old value if the key already exists within the dict",
+					"parameters": [
+						{
+							"name": "key",
+							"type": {
+								"name": "$K"
+							}
+						},
+						{
+							"name": "value",
+							"type": {
+								"name": "$V"
+							}
+						}
+					]
+				},
+				"set_if_empty": {
+					"description": "Set the value associated with a key to the value if the key does not exist within the dict",
+					"parameters": [
+						{
+							"name": "key",
+							"type": {
+								"name": "$K"
+							}
+						},
+						{
+							"name": "value",
+							"type": {
+								"name": "$V"
+							}
+						}
+					],
+					"return_type": {
+						"name": "bool"
+					}
+				},
+				"get": {
+					"description": "Returns the value associated with a key, panics if the key does not exist within the dict",
+					"return_type": {
+						"name": "$V"
+					},
+					"parameters": [
+						{
+							"name": "key",
+							"type": {
+								"name": "$K"
+							}
+						}
+					]
+				},
+				"get_or_default": {
+					"description": "Returns the value associated with a key, or returns the default value if the key does not exist within the dict",
+					"return_type": {
+						"name": "$V"
+					},
+					"parameters": [
+						{
+							"name": "key",
+							"type": {
+								"name": "$K"
+							}
+						},
+						{
+							"name": "default_value",
+							"type": {
+								"name": "$V"
+							}
+						}
+					]
+				},
+				"clear": {
+					"description": "Empties the dict"
+				},
+				"len": {
+					"description": "Returns the number of elements in the dict",
+					"return_type": {
+						"name": "number"
+					}
+				},
+				"pop": {
+					"description": "Removes a key and value and returns the value, panics if the key does not exist within the dict",
+					"return_type": {
+						"name": "$V"
+					},
+					"parameters": [
+						{
+							"name": "key",
+							"type": {
+								"name": "$K"
+							}
+						}
+					]
+				},
+				"pop_item": {
+					"description": "Removes the last inserted key and value and returns both as a pair, panics if the dict is empty",
+					"return_type": {
+						"name": "Pair",
+						"generics": [
+							{
+								"name": "$K"
+							},
+							{
+								"name": "$V"
+							}
+						]
+					}
+				},
+				"keys": {
+					"description": "Collects all keys in the dict into a list",
+					"return_type": {
+						"name": "List",
+						"generics": [
+							{
+								"name": "$K"
+							}
+						]
+					}
+				},
+				"values": {
+					"description": "Collects all values in the dict into a list",
+					"return_type": {
+						"name": "List",
+						"generics": [
+							{
+								"name": "$V"
+							}
+						]
+					}
+				},
+				"items": {
+					"description": "Collects all keys in the dict into a list of pairs of keys and values",
+					"return_type": {
+						"name": "List",
+						"generics": [
+							{
+								"name": "Pair",
+								"generics": [
+									{
+										"name": "$K"
+									},
+									{
+										"name": "$V"
+									}
+								]
+							}
+						]
+					}
+				},
+				"update": {
+					"description": "Updates the values in a dict from another dict",
+					"parameters": [
+						{
+							"name": "other dict",
+							"type": {
+								"name": "Dict",
+								"generics": [
+									{
+										"name": "$K"
+									},
+									{
+										"name": "$V"
+									}
+								]
+							}
+						}
+					]
+				},
+				"copy": {
+					"description": "Creates a shallow copy of the dict",
+					"return_type": {
+						"name": "Dict",
+						"generics": [
+							{
+								"name": "$K"
+							},
+							{
+								"name": "$V"
+							}
+						]
+					}
+				}
+			}
+		}
+	},
     "host_functions": {
-        "dict": {
-            "description": "Creates a dict.",
-            "return_type": {"name": "Dict"}
-        },
-        "dict_number_has_key": {
-            "description": "Returns whether the number key is in the Dict.",
-            "return_type": {"name": "bool"},
+		"assert": {
+			"description": "asserts that the input value is true",
+			"parameters": [
+				{
+					"name": "bool",
+					"type": {
+						"name": "bool"
+					}
+				}
+			]
+		},
+		"assert_eq": {
+			"description": "asserts that two different values are equal",
+			"used_generics": [
+				"$T"
+			],
+			"parameters": [
+				{
+					"name": "left",
+					"type": {
+						"name": "$T"
+					}
+				},
+				{
+					"name": "right",
+					"type": {
+						"name": "$T"
+					}
+				}
+			]
+		},
+		"print": {
+			"description": "prints the given value",
+			"used_generics": [
+				"$T"
+			],
+			"parameters": [
+				{
+					"name": "input",
+					"type": {
+						"name": "$T"
+					}
+				}
+			]
+		},
+		"dict": {
+			"description": "Creates an empty dict",
+			"used_generics": [
+				"$K",
+				"$V"
+			],
+			"return_type": {
+				"name": "Dict",
+				"generics": [
+					{
+						"name": "$K"
+					},
+					{
+						"name": "$V"
+					}
+				]
+			}
+		},
+		"dict_from_keys": {
+			"description": "Creates a dict from a list of keys and a default value",
+			"used_generics": [
+				"$K",
+				"$V"
+			],
+			"return_type": {
+				"name": "Dict",
+				"generics": [
+					{
+						"name": "$K"
+					},
+					{
+						"name": "$V"
+					}
+				]
+			},
+			"parameters": [
+				{
+					"name": "list",
+					"type": {
+						"name": "List",
+						"generics": [
+							{
+								"name": "$K"
+							}
+						]
+					}
+				},
+				{
+					"name": "default value",
+					"type": {
+						"name": "$V"
+					}
+				}
+			]
+		},
+		"list": {
+			"description": "Creates an empty list",
+			"used_generics": [
+				"$T"
+			],
+			"return_type": {
+				"name": "List",
+				"generics": [
+					{
+						"name": "$T"
+					}
+				]
+			}
+		},
+        "ceil": {
+            "description": "Ceiling of n, the smallest integer greater than or equal to n.",
+            "return_type": {
+				"name": "number"
+			},
             "parameters": [
-                {
-                    "name": "dict",
-                    "type": {"name": "Dict"}
-                },
-                {
-                    "name": "key",
-                    "type": {"name": "number"}
-                }
-            ]
-        },
-        "dict_number_number_get": {
-            "description": "Gets the value for a number key in a Dict. Returns 0 if the key is not present.",
-            "return_type": {"name": "number"},
-            "parameters": [
-                {
-                    "name": "dict",
-                    "type": {"name": "Dict"}
-                },
-                {
-                    "name": "key",
-                    "type": {"name": "number"}
-                }
-            ]
-        },
-        "dict_number_number_set": {
-            "description": "Associates a number key with a number value in a Dict. If the key already exists, its value is overwritten.",
-            "parameters": [
-                {
-                    "name": "dict",
-                    "type": {"name": "Dict"}
-                },
-                {
-                    "name": "key",
-                    "type": {"name": "number"}
-                },
-                {
-                    "name": "value",
-                    "type": {"name": "number"}
-                }
-            ]
-        },
-        "list": {
-            "description": "Creates a list.",
-            "return_type": {"name": "List"}
-        },
-        "list_number_append": {
-            "description": "Add a number to the end of the list.",
-            "parameters": [
-                {
-                    "name": "list",
-                    "type": {"name": "List"}
-                },
                 {
                     "name": "n",
-                    "type": {"name": "number"}
+                    "type": {
+						"name": "number"
+					}
                 }
             ]
         },
-        "print_list": {
-            "description": "Prints a list.",
+        "sqrt": {
+            "description": "Square root of n.",
+            "return_type": {
+				"name": "number"
+			},
             "parameters": [
                 {
-                    "name": "list",
-                    "type": {"name": "List"}
+                    "name": "n",
+                    "type": {
+						"name": "number"
+					}
                 }
             ]
         }

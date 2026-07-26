@@ -1,13 +1,13 @@
 export run() {
-    fib_numbers: List = _fib_list(10)
-    print_list(fib_numbers)
+    fib_numbers: List[number] = _fib_list(10)
+    print(fib_numbers)
 }
 
-local _fib_list(n: number) List {
-    fib_list: List = list()
+local _fib_list(n: number) List[number] {
+    fib_list: List[number] = list()
     i: number = 0
     while i < n {
-        list_number_append(fib_list, _fib(i))
+        fib_list.append(_fib(i))
         i = i + 1
     }
     return fib_list

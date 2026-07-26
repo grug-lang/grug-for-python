@@ -1,7 +1,7 @@
 i: number = 0
 
 export tick() {
-    print_number(ceil(i / 3))
-    print_number(np_exp(i))
+    print(ceil(i / 3))
+    print(np_exp(i))
     i = i + 1
 }

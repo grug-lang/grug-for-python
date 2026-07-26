@@ -17,7 +17,9 @@
             "parameters": [
                 {
                     "name": "str",
-                    "type": {"name": "string"}
+                    "type": {
+                        "name": "string"
+                    }
                 }
             ]
         }
