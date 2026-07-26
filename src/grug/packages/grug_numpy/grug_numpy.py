@@ -8,4 +8,4 @@ def exp(state: GrugState, n: float):
 
 
 def get():
-    return GrugPackage(prefix="np", game_fns=[exp])
+    return GrugPackage(prefix="np", host_fns=[exp], generic_fns= [], methods= [], generic_methods= [])

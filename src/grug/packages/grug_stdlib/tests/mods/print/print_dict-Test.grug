@@ -1,5 +1,5 @@
 export run() {
-    d: Dict = dict()
-    dict_number_number_set(d, 1, 2)
-    print_dict(d)
+    d: Dict[number, number] = dict()
+    d.set(1, 2)
+    print(d)
 }

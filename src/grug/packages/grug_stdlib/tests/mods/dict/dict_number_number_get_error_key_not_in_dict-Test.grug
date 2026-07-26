@@ -1,5 +1,5 @@
 export run() {
-    d: Dict = dict()
-    dict_number_number_set(d, 1, 10)
-    assert_number(dict_number_number_get(d, 2), 10)
+    d: Dict[number, number] = dict()
+    d.set(1, 10)
+    assert_eq(d.get(2), 10)
 }

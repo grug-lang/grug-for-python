@@ -221,17 +221,11 @@ class Serializer:
             }
             if len(type.generics) != 0:
                 result["generics"] = [Serializer._serialize_type(generic) for generic in type.generics]
-        if isinstance(type, ResourceStrType):
-            result = {
-                "name": "resource",
-                "resource_extension": type.extension
-            }
-        if isinstance(type, EntityStrType):
-            result = {
-                "name": "resource",
-                "entity_type": type.entity_type
-            }
-        if isinstance(type, ExistentialType):
+        if isinstance(type, ResourceStrType): # pragma: no cover
+            raise RuntimeError("Should never have to serialize resource string type")
+        if isinstance(type, EntityStrType): # pragma: no cover
+            raise RuntimeError("Should never have to serialize entity string type")
+        if isinstance(type, ExistentialType): # pragma: no cover
             raise RuntimeError("Cannot serialize existential type")
 
         return result

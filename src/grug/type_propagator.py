@@ -61,10 +61,12 @@ def type_name(ty: Type) -> str:
         return str(ty)
     if isinstance(ty, IdType):
         return ty.name
-    if isinstance(ty, ResourceStrType):
-        return "resource"
-    if isinstance(ty, EntityStrType):
-        return "entity"
+    if isinstance(ty, ResourceStrType): # pragma: no cover
+        # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
+        raise RuntimeError("not supposed to require type name of resource string")
+    if isinstance(ty, EntityStrType): # pragma: no cover
+        # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
+        raise RuntimeError("not supposed to require type name of entity string")
     return "_"
 
 def type_matches(left: Type, right: Type) -> bool:
@@ -115,7 +117,25 @@ class TyCtx:
     def get_current_type(self, ty: Type) -> Optional[Type]:
         seen: List[int] = []
         while isinstance(ty, ExistentialType):
-            if ty.idx in seen:
+            # This is a sanity check used to ensure any recursive types that
+            # occur during type inference are caught. 
+
+            # This includes things like this rust code
+            # ```
+            # let x = Some(Default::default())
+            # x = Some(x)
+            # ```
+
+            # which is disallowed by grug syntax, 
+            # and also cases where a type must be partially known during type
+            # inference, but isn't. Like a method reciever with a fully unknown
+            # type.
+
+            # ```
+            # # assuming `Vec` is the only type which has a push method
+            # default().push(25)
+
+            if ty.idx in seen: # pragma no cover
                 return None
             seen.append(ty.idx)
             ty = self.substitutions[ty.idx]
@@ -150,9 +170,9 @@ class TyCtx:
 
             raise TypeMismatch(span, self._substitute_type(first_left), self._substitute_type(first_right))
 
+    # If this existential is still unresolved, bind it to the other type.
+    # Otherwise, require the existing binding and the new type to agree.
     def _bind_or_constrain(self, idx: int, other: Type) -> None:
-        # If this existential is still unresolved, bind it to the other type.
-        # Otherwise, require the existing binding and the new type to agree.
         current = self.substitutions[idx]
         if isinstance(current, ExistentialType) and current.idx == idx:
             self.substitutions[idx] = other

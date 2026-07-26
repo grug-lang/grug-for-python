@@ -1,3 +1,3 @@
 export run() {
-    print_number(42)
+    print(42)
 }

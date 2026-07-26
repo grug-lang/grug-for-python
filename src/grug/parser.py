@@ -24,7 +24,7 @@ class PrimitiveType(Enum):
 
     def __str__(self) -> str:
         if self == PrimitiveType.VOID:
-            return "void"
+            raise RuntimeError("there should be no reason to ever print \"void\"")
         elif self == PrimitiveType.BOOL:
             return "bool"
         elif self == PrimitiveType.NUMBER:
@@ -36,7 +36,7 @@ class ExistentialType:
     idx: int
 
     def __str__(self):
-        return f"${self.idx}"
+        raise RuntimeError("there should be no reason to ever print an existential type")
 
 @dataclass(frozen=True)
 class IdType:
@@ -579,8 +579,6 @@ class Parser:
         type_token = self.consume_token_type(i, TokenType.WORD_TOKEN)
         type_name = type_token.value
 
-        if type_name == "void":
-            return PrimitiveType.VOID, type_token.span
         if type_name == "bool":
             return PrimitiveType.BOOL, type_token.span
         if type_name == "number":
