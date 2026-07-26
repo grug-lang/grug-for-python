@@ -1,6 +1,6 @@
 export run() {
-    l: List = list()
-    list_number_append(l, 1)
-    list_number_insert(l, 0, 0)
-    assert_number(list_number_index(l, 0), 0)
+    l: List[number] = list()
+    l.append(1)
+    l.insert(0, 0)
+    assert_eq(l.index(0), 0)
 }

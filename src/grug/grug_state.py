@@ -8,6 +8,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    Tuple,
     Callable,
     Dict,
     List,
@@ -44,9 +45,12 @@ GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
 
 class GrugPackage:
-    def __init__(self, *, prefix: str, game_fns: Sequence[HostFn]):
+    def __init__(self, *, prefix: str, host_fns: Sequence[HostFn], generic_fns: Sequence[HostFnReg], methods: Sequence[Tuple[str, HostFn]], generic_methods: Sequence[Tuple[str, HostFnReg]]):
         self.prefix = prefix
-        self.game_fns = game_fns
+        self.host_fns = host_fns
+        self.generic_fns = generic_fns
+        self.methods = methods
+        self.generic_methods = generic_methods
 
     def no_prefix(self):
         self.prefix = ""
@@ -160,38 +164,47 @@ class GrugState:
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:
-            for game_fn in pkg.game_fns:
-                if game_fn.__name__ in self.game_fns:
-                    raise GrugError.new_init_error(
-                        f"Error: Game function '{game_fn.__name__}' has already been registered, so you either registered it twice, or its grug package prefix clashes with another grug package"
-                    )
-
+            for host_fn in pkg.host_fns:
                 name = (
-                    f"{pkg.prefix}_{game_fn.__name__}"
+                    f"{pkg.prefix}_{host_fn.__name__}"
                     if pkg.prefix
-                    else game_fn.__name__
+                    else host_fn.__name__
                 )
-                self._register_game_fn(name, game_fn)
+                self._register_host_fn(name, host_fn)
+            for generic_fn in pkg.generic_fns:
+                name = (
+                    f"{pkg.prefix}_{generic_fn.__name__}"
+                    if pkg.prefix
+                    else generic_fn.__name__
+                )
+                self._register_generic_fn(name, generic_fn)
+            for class_name, method in pkg.methods:
+                name = method.__name__
+                self._register_method_fn(class_name, name, method)
+            for class_name, generic_method in pkg.generic_methods:
+                name = generic_method.__name__
+                self._register_generic_method_fn(class_name, name, generic_method)
 
-    def game_fn(self, fn: HostFn) -> HostFn:
-        """Decorator for game functions."""
-        self._register_game_fn(fn.__name__, fn)
+    def host_fn(self, fn: HostFn) -> HostFn:
+        """Decorator for host functions."""
+        self._register_host_fn(fn.__name__, fn)
         return fn
 
-    def _register_game_fn(self, name: str, fn: HostFn):
+    def _register_host_fn(self, name: str, fn: HostFn):
         self.mod_api.register_fn(None, name, fn)
 
-    def generic_game_fn(self, fn: HostFnReg) -> HostFnReg:
+    def generic_fn(self, fn: HostFnReg) -> HostFnReg:
         """Decorator for generic game functions."""
-        self._register_generic_game_fn(fn.__name__, fn)
+        self._register_generic_fn(fn.__name__, fn)
         return fn
 
-    def _register_generic_game_fn(self, name: str, fn: HostFnReg):
+    def _register_generic_fn(self, name: str, fn: HostFnReg):
         self.mod_api.register_generic_fn(None, name, fn)
 
     def grug_class(self, cls: type) -> type:
         """Decorator for grug classes."""
         for name, fn in vars(cls).items():
+            # TODO: Handle generic methods somehow
             if isinstance(fn, staticmethod):
                 self._register_method_fn(cls.__name__, name, fn.__func__)
         return cls

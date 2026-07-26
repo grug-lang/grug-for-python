@@ -1,5 +1,5 @@
 export run() {
-    l: List = list()
-    list_number_append(l, 1)
-    print_list(l)
+    l: List[number] = list()
+    l.append(1)
+    print(l)
 }

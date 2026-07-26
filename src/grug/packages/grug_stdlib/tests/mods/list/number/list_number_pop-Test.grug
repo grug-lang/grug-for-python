@@ -1,6 +1,6 @@
 export run() {
-    l: List = list()
-    list_number_append(l, 1)
-    x: number = list_number_pop(l)
-    assert_number(x, 1)
+    l: List[number] = list()
+    l.append(1)
+    x: number = l.pop()
+    assert_eq(x, 1)
 }

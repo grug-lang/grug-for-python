@@ -1,7 +1,7 @@
 export run() {
-    l1: List = list()
-    l2: List = list()
-    list_number_append(l2, 1)
-    list_extend(l1, l2)
-    assert_number(list_len(l1), 1)
+    l1: List[number] = list()
+    l2: List[number] = list()
+    l2.append(1)
+    l1.extend(l2)
+    assert_eq(l1.len(), 1)
 }

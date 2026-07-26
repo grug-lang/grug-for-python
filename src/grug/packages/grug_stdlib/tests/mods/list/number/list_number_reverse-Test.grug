@@ -1,7 +1,7 @@
 export run() {
-    l: List = list()
-    list_number_append(l, 1)
-    list_number_append(l, 2)
-    list_reverse(l)
-    assert_number(list_number_index(l, 1), 1)
+    l: List[number] = list()
+    l.append(1)
+    l.append(2)
+    l.reverse()
+    assert_eq(l.index(1), 1)
 }

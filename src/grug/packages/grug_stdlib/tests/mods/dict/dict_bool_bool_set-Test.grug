@@ -1,5 +1,5 @@
 export run() {
-    d: Dict = dict()
-    dict_bool_bool_set(d, true, true)
-    assert_number(dict_len(d), 1)
+    d: Dict[bool, bool] = dict()
+    d.set(true, true)
+    assert_eq(d.len(), 1)
 }

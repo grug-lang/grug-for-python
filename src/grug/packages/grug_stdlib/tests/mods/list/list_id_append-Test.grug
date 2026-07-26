@@ -1,5 +1,5 @@
 export run() {
-    l: List = list()
-    list_id_append(l, list())
-    assert_number(list_len(l), 1)
+    l: List[List[number]] = list()
+    l.append(list())
+    assert_eq(l.len(), 1)
 }

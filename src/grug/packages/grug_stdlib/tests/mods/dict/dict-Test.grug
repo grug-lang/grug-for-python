@@ -1,4 +1,4 @@
 export run() {
-    d: Dict = dict()
-    assert_id(d, d)
+    d: Dict[number, number] = dict()
+    assert_eq(d, d)
 }

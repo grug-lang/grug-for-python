@@ -1,3 +1,4 @@
 export run() {
-    print_id(list())
+    x: List[number] = list()
+    print(x)
 }

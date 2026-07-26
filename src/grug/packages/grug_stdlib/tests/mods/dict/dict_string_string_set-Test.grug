@@ -1,5 +1,5 @@
 export run() {
-    d: Dict = dict()
-    dict_string_string_set(d, "foo", "bar")
-    assert_number(dict_len(d), 1)
+    d: Dict[string, string] = dict()
+    d.set("foo", "bar")
+    assert_eq(d.len(), 1)
 }
