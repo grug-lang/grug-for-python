@@ -19,6 +19,7 @@ from grug.parser import (
     ResourceStrType,
     Type,
 )
+from grug.mod_api import get_mod_api
 
 
 class GrugValueUnion(ctypes.Union):
@@ -116,9 +117,12 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
     keepalive: List[object] = []
     c_type = CGrugType()
 
-    if typ == PrimitiveType.VOID:
-        c_type.type = GRUG_TYPE_ENUM_VOID
-    elif typ == PrimitiveType.BOOL:
+    # Can never pass void, resource, entity, or an existential to a host function
+    assert(type != PrimitiveType.VOID)
+    assert(not isinstance(type, ResourceStrType))
+    assert(not isinstance(type, EntityStrType  ))
+    assert(not isinstance(type, ExistentialType))
+    if typ == PrimitiveType.BOOL:
         c_type.type = GRUG_TYPE_ENUM_BOOL
     elif typ == PrimitiveType.NUMBER:
         c_type.type = GRUG_TYPE_ENUM_NUMBER
@@ -140,24 +144,12 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
         keepalive.append(generic_array)
         c_type.data.id.generics = generic_array
         c_type.data.id.generics_len = len(c_generics)
-    elif isinstance(typ, ResourceStrType):
-        c_type.type = GRUG_TYPE_ENUM_RESOURCE
-        resource_extension = typ.extension.encode()
-        keepalive.append(resource_extension)
-        c_type.data.resource_extension = resource_extension
-    elif isinstance(typ, EntityStrType):
-        c_type.type = GRUG_TYPE_ENUM_ENTITY
-        entity_type = (typ.entity_type or "").encode()
-        keepalive.append(entity_type)
-        c_type.data.entity_type = entity_type
-    else:
-        assert isinstance(typ, ExistentialType)
-        raise AssertionError("Generic registration received an unresolved type")
 
     return c_type, keepalive
 
 
 # Callback type definitions
+parse_mod_api_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
 create_grug_state_t = ctypes.CFUNCTYPE(
     ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool
 )
@@ -194,6 +186,7 @@ class GrugStateVTableStruct(ctypes.Structure):
     """
 
     _fields_ = [
+        ("parse_mod_api", parse_mod_api_t),
         ("create_grug_state", create_grug_state_t),
         ("destroy_grug_state", destroy_grug_state_t),
         ("compile_grug_file", compile_grug_file_t),
@@ -242,6 +235,21 @@ def test_grug(
     entities: dict[int, Entity] = {}
 
     error_buffers: List[bytes] = []
+
+    @parse_mod_api_t
+    def parse_mod_api(
+        path: bytes,
+    ) -> Union[bytes, None]:
+        try:
+            path_str = path.decode()
+            get_mod_api(Path(path_str))
+            return None
+        except Exception as e:
+            buf = str(e).encode()
+            # This ensures the buffer returned from this function isn't
+            # cleaned up before the C code has a chance to use it.
+            error_buffers.append(buf)
+            return buf
 
     @compile_grug_file_t
     def compile_grug_file(
@@ -466,7 +474,7 @@ def test_grug(
                 mods_dir_path=ctypes.string_at(mod_api_path).decode(),
                 on_fn_time_limit_ms=100,
             )
-        except RuntimeError:
+        except RuntimeError: # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return 0
         except Exception:  # pragma: no cover
@@ -486,6 +494,7 @@ def test_grug(
     print("\n")
 
     grug_state_vtable: GrugStateVTableStruct = GrugStateVTableStruct(
+        parse_mod_api,
         create_grug_state,
         destroy_grug_state,
         compile_grug_file,
@@ -571,6 +580,8 @@ class GameFnRegistrator:
             ("default", "default"),
             ("dict", "dict"),
             ("dict_from_vec", "dict_from_vec"),
+            ("make_pair", "make_pair"),
+            ("cause_game_fn_error_generic", "cause_game_fn_error_generic"),
         ):
             self._register_generic_fn(name, native_name)
 
@@ -587,6 +598,7 @@ class GameFnRegistrator:
             ("call_on_b_fn", "Utils_call_on_b_fn"),
         ):
             self._register_method("Utils", method_name, native_name)
+        self._register_generic_method("Utils", "cause_game_fn_error_generic", "Utils_cause_game_fn_error_generic")
 
         for method_name, native_name in (
             ("push", "vec_push"),
@@ -602,6 +614,9 @@ class GameFnRegistrator:
             self._register_generic_method("Box", method_name, native_name)
 
         self._register_generic_method("Dict", "put", "dict_put")
+
+        self._register_generic_method("Pair", "first", "pair_first")
+        self._register_generic_method("Pair", "second", "pair_second")
 
     def _get_c_args(self, *args: GrugValue):
         c_args = (GrugValueUnion * len(args))()

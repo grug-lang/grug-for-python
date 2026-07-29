@@ -443,5 +443,3 @@ class GrugState:
     def json_to_grug(self, input_json_text: str):
         ast = json.loads(input_json_text)
         return Serializer.ast_to_grug(ast)
-
-

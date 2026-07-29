@@ -1,5 +1,5 @@
 import math
-from typing import Any, Callable, Dict, List, Tuple, TypeVar, cast
+from typing import Dict, List, Tuple, TypeVar, cast
 
 from grug import GrugPackage, GrugState
 from grug.entity import GameFnError
@@ -375,23 +375,6 @@ def print_value(types: List[Type]) -> HostFn:
 
 
 print_value.__name__ = "print"
-
-
-# --------------------
-# Game fn registration
-# --------------------
-
-
-def assert_fns() -> List[HostFn]:
-    return [assert_]
-
-
-def math_fns() -> List[Callable[..., Any]]:
-    return [
-        ceil,
-        sqrt,
-    ]
-
 
 # --------------------
 # Container registration

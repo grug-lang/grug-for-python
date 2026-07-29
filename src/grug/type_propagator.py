@@ -56,19 +56,6 @@ class ExistentialData:
     function_name: str
     function_name_span: SourceSpan
 
-def type_name(ty: Type) -> str:
-    if isinstance(ty, PrimitiveType):
-        return str(ty)
-    if isinstance(ty, IdType):
-        return ty.name
-    if isinstance(ty, ResourceStrType): # pragma: no cover
-        # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
-        raise RuntimeError("not supposed to require type name of resource string")
-    if isinstance(ty, EntityStrType): # pragma: no cover
-        # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
-        raise RuntimeError("not supposed to require type name of entity string")
-    return "_"
-
 def type_matches(left: Type, right: Type) -> bool:
     if isinstance(left, ExistentialType) or isinstance(right, ExistentialType):
         return True
@@ -82,6 +69,19 @@ def type_matches(left: Type, right: Type) -> bool:
     return left == right
 
 def type_diff(expected: Type, actual: Type) -> str:
+    def type_name(ty: Type) -> str:
+        if isinstance(ty, PrimitiveType):
+            return str(ty)
+        elif isinstance(ty, IdType):
+            return ty.name
+        elif isinstance(ty, ResourceStrType): # pragma: no cover
+            # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
+            raise RuntimeError("not supposed to require type name of resource string")
+        elif isinstance(ty, EntityStrType): # pragma: no cover
+            # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
+            raise RuntimeError("not supposed to require type name of entity string")
+        raise AssertionError("Unreachable") # pragma: no cover
+
     if type_matches(expected, actual):
         return "_"
     if isinstance(expected, IdType) and isinstance(actual, IdType) and expected.name == actual.name:
@@ -149,10 +149,9 @@ class TyCtx:
             if left == right:
                 continue
 
-            if isinstance(left, ResourceStrType) or isinstance(right, ResourceStrType):
-                raise self.type_propagator.new_error(span, "cannot use resource strings in generics")
-            if isinstance(left, EntityStrType) or isinstance(right, EntityStrType):
-                raise self.type_propagator.new_error(span, "cannot use entity strings in generics")
+            # Should already be filtered out in `verify_generics`
+            assert(not isinstance(left, ResourceStrType) or isinstance(right, ResourceStrType))
+            assert(not isinstance(left, EntityStrType  ) or isinstance(right, EntityStrType  ))
 
             if isinstance(left, IdType) and isinstance(right, IdType):
                 if left.name != right.name:
@@ -189,7 +188,9 @@ class TyCtx:
     def _substitute_type(self, ty: Type) -> Type:
         if isinstance(ty, ExistentialType):
             replacement = self.substitutions[ty.idx]
-            if isinstance(replacement, ExistentialType) and replacement.idx == ty.idx:
+            # If no constraint has been placed on an existential yet,
+            # (i.e. the type is fully unknown) returns self
+            if isinstance(replacement, ExistentialType) and replacement.idx == ty.idx: 
                 return replacement
             return self._substitute_type(replacement)
         if isinstance(ty, IdType):
@@ -205,7 +206,9 @@ class TyCtx:
                     data.function_name_span,
                     f"unable to infer generics in function '{data.function_name}'",
                 )
-            if ty.idx in stack:
+            # AFAIK this is not actually possible with grug syntax currently,
+            # Just being defensive here in case I missed something
+            if ty.idx in stack: # pragma: no cover
                 data = self.existentials[ty.idx]
                 raise self.type_propagator.new_error(
                     data.function_name_span,
@@ -246,11 +249,6 @@ class TypePropagator:
 
         self.local_variables: Dict[str, Variable] = {}
         self.global_variables: Dict[str, Variable] = {}
-
-        self.entity_on_functions = {
-            name: export_fn
-            for (name, export_fn) in mod_api.entities[entity_type].export_fns
-        }
 
     def new_error(self, err_span: SourceSpan, error_message: str) -> GrugError:
         return GrugError.new_compile_error(
@@ -441,9 +439,19 @@ class TypePropagator:
         method_receiver_name: Optional[str] = None,
     ) -> Optional[HostFn]:
         if len(generics) == 0:
+            # not handled in tests yet
+            if host_fn.fn_ptr is None: # pragma: no cover
+                if method_receiver_name is None:
+                    raise RuntimeError(
+                        f"host function {function_name} was not registered"
+                    )
+                raise RuntimeError(
+                    f"method {method_receiver_name}.{function_name} was not registered"
+                )
             return host_fn.fn_ptr
 
-        if host_fn.generic_reg_fn is None:
+        # not handled in tests yet
+        if host_fn.generic_reg_fn is None: # pragma: no cover
             if method_receiver_name is None:
                 raise RuntimeError(
                     f"generic function {function_name} was not registered"
@@ -466,6 +474,8 @@ class TypePropagator:
             )
         return fn_ptr
 
+    # Fills the expression once to get all relevant constraints to get the concrete types
+    # Runs through the expression again to fill in the actual types
     def fill_complete_expr(self, expr: Expr, expected_type: Optional[Type]) -> Type:
         ty_ctx = TyCtx(self.filled_fn_name or "member scope", self)
         expr_type = self.fill_expr(ty_ctx, None, expr)
@@ -631,7 +641,7 @@ class TypePropagator:
             ty_ctx.add_constraint(expr.op_span, result_0, result_1)
         except TypeMismatch as mismatch:
             raise self.new_error(
-                mismatch.span,
+                expr.op_span,
                 f"The left and right operand of a binary expression ({op}) must have the same type, but got {type_diff(mismatch.expected, mismatch.actual)} and {type_diff(mismatch.actual, mismatch.expected)}",
             ) from mismatch
 
@@ -663,19 +673,13 @@ class TypePropagator:
             result_type = PrimitiveType.NUMBER
 
         for expr_result, expr_span in ((current_0, left.expr_span), (current_1, right.expr_span)):
-            if isinstance(expr_result, ExistentialType):
-                try:
-                    ty_ctx.add_constraint(expr_span, expected_type, expr_result)
-                except TypeMismatch as mismatch:
-                    raise self.new_error(
-                        mismatch.span,
-                        f"{op} operator expects {expected_type} but got {type_diff(mismatch.actual, mismatch.expected)}",
-                    ) from mismatch
-            elif expr_result != expected_type:
+            try:
+                ty_ctx.add_constraint(expr_span, expected_type, expr_result)
+            except TypeMismatch as mismatch:
                 raise self.new_error(
                     expr.op_span,
-                    f"{op} operator expects {expected_type} but got {type_diff(expr_result, expected_type)}",
-                )
+                    f"{op} operator expects {expected_type} but got {type_diff(mismatch.actual, mismatch.expected)}",
+                ) from mismatch
 
         return result_type
 
@@ -706,7 +710,7 @@ class TypePropagator:
 
             if fn_name.startswith("_"):
                 raise self.new_error(expr.name_span, f"The local function '{fn_name}' was not defined by this grug file")
-            if fn_name in self.entity_on_functions:
+            if fn_name in self.mod_api.entities[self.file_entity_type].export_fns:
                 raise self.new_error(expr.name_span, "Mods aren't allowed to call their own export functions")
             raise self.new_error(expr.name_span, f"The game function '{fn_name}' was not declared by mod_api.json")
 
@@ -716,10 +720,6 @@ class TypePropagator:
         self, ty_ctx: TyCtx, substitutions: Optional[List[Type]], expr: CallExpr
     ) -> Type:
         assert expr.receiver is not None
-        if isinstance(expr.receiver, CallExpr):
-            if expr.receiver.receiver is None:
-                raise self.new_error(expr.receiver.expr_span, "Cannot call method on the result of a function call")
-            raise self.new_error(expr.receiver.expr_span, "Method chaining is not allowed")
 
         receiver_type = self.fill_expr(ty_ctx, substitutions, expr.receiver)
         receiver_type = ty_ctx.get_current_type(receiver_type)
@@ -745,7 +745,11 @@ class TypePropagator:
         expected_receiver_type = self.convert_mod_api_type(mod_api_class.type, generics)
         try:
             ty_ctx.add_constraint(expr.receiver.expr_span, expected_receiver_type, receiver_type)
-        except TypeMismatch as mismatch:
+        # Note(nikhil): I'm pretty sure this can only fail if we allow non-generic methods on
+        # generic classes that are only defined for specific generic params
+        # 
+        # i.e. `Vec.sort` only defined for `Vec[number]` and no other type
+        except TypeMismatch as mismatch: # pragma: no cover
             raise self.new_error(
                 mismatch.span,
                 f"Expected {type_diff(mismatch.expected, mismatch.actual)} but got {type_diff(mismatch.actual, mismatch.expected)}",
@@ -889,7 +893,7 @@ class TypePropagator:
     def fill_on_fns(self):
         # Check for on_fns that aren't declared in the entity
         for fn_name in self.on_fns.keys():
-            if fn_name not in self.entity_on_functions:
+            if fn_name not in self.mod_api.entities[self.file_entity_type].export_fns:
                 self.filled_fn_name = fn_name
                 raise self.new_error(
                     self.on_fns[fn_name].span,
@@ -901,7 +905,7 @@ class TypePropagator:
 
         # Check ordering and validate signatures by iterating through expected order
         previous_on_fn_index = 0
-        for expected_fn_name in self.entity_on_functions.keys():
+        for expected_fn_name in self.mod_api.entities[self.file_entity_type].export_fns.keys():
             if expected_fn_name not in self.on_fns:
                 continue
 
@@ -911,6 +915,7 @@ class TypePropagator:
             current_parser_index = parser_on_fn_names.index(expected_fn_name)
             if previous_on_fn_index > current_parser_index:
                 self.filled_fn_name = expected_fn_name
+                # TODO: should also print the name of the other function (function at `previous_on_fn_index`)
                 raise self.new_error(
                     fn.span,
                     f"The function '{expected_fn_name}' needs to be moved before or after a different export function, according to the entity '{self.file_entity_type}' in mod_api.json",
@@ -920,7 +925,7 @@ class TypePropagator:
             self.fn_return_type = PrimitiveType.VOID
             self.filled_fn_name = expected_fn_name
 
-            params = self.entity_on_functions[expected_fn_name].parameters
+            params = self.mod_api.entities[self.file_entity_type].export_fns[expected_fn_name].parameters
 
             if len(fn.parameters) != len(params):
                 if len(fn.parameters) < len(params):
