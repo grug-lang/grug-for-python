@@ -23,8 +23,9 @@ class PrimitiveType(Enum):
     STRING = auto()
 
     def __str__(self) -> str:
-        if self == PrimitiveType.VOID:
-            raise RuntimeError("there should be no reason to ever print \"void\"")
+        # there should be no reason to print "void"
+        if self == PrimitiveType.VOID: # pragma: no cover
+            return "void"
         elif self == PrimitiveType.BOOL:
             return "bool"
         elif self == PrimitiveType.NUMBER:
@@ -35,8 +36,9 @@ class PrimitiveType(Enum):
 class ExistentialType:
     idx: int
 
-    def __str__(self):
-        raise RuntimeError("there should be no reason to ever print an existential type")
+    # we never print an existential type, but a user might
+    def __str__(self): # pragma: no cover
+        return f"${self.idx}"
 
 @dataclass(frozen=True)
 class IdType:
@@ -53,14 +55,16 @@ class IdType:
 class ResourceStrType:
     extension: str
 
-    def __str__(self):
+    # We never print "resource" using this function
+    def __str__(self): #pragma: no cover
         return "resource"
 
 @dataclass(frozen=True)
 class EntityStrType:
     entity_type: Optional[str]
 
-    def __str__(self):
+    # We never print "entity" using this function
+    def __str__(self): #pragma: no cover
         return "entity"
 
 Type = Union[
@@ -254,12 +258,14 @@ Statement = Union[
     CommentStatement,
 ]
 
+
 @dataclass(frozen=True)
 class Parameter:
     name: str
     type: Type
     name_span: SourceSpan
     type_span: SourceSpan
+
 
 @dataclass
 class OnFn:
@@ -281,7 +287,6 @@ class HelperFn:
 Ast = List[
     Union[VariableStatement, EmptyLineStatement, CommentStatement, OnFn, HelperFn]
 ]
-
 
 class Parser:
     def __init__(self, tokens: List[Token], file_path: Path, source_text: str):
