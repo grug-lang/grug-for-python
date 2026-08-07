@@ -1,5 +1,5 @@
 import grug
-from grug import GrugState, Type
+from grug import GrugState, Type, HostFn
 from typing import List
 
 state = grug.init()
@@ -7,22 +7,22 @@ state = grug.init()
 
 @state.grug_class
 class Printer:
-    def print_string(state: GrugState, instance: int, string: str):
-        print(instance)
+    def print_string(self, state: GrugState, string: str):
+        print(self)
         print(string)
 
-    def print(ty: List[Type]):
-        def inner(state: GrugState, instance: int, obj: object):
+    def print(ty: List[Type]) -> HostFn:
+        def inner(self, state: GrugState, obj: object):
             print(type(obj))
-            print(instance)
+            print(self)
             print(obj)
         
         return inner
 
 
 @state.host_fn
-def printer(state: GrugState):
-    return 42
+def printer(state: GrugState) -> Printer:
+    return Printer()
 
 
 file = state.mods["animals"]["labrador-Dog.grug"]
