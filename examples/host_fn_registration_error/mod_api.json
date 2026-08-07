@@ -1,0 +1,35 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "export_functions": [
+                {
+                    "name": "bark",
+                    "description": "Called when the dog barks.",
+                    "parameters": [
+                        {
+                            "name": "sound",
+                            "type": {
+                                "name": "string"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+	"classes": {},
+    "host_functions": {
+        "print_string": {
+            "description": "Prints a string.",
+            "parameters": [
+                {
+                    "name": "str",
+                    "type": {
+                        "name": "string"
+                    }
+                }
+            ]
+        }
+    }
+}

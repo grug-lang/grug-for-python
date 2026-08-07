@@ -167,7 +167,7 @@ class ModApiParseContext:
         location = self.location()
         error_message = f"{location} {message}"
         error_string = f"""\
-  in ({self.file_path}:0:0)
+  in ({self.file_path})
 Error: {error_message}
 """
         return GrugError(
@@ -390,7 +390,7 @@ def get_mod_api(mod_api_path: Path) -> ModApi:
     except OSError as err:
         error_message = f"IO Error: {err}"
         error_string = f"""\
-  in ({mod_api_path}:0:0)
+  in ({mod_api_path})
 Error: {error_message}
 """
         raise GrugError(
@@ -414,7 +414,7 @@ def get_mod_api_from_text(mod_api_path: Path, mod_api_text: str) -> ModApi:
     except json.JSONDecodeError as err:
         error_message = str(err)
         error_string = f"""\
-  in ({mod_api_path}:0:0)
+  in ({mod_api_path})
 Error: {error_message}
 """
         raise GrugError(
@@ -508,7 +508,7 @@ Error: {error_message}
                 if not isinstance(generic, str):
                     raise context.new_error("is not a string")
                 if not generic.startswith("$"):
-                    raise self.new_error("does not begin with '$'")
+                    raise context.new_error("does not begin with '$'")
                 generics.append(generic)
                 context.pop_path()
 

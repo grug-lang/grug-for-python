@@ -5,13 +5,14 @@ from grug.entity import GameFnError
 state = grug.init()
 
 
-@state.grug_class
 class Printer:
+    @state.host_method
     @staticmethod
     def print_string(state: GrugState, instance: int, string: str):
         if string == "":
             raise GameFnError("Printer.print_string() received an empty string")
         print(string)
+        
 
 
 @state.host_fn
