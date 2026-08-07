@@ -697,7 +697,7 @@ class GameFnRegistrator:
 
             return self._unpack_workaround(result, return_type)
 
-        self.state._register_host_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
+        self.state.mod_api.register_fn(None, name, fn)
 
     def _register_generic_fn(self, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -739,9 +739,7 @@ class GameFnRegistrator:
 
             return fn
 
-        self.state._register_generic_fn(  # pyright: ignore[reportPrivateUsage]
-            name, register
-        )
+        self.state.mod_api.register_generic_fn(None, name, register)
 
     def _register_method(self, class_name: str, name: str, native_name: str):
         c_fn = self.grug_lib["game_fn_" + native_name]
@@ -769,9 +767,7 @@ class GameFnRegistrator:
 
             return self._unpack_workaround(result, return_type)
 
-        self.state._register_method_fn(  # pyright: ignore[reportPrivateUsage]
-            class_name, name, fn
-        )
+        self.state.mod_api.register_fn(class_name, name, fn)
 
     def _register_generic_method(self, class_name: str, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -813,9 +809,7 @@ class GameFnRegistrator:
 
             return fn
 
-        self.state._register_generic_method_fn(  # pyright: ignore[reportPrivateUsage]
-            class_name, name, register
-        )
+        self.state.mod_api.register_generic_fn(class_name, name, register)
 
 
 # Enables stepping through code with VS Code its Python debugger.

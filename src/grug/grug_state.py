@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import sys
 import weakref
+import types
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 from typing import (
+    get_type_hints,
+    cast,
     TYPE_CHECKING,
     Tuple,
     Callable,
@@ -170,52 +173,68 @@ class GrugState:
                     if pkg.prefix
                     else host_fn.__name__
                 )
-                self._register_host_fn(name, host_fn)
+                self.mod_api.register_fn(None, name, host_fn)
             for generic_fn in pkg.generic_fns:
                 name = (
                     f"{pkg.prefix}_{generic_fn.__name__}"
                     if pkg.prefix
                     else generic_fn.__name__
                 )
-                self._register_generic_fn(name, generic_fn)
+                self.mod_api.register_generic_fn(None, name, generic_fn)
             for class_name, method in pkg.methods:
                 name = method.__name__
-                self._register_method_fn(class_name, name, method)
+                self.mod_api.register_fn(class_name, name, method)
             for class_name, generic_method in pkg.generic_methods:
                 name = generic_method.__name__
-                self._register_generic_method_fn(class_name, name, generic_method)
+                self.mod_api.register_generic_fn(class_name, name, generic_method)
 
     def host_fn(self, fn: HostFn) -> HostFn:
         """Decorator for host functions."""
-        self._register_host_fn(fn.__name__, fn)
+        self.mod_api.register_fn(None, fn.__name__, fn)
         return fn
-
-    def _register_host_fn(self, name: str, fn: HostFn):
-        self.mod_api.register_fn(None, name, fn)
-
-    def generic_fn(self, fn: HostFnReg) -> HostFnReg:
-        """Decorator for generic game functions."""
-        self._register_generic_fn(fn.__name__, fn)
-        return fn
-
-    def _register_generic_fn(self, name: str, fn: HostFnReg):
-        self.mod_api.register_generic_fn(None, name, fn)
 
     def grug_class(self, cls: type) -> type:
         """Decorator for grug classes."""
         for name, fn in vars(cls).items():
             # TODO: Handle generic methods somehow
-            if isinstance(fn, staticmethod):
-                self._register_method_fn(cls.__name__, name, fn.__func__)
+            if isinstance(fn, types.FunctionType):
+                hints = get_type_hints(fn)
+                print(hints)
+                self.mod_api.register_fn(cls.__name__, name, fn.__func__)
         return cls
 
-    def _register_method_fn(self, class_name: str, fn_name: str, fn: HostFn):
-        self.mod_api.register_fn(class_name, fn_name, fn)
+    def generic_fn(self, fn: HostFnReg) -> HostFnReg:
+        """Decorator for generic game functions."""
+        self.mod_api.register_generic_fn(None, fn.__name__, fn)
+        return fn
 
-    def _register_generic_method_fn(
-        self, class_name: str, fn_name: str, fn: HostFnReg
-    ):
-        self.mod_api.register_generic_fn(class_name, fn_name, fn)
+    def host_method(self, fn: HostFn) -> HostFn:
+        """ Decorator for host methods """
+        # __qualname__ returns a string like this '<class name>.<method name>'
+        # the first period and only ('.') is always the separator between the class and method name
+        fn_name = fn.__name__
+        if not isinstance(fn, staticmethod):
+            raise GrugError.new_init_error(f"{fn_name} is not a static method")
+        split = fn.__qualname__.split('.', 1)
+        fn = cast(HostFn, fn)
+        if len(split) != 2:
+            raise GrugError.new_init_error(f"{fn_name} must be a method on a class")
+        self.mod_api.register_fn(split[0], fn_name, fn)
+        return fn
+
+    def generic_method(self, fn: HostFnReg) -> HostFnReg:
+        """ Decorator for generic methods """
+        # __qualname__ returns a string like this '<class name>.<method name>'
+        # the first period and only ('.') is always the separator between the class and method name
+        fn_name = fn.__name__
+        if not isinstance(fn, staticmethod):
+            raise GrugError.new_init_error(f"{fn_name} is not a static method")
+        split = fn.__qualname__.split('.', 1)
+        fn = cast(HostFnReg, fn)
+        if len(split) != 2:
+            raise GrugError.new_init_error(f"{fn_name} must be a method on a class")
+        self.mod_api.register_generic_fn(split[0], fn_name, fn)
+        return fn
 
     def _compile_grug_file(self, grug_file_relative_path: str):
         mod = Path(grug_file_relative_path).parts[0]
@@ -338,6 +357,7 @@ class GrugState:
                     f"which isn't uppercase, lowercase, or a digit",
                 )
 
+    # Q(nikhil): Why is this a separate function?
     def update(self):
         """This (re)compiles grug files using mark-and-sweep, and prints any error."""
         try:

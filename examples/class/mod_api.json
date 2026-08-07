@@ -32,7 +32,21 @@
                             }
                         }
                     ]
-                }
+                },
+				"print": {
+                    "description": "Prints a value",
+					"used_generics": [
+						"$T"
+					],
+                    "parameters": [
+                        {
+                            "name": "input",
+                            "type": {
+                                "name": "$T"
+                            }
+                        }
+                    ]
+				}
             }
         }
     },

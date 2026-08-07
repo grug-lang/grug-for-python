@@ -50,11 +50,7 @@ class GrugError(Exception):
         column = err_span.get_column(source_text)
         source_line = err_span.get_source_line(source_text)
                 
-        error_string = f"""\
-  in ({file_path}:{line}:{column})\n\
-Error: {error_message}\n\
-{line} $ {source_line}\
-"""
+        error_string = f"""  in ({file_path}:{line}:{column})\nError: {error_message}\n{line} $ {source_line}"""
         return GrugError(
             function_name = "",
             file_path = file_path,
@@ -72,11 +68,7 @@ Error: {error_message}\n\
         column = err_span.get_column(source_text)
         source_line = err_span.get_source_line(source_text)
                 
-        error_string = f"""\
-  in {current_function} ({file_path}:{line}:{column})\n\
-Error: {error_message}\n\
-{line} $ {source_line}\
-"""
+        error_string = f"""  in {current_function} ({file_path}:{line}:{column})\nError: {error_message}\n{line} $ {source_line}"""
         return GrugError(
             function_name = current_function,
             file_path = file_path,
@@ -87,14 +79,26 @@ Error: {error_message}\n\
         )
 
     @staticmethod
+    def new_init_error(error_message: str) -> "GrugError":
+        err_span = SourceSpan(1, 0)
+
+        error_string = f"""  while initializing state\nError: {error_message}\0"""
+        return GrugError(
+            function_name = "",
+            file_path = Path(""),
+            source_line = "",
+            span = err_span,
+            error_message = error_message,
+            error_string = error_string
+        )
+
+
+    @staticmethod
     def new_file_name_error(file_path: Path, error_message: str) -> "GrugError":
         source_line = str(file_path)
         err_span = SourceSpan(1, 0)
 
-        error_string = f"""\
-Error: {error_message}\n\
-$  {source_line}\
-"""
+        error_string = f"""Error: {error_message}\n$  {source_line}"""
         return GrugError(
             function_name = "",
             file_path = file_path,
