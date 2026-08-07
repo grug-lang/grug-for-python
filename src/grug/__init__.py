@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from .entity import GameFnError
 from .grug_state import GrugDir, GrugPackage
 from .parser import Type
+from .grug_value import HostFn
 
 from .grug_state import (
     GrugRuntimeErrorHandler,
@@ -28,4 +29,4 @@ def init(
     )
 
 
-__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "Type"]
+__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "Type", "HostFn"]
