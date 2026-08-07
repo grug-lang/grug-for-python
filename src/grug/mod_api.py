@@ -189,8 +189,6 @@ Error: {error_message}
 
     def get_list(self, obj: Dict[str, Any], key: str) -> List[Any]:
         self.push_path(f".{key}")
-        if key not in obj:
-            raise self.new_error("does not exist")
         val = obj[key]
         if not isinstance(val, list):
             raise self.new_error("is not a list")
@@ -246,10 +244,7 @@ Error: {error_message}
         generics: List[Type]
         if "generics" in obj:
             self.push_path(".generics")
-            generics_value = obj["generics"]
-            if not isinstance(generics_value, list):
-                raise self.new_error("is not an array")
-            generics_value = cast(List[Any], generics_value)
+            generics_value = self.get_list(obj, "generics")
             generics = []
             for index, generic in enumerate(generics_value):
                 self.push_path(f"[{index}]")
@@ -277,8 +272,6 @@ Error: {error_message}
 
             ty_value = self.get_key(param_values, "type")
             ty = self.parse_type(ty_value, generics)
-            if ty == PrimitiveType.VOID:
-                raise self.new_error("cannot be void")
             self.pop_path()
 
             self.pop_path()
@@ -296,7 +289,6 @@ Error: {error_message}
     def parse_host_fn(
         self, host_fn_values: Dict[str, Any], parent_generics: List[str]
     ) -> ModApiHostFn:
-
         description = self.get_string(host_fn_values, "description")
         self.pop_path()
 
@@ -387,7 +379,8 @@ Error: {error_message}
 def get_mod_api(mod_api_path: Path) -> ModApi:
     try:
         mod_api_text = mod_api_path.read_text()
-    except OSError as err:
+    # No, I'm not in fact going to test an os error here, i'm sorry
+    except OSError as err: #pragma: no cover
         error_message = f"IO Error: {err}"
         error_string = f"""\
   in ({mod_api_path})
@@ -446,11 +439,7 @@ Error: {error_message}
 
         export_fns: Dict[str, ModApiExportFn] = {}
         if "export_functions" in entity_values:
-            context.push_path(".export_functions")
-            export_functions = entity_values["export_functions"]
-            if not isinstance(export_functions, list):
-                raise context.new_error("is not an array")
-            export_functions = cast(List[Any], export_functions)
+            export_functions = context.get_list(entity_values, "export_functions")
 
             for index, export_fn_values in enumerate(export_functions):
                 context.push_path(f"[{index}]")

@@ -1,6 +1,7 @@
 import math
 from typing import Dict, List, Tuple, TypeVar, cast
 
+from dataclasses import dataclass
 from grug import GrugPackage, GrugState
 from grug.entity import GameFnError
 
@@ -16,15 +17,35 @@ except ImportError:  # pragma: no cover
 # Type classes
 # --------------------
 
+@dataclass
+class Pair:
+    first: object
+    second: object
+
+def make_pair(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, first: object, second: object):
+        return Pair(first, second)
+    return inner
+
+def pair_first(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, pair: Pair):
+        return pair.first
+    return inner
+
+def pair_second(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, pair: Pair):
+        return pair.second
+    return inner
+
+pair_first.__name__ = "first"
+pair_second.__name__ = "second"
 
 # --------------------
 # Assertions
 # --------------------
 
-
 def assert_(state: GrugState, value: bool):
     assert value, "assert failed"
-
 
 assert_.__name__ = "assert"
 
@@ -175,8 +196,8 @@ def dict_values(types: List[Type]) -> HostFn:
 
 
 def dict_items(types: List[Type]) -> HostFn:
-    def inner(state: GrugState, d: Dict[object, object]) -> List[List[object]]:
-        return [[k, v] for k, v in d.items()]
+    def inner(state: GrugState, d: Dict[object, object]) -> List[Pair[object, object]]:
+        return [Pair(first=k, second=v) for k, v in d.items()]
 
     return inner
 
@@ -184,7 +205,7 @@ def dict_items(types: List[Type]) -> HostFn:
 def dict_pop_item(types: List[Type]) -> HostFn:
     def inner(state: GrugState, d: Dict[object, object]) -> List[object]:
         k, v = d.popitem()
-        return [k, v]
+        return Pair(first=k, second=v)
 
     return inner
 
@@ -447,8 +468,10 @@ def get():
 
     generic_fns.extend(dict_fns())
     generic_fns.extend(list_fns())
+    generic_fns.extend([make_pair])
     generic_methods = dict_methods()
     generic_methods.extend(list_methods())
+    generic_methods.extend([("Pair", pair_first), ("Pair", pair_second)])
 
     return GrugPackage(
         prefix="",
