@@ -5,6 +5,7 @@ from .grug_state import GrugDir, GrugPackage
 from .parser import Type
 from .grug_value import HostFn
 
+from .error import GrugError
 from .grug_state import (
     GrugRuntimeErrorHandler,
     GrugState,
@@ -29,4 +30,4 @@ def init(
     )
 
 
-__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "Type", "HostFn"]
+__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "Type", "HostFn", "GrugError"]

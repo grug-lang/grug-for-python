@@ -5,10 +5,9 @@ from grug.entity import GameFnError
 state = grug.init()
 
 
+@state.grug_class
 class Printer:
-    @state.host_method
-    @staticmethod
-    def print_string(state: GrugState, instance: int, string: str):
+    def print_string(self, state: GrugState, string: str):
         if string == "":
             raise GameFnError("Printer.print_string() received an empty string")
         print(string)
@@ -17,7 +16,7 @@ class Printer:
 
 @state.host_fn
 def printer(state: GrugState):
-    return 42
+    return Printer()
 
 
 file = state.mods["animals"]["labrador-Dog.grug"]

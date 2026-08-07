@@ -390,6 +390,38 @@
 		}
 	},
     "host_functions": {
+		"make_pair": {
+			"description": "Creates a pair of two items",
+			"used_generics": [
+				"$T1",
+				"$T2"
+			],
+			"return_type": {
+				"name": "Pair",
+				"generics": [
+					{
+						"name": "$T1"
+					},
+					{
+						"name": "$T2"
+					}
+				]
+			},
+			"parameters": [
+				{
+					"name": "first",
+					"type": {
+						"name": "$T1"
+					}
+				},
+				{
+					"name": "second",
+					"type": {
+						"name": "$T2"
+					}
+				}
+			]
+		},
 		"assert": {
 			"description": "asserts that the input value is true",
 			"parameters": [

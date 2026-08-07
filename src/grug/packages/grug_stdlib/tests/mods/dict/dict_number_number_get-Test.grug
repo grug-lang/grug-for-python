@@ -1,5 +1,19 @@
 export run() {
     d: Dict[number, number] = dict()
     d.set(1, 10)
+    d.set_if_empty(1, 20)
     assert_eq(d.get(1), 10)
+    assert_eq(d.get_or_default(2, 5), 5)
+    assert_eq(d.has_key(2), false)
+    d.set_if_empty(2, 5)
+    assert_eq(d.get_or_default(2, 10), 5)
+
+    assert_eq(d.pop(1), 10)
+
+    d_2: Dict[number, number] = d.copy()
+    d_2.set(2, 10)
+    d.update(d_2)
+    assert_eq(d.get(2), 10)
+    d.clear()
+    assert_eq(d.has_key(1), false)
 }

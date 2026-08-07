@@ -26,7 +26,7 @@ def run_examples():
             [*COVERAGE_BASE_CMD, example.name], cwd=example_dir
         ) as proc:
             try:
-                proc.communicate(timeout=1)
+                proc.communicate(timeout=2)
             except subprocess.TimeoutExpired:
                 # Send SIGTERM instead of the uncatchable SIGKILL
                 proc.terminate()

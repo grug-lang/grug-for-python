@@ -225,11 +225,18 @@ class GrugState:
             # The receiver is implicit from grug's perspective, so `state` is
             # the first method argument even though it is the second parameter
             # in the unbound Python function (`self, state, ...`).
-            print(parameters)
             if len(parameters) >= 2 and hints.get(parameters[1].name) is GrugState:
                 self.mod_api.register_fn(
                     cls.__name__, name, self._adapt_grug_method(cast(HostFn, fn))
                 )
+                continue
+
+            raise GrugError.new_init_error(
+                f"Method '{cls.__name__}.{name}' has an unsupported signature. "
+                "Expected a normal method whose first argument after the receiver "
+                "is annotated as GrugState, or a generic method with signature "
+                "(List[Type]) -> HostFn"
+            )
         return cls
 
     @staticmethod
