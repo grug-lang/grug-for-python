@@ -10,7 +10,7 @@ import pytest  # pyright: ignore[reportMissingImports]
 import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
-from grug.grug_value import GrugValue
+from grug.grug_value import GrugValue, HostFn
 from grug.parser import (
     EntityStrType,
     ExistentialType,
@@ -128,7 +128,8 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
         c_type.type = GRUG_TYPE_ENUM_NUMBER
     elif typ == PrimitiveType.STRING:
         c_type.type = GRUG_TYPE_ENUM_STRING
-    elif isinstance(typ, IdType):
+    # else type is IdType
+    else:
         c_type.type = GRUG_TYPE_ENUM_ID
         name = typ.name.encode()
         keepalive.append(name)
@@ -567,6 +568,7 @@ class GameFnRegistrator:
             "set_position",
             "cause_game_fn_error",
             "call_on_b_fn",
+            "call_on_b_fn_number",
             "store",
             "retrieve",
             "box_number",
@@ -671,17 +673,8 @@ class GameFnRegistrator:
 
         raise ReraisedGameFnError(reason)
 
-    def _register_fn(self, name: str):
-        c_fn = self.grug_lib["game_fn_" + name]
-
-        c_fn.argtypes = (
-            ctypes.c_void_p,
-            ctypes.POINTER(GrugValueUnion),
-        )
-        c_fn.restype = GrugValueWorkaround
-
-        return_type = self.state.mod_api.host_fns[name].return_type
-
+    # type of c_fn cannot be expressed properly
+    def wrap_fn(self, return_type: Type, c_fn) -> HostFn: #pyright: ignore
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
             self._keepalive += _keepalive
@@ -696,8 +689,21 @@ class GameFnRegistrator:
                 raise _grug_runtime_err
 
             return self._unpack_workaround(result, return_type)
+        return fn
+        
 
-        self.state.mod_api.register_fn(None, name, fn)
+    def _register_fn(self, name: str):
+        c_fn = self.grug_lib["game_fn_" + name]
+
+        c_fn.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(GrugValueUnion),
+        )
+        c_fn.restype = GrugValueWorkaround
+
+        return_type = self.state.mod_api.host_fns[name].return_type
+
+        self.state.mod_api.register_fn(None, name, self.wrap_fn(return_type, c_fn))
 
     def _register_generic_fn(self, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -724,20 +730,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            def fn(state: GrugState, *args: GrugValue):
-                c_args, _keepalive = self._get_c_args(*args)
-                self._keepalive += _keepalive
-
-                result: GrugValueWorkaround = c_fn(42, c_args)
-
-                self._raise_game_fn_error_if_needed(state)
-
-                if _grug_runtime_err is not None:
-                    raise _grug_runtime_err
-
-                return self._unpack_workaround(result, return_type)
-
-            return fn
+            return self.wrap_fn(return_type, c_fn)
 
         self.state.mod_api.register_generic_fn(None, name, register)
 
@@ -752,22 +745,7 @@ class GameFnRegistrator:
 
         return_type = self.state.mod_api.classes[class_name].methods[name].return_type
 
-        def fn(state: GrugState, *args: GrugValue):
-            c_args, _keepalive = self._get_c_args(*args)
-            self._keepalive += _keepalive
-
-            # We pass 42 since `state` is a Python object
-            # grug-tests just doesn't want us to *accidentally* pass NULL
-            result: GrugValueWorkaround = c_fn(42, c_args)
-
-            self._raise_game_fn_error_if_needed(state)
-
-            if _grug_runtime_err is not None:
-                raise _grug_runtime_err
-
-            return self._unpack_workaround(result, return_type)
-
-        self.state.mod_api.register_fn(class_name, name, fn)
+        self.state.mod_api.register_fn(class_name, name, self.wrap_fn(return_type, c_fn))
 
     def _register_generic_method(self, class_name: str, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -794,20 +772,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            def fn(state: GrugState, *args: GrugValue):
-                c_args, _keepalive = self._get_c_args(*args)
-                self._keepalive += _keepalive
-
-                result: GrugValueWorkaround = c_fn(42, c_args)
-
-                self._raise_game_fn_error_if_needed(state)
-
-                if _grug_runtime_err is not None:
-                    raise _grug_runtime_err
-
-                return self._unpack_workaround(result, return_type)
-
-            return fn
+            return self.wrap_fn(return_type, c_fn)
 
         self.state.mod_api.register_generic_fn(class_name, name, register)
 

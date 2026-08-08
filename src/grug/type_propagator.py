@@ -466,11 +466,11 @@ class TypePropagator:
             if method_receiver_name is None:
                 raise self.new_error(
                     name_span,
-                    f"generic function '{function_name}' instantiation failed for types {type_list}",
+                    f"generic function '{function_name}' failed instantiation for types {type_list}",
                 )
             raise self.new_error(
                 name_span,
-                f"generic method {method_receiver_name}.{function_name} instantiation failed for types {type_list}",
+                f"generic method '{method_receiver_name}.{function_name}' failed instantiation for types {type_list}",
             )
         return fn_ptr
 
