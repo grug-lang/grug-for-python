@@ -57,8 +57,6 @@ class ExistentialData:
     function_name_span: SourceSpan
 
 def type_matches(left: Type, right: Type) -> bool:
-    if isinstance(left, ExistentialType) or isinstance(right, ExistentialType):
-        return True
     if isinstance(left, IdType) and isinstance(right, IdType):
         if left.name != right.name or len(left.generics) != len(right.generics):
             return False
@@ -66,6 +64,10 @@ def type_matches(left: Type, right: Type) -> bool:
             type_matches(left_generic, right_generic)
             for left_generic, right_generic in zip(left.generics, right.generics)
         )
+    # This is technically the correct, expected behaviour, but we just never
+    # end up needing in the current implementation
+    if isinstance(left, ExistentialType) or isinstance(right, ExistentialType): # pragma: no cover
+        return True
     return left == right
 
 def type_diff(expected: Type, actual: Type) -> str:
@@ -531,7 +533,7 @@ class TypePropagator:
                     arg.expr_span,
                     f"Function call '{function_name}' expected the type {param.type} for argument '{param.name}', but got a function call that doesn't return anything",
                 )
-            elif type_matches(arg_result_ty, param.type):
+            else:
                 try:
                     ty_ctx.add_constraint(arg.expr_span, param.type, arg_result_ty)
                 except TypeMismatch as mismatch:
@@ -539,11 +541,6 @@ class TypePropagator:
                         mismatch.span,
                         f"Function call '{function_name}' expected the type {type_diff(mismatch.expected, mismatch.actual)} for argument '{param.name}', but got {type_diff(mismatch.actual, mismatch.expected)}",
                     ) from mismatch
-            else:
-                raise self.new_error(
-                    arg.expr_span,
-                    f"Function call '{function_name}' expected the type {type_diff(param.type, arg_result_ty)} for argument '{param.name}', but got {type_diff(arg_result_ty, param.type)}",
-                )
 
     # Creates existentials for the generics of a host function. 
     # substitues the existentials if available

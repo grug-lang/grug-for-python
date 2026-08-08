@@ -18,4 +18,9 @@ export run() {
     assert_eq(item, make_pair(52, 5))
     assert_eq(item.first(), 52)
     assert_eq(item.second(), 5)
+
+    values: List[number] = list()
+    values.append(0)
+    values.append(0)
+    assert_eq(d.values(), values)
 }

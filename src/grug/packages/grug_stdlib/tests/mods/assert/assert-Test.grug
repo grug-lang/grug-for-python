@@ -1,0 +1,3 @@
+export run() {
+    assert(2 == 2)
+}

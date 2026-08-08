@@ -690,7 +690,6 @@ class GameFnRegistrator:
 
             return self._unpack_workaround(result, return_type)
         return fn
-        
 
     def _register_fn(self, name: str):
         c_fn = self.grug_lib["game_fn_" + name]
