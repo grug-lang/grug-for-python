@@ -14,5 +14,8 @@ export run() {
     assert_eq(items, d.items())
 
     d.set(52, 5)
-    assert_eq(d.pop_item(), make_pair(52, 5))
+    item: Pair[number, number] = d.pop_item()
+    assert_eq(item, make_pair(52, 5))
+    assert_eq(item.first(), 52)
+    assert_eq(item.second(), 5)
 }
