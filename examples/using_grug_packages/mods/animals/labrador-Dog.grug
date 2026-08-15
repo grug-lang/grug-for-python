@@ -1,6 +1,7 @@
 i: number = 0
 
 export tick() {
+    printer().print_string("Printing a string")
     print(ceil(i / 3))
     print(np_exp(i))
     i = i + 1
