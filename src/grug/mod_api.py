@@ -178,14 +178,6 @@ Error: {error_message}
             error_message=error_message,
             error_string=error_string,
         )
-    def get_object(self, obj: Dict[str, Any], key: str) -> Dict[str, Any]:
-        self.push_path(f".{key}")
-        if key not in obj:
-            raise self.new_error("does not exist")
-        val = obj[key]
-        if not isinstance(val, dict):
-            raise self.new_error("is not an object")
-        return cast(Dict[str, Any], val)
 
     def get_list(self, obj: Dict[str, Any], key: str) -> List[Any]:
         self.push_path(f".{key}")
@@ -425,121 +417,127 @@ Error: {error_message}
     mod_api_root = cast(Dict[str, Any], mod_api_json)
 
     # entities
-    entities_obj = context.get_object(mod_api_root, "entities")
-
     entities: Dict[str, ModApiEntity] = {}
-    for entity_name, entity_values in entities_obj.items():
-        context.push_path(f".{entity_name}")
-        if not isinstance(entity_values, dict):
-            raise context.new_error("is not an object")
-        entity_values = cast(Dict[str, Any], entity_values)
+    if "entities" in mod_api_root:
+        context.push_path(".entities")
+        entities_obj = mod_api_root["entities"]
 
-        description = context.get_string(entity_values, "description")
-        context.pop_path()
+        for entity_name, entity_values in entities_obj.items():
+            context.push_path(f".{entity_name}")
+            if not isinstance(entity_values, dict):
+                raise context.new_error("is not an object")
+            entity_values = cast(Dict[str, Any], entity_values)
 
-        export_fns: Dict[str, ModApiExportFn] = {}
-        if "export_functions" in entity_values:
-            export_functions = context.get_list(entity_values, "export_functions")
-
-            for index, export_fn_values in enumerate(export_functions):
-                context.push_path(f"[{index}]")
-                if not isinstance(export_fn_values, dict):
-                    raise context.new_error("is not an object")
-                export_fn_values = cast(Dict[str, Any], export_fn_values)
-
-                name = context.get_string(export_fn_values, "name")
-                context.pop_path()
-
-                context.pop_path()
-                context.push_path(f'["{name}"]')
-
-                export_description = context.get_string(export_fn_values, "description")
-                context.pop_path()
-
-                if "parameters" in export_fn_values:
-                    context.push_path(".parameters")
-                    parameters = context.parse_parameters(
-                        context.get_list(export_fn_values, "parameters"), []
-                    )
-                    context.pop_path()
-                else:
-                    parameters: List[Parameter] = []
-
-                context.pop_path()
-                export_fns[name] = ModApiExportFn(export_description, parameters)
-
+            description = context.get_string(entity_values, "description")
             context.pop_path()
 
-        context.pop_path()
-        entities[entity_name] = ModApiEntity(description, export_fns)
+            export_fns: Dict[str, ModApiExportFn] = {}
+            if "export_functions" in entity_values:
+                export_functions = context.get_list(entity_values, "export_functions")
 
-    context.pop_path()
+                for index, export_fn_values in enumerate(export_functions):
+                    context.push_path(f"[{index}]")
+                    if not isinstance(export_fn_values, dict):
+                        raise context.new_error("is not an object")
+                    export_fn_values = cast(Dict[str, Any], export_fn_values)
+
+                    name = context.get_string(export_fn_values, "name")
+                    context.pop_path()
+
+                    context.pop_path()
+                    context.push_path(f'["{name}"]')
+
+                    export_description = context.get_string(export_fn_values, "description")
+                    context.pop_path()
+
+                    if "parameters" in export_fn_values:
+                        context.push_path(".parameters")
+                        parameters = context.parse_parameters(
+                            context.get_list(export_fn_values, "parameters"), []
+                        )
+                        context.pop_path()
+                    else:
+                        parameters: List[Parameter] = []
+
+                    context.pop_path()
+                    export_fns[name] = ModApiExportFn(export_description, parameters)
+
+                context.pop_path()
+
+            context.pop_path()
+            entities[entity_name] = ModApiEntity(description, export_fns)
+        context.pop_path()
 
     # classes
-    classes_obj = context.get_object(mod_api_root, "classes")
-
     classes: Dict[str, ModApiClass] = {}
-    for class_name, class_values in classes_obj.items():
-        context.push_path(f".{class_name}")
-        if not isinstance(class_values, dict):
-            raise context.new_error("is not an object")
-        class_values = cast(Dict[str, Any], class_values)
+    if "classes" in mod_api_root:
+        context.push_path(".classes")
+        classes_obj = mod_api_root["classes"]
 
-        description = context.get_string(class_values, "description")
-        context.pop_path()
+        for class_name, class_values in classes_obj.items():
+            context.push_path(f".{class_name}")
+            if not isinstance(class_values, dict):
+                raise context.new_error("is not an object")
+            class_values = cast(Dict[str, Any], class_values)
 
-        generics: List[str] = []
-        if "used_generics" in class_values:
-            used_generics = context.get_list(class_values, "used_generics")
+            description = context.get_string(class_values, "description")
+            context.pop_path()
 
-            for index, generic in enumerate(used_generics):
-                context.push_path(f"[{index}]")
-                if not isinstance(generic, str):
-                    raise context.new_error("is not a string")
-                if not generic.startswith("$"):
-                    raise context.new_error("does not begin with '$'")
-                generics.append(generic)
+            generics: List[str] = []
+            if "used_generics" in class_values:
+                used_generics = context.get_list(class_values, "used_generics")
+
+                for index, generic in enumerate(used_generics):
+                    context.push_path(f"[{index}]")
+                    if not isinstance(generic, str):
+                        raise context.new_error("is not a string")
+                    if not generic.startswith("$"):
+                        raise context.new_error("does not begin with '$'")
+                    generics.append(generic)
+                    context.pop_path()
+
+                context.pop_path()
+
+            ty = IdType(class_name, [ExistentialType(i) for i in range(len(generics))])
+
+            methods: Dict[str, ModApiHostFn] = {}
+            if "methods" in class_values:
+                context.push_path(".methods")
+                methods_obj = class_values["methods"]
+
+                for method_name, method_values in methods_obj.items():
+                    context.push_path(f".{method_name}")
+                    if not isinstance(method_values, dict):
+                        raise context.new_error("is not an object")
+                    method_values = cast(Dict[str, Any], method_values)
+
+                    methods[method_name] = context.parse_host_fn(method_values, generics)
+                    context.pop_path()
+
                 context.pop_path()
 
             context.pop_path()
-
-        ty = IdType(class_name, [ExistentialType(i) for i in range(len(generics))])
-
-        methods: Dict[str, ModApiHostFn] = {}
-        if "methods" in class_values:
-            methods_obj = context.get_object(class_values, "methods")
-
-            for method_name, method_values in methods_obj.items():
-                context.push_path(f".{method_name}")
-                if not isinstance(method_values, dict):
-                    raise context.new_error("is not an object")
-                method_values = cast(Dict[str, Any], method_values)
-
-                methods[method_name] = context.parse_host_fn(method_values, generics)
-                context.pop_path()
-
-            context.pop_path()
+            classes[class_name] = ModApiClass(description, ty, generics, methods)
 
         context.pop_path()
-        classes[class_name] = ModApiClass(description, ty, generics, methods)
-
-    context.pop_path()
 
     # host functions
-    host_fns_obj = context.get_object(mod_api_root, "host_functions")
-
     host_fns: Dict[str, ModApiHostFn] = {}
-    for host_fn_name, host_fn_values in host_fns_obj.items():
-        context.push_path(f".{host_fn_name}")
+    if "host_functions" in mod_api_root:
+        context.push_path(".host_functions")
+        host_fns_obj = mod_api_root["host_functions"]
 
-        if not isinstance(host_fn_values, dict):
-            raise context.new_error("is not an object")
-        host_fn_values = cast(Dict[str, Any], host_fn_values)
+        for host_fn_name, host_fn_values in host_fns_obj.items():
+            context.push_path(f".{host_fn_name}")
 
-        host_fns[host_fn_name] = context.parse_host_fn(host_fn_values, [])
+            if not isinstance(host_fn_values, dict):
+                raise context.new_error("is not an object")
+            host_fn_values = cast(Dict[str, Any], host_fn_values)
+
+            host_fns[host_fn_name] = context.parse_host_fn(host_fn_values, [])
+            context.pop_path()
+
         context.pop_path()
-
-    context.pop_path()
 
     # validate all types in mod_api
     known_types: Dict[str, int] = {}
