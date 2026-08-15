@@ -387,9 +387,31 @@
 					}
 				}
 			}
+		},
+		"Printer": {
+			"description": "Can be used to print strings",
+			"methods": {
+				"print_string": {
+					"description": "prints a string",
+					"parameters": [
+						{
+							"name": "input",
+							"type": {
+								"name": "string"
+							}
+						}
+					]
+				}
+			}
 		}
 	},
     "host_functions": {
+		"printer": {
+			"description": "Creates a Printer",
+			"return_type": {
+				"name": "Printer"
+			}
+		},
 		"make_pair": {
 			"description": "Creates a pair of two items",
 			"used_generics": [

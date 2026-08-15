@@ -123,14 +123,14 @@ class TyCtx:
             # occur during type inference are caught. 
 
             # This includes things like this rust code
-            # ```
-            # let x = Some(Default::default())
+            # ```rs
+            # let x = None
             # x = Some(x)
             # ```
 
             # which is disallowed by grug syntax, 
             # and also cases where a type must be partially known during type
-            # inference, but isn't. Like a method reciever with a fully unknown
+            # inference, but isn't. Like a method receiver with a fully unknown
             # type.
 
             # ```
@@ -740,17 +740,12 @@ class TypePropagator:
             for param in host_fn.parameters
         ]
         expected_receiver_type = self.convert_mod_api_type(mod_api_class.type, generics)
-        try:
-            ty_ctx.add_constraint(expr.receiver.expr_span, expected_receiver_type, receiver_type)
-        # Note(nikhil): I'm pretty sure this can only fail if we allow non-generic methods on
+
+        # Note(nikhil): This call can only fail if we allow non-generic methods on
         # generic classes that are only defined for specific generic params
         # 
         # i.e. `Vec.sort` only defined for `Vec[number]` and no other type
-        except TypeMismatch as mismatch: # pragma: no cover
-            raise self.new_error(
-                mismatch.span,
-                f"Expected {type_diff(mismatch.expected, mismatch.actual)} but got {type_diff(mismatch.actual, mismatch.expected)}",
-            ) from mismatch
+        ty_ctx.add_constraint(expr.receiver.expr_span, expected_receiver_type, receiver_type)
 
         self.fill_arguments(expr.fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
         if substitutions is not None:

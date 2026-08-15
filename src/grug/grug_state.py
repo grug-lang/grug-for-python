@@ -183,8 +183,7 @@ class GrugState:
                     else generic_fn.__name__
                 )
                 self.mod_api.register_generic_fn(None, name, generic_fn)
-            # None of the currently existing packages have any non generic methods
-            for class_name, method in pkg.methods: #pragma: no cover
+            for class_name, method in pkg.methods: 
                 name = method.__name__
                 self.mod_api.register_fn(class_name, name, method)
             for class_name, generic_method in pkg.generic_methods:
