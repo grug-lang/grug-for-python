@@ -32,7 +32,8 @@ class UnknownClass:
         pass
 
 class UnknownClass2:
-    def unknown_method(self, types: List[Type]) -> HostFn: # pragma: no cover
+    @staticmethod
+    def unknown_method(types: List[Type]) -> HostFn: # pragma: no cover
         def inner (self: UnknownClass2, state: GrugState): 
             pass
         return inner

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, List, Optional, Union
 
-if TYPE_CHECKING:
+if TYPE_CHECKING: # pragma: no cover
     from .parser import Type
 
 GrugValue = Union[float, bool, str, object]

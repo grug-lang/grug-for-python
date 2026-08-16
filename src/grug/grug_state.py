@@ -204,7 +204,8 @@ class GrugState:
                 fn = fn.__func__
             elif isinstance(fn, types.FunctionType):
                 pass
-            else:
+            # python 3.7 doesn't have any members other than methods
+            else: # pragma: no cover
                 continue
 
             hints = get_type_hints(fn) # pyright: ignore

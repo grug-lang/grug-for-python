@@ -108,7 +108,7 @@ Error: {message}
             mod_api_class = self.classes.get(class_name)
             if mod_api_class is None:
                 raise self.new_registration_error(
-                    f"Class '{class_name}' is not found in mod_api.json"
+                    f"Class with name '{class_name}' is not found in mod_api.json"
                 )
 
             host_fn_data = mod_api_class.methods.get(fn_name)
