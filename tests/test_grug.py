@@ -84,10 +84,10 @@ class GrugType(IntEnum):
     ENTITY = 6
 
 
-game_fn_c_t = ctypes.PYFUNCTYPE(
+game_fn_c_t = ctypes.CFUNCTYPE(
     GrugValueWorkaround, ctypes.c_void_p, ctypes.POINTER(GrugValueUnion)
 )
-generic_fn_reg_c_t = ctypes.PYFUNCTYPE(
+generic_fn_reg_c_t = ctypes.CFUNCTYPE(
     ctypes.c_void_p, ctypes.POINTER(CGrugType)
 )
 
@@ -199,7 +199,7 @@ class GrugStateVTableStruct(ctypes.Structure):
     ]
 
 
-_g_grug_lib: ctypes.PyDLL
+_g_grug_lib: ctypes.CDLL
 
 _grug_runtime_err: Optional[
     Union[TimeLimitExceeded, StackOverflow, ReraisedGameFnError]
@@ -223,7 +223,7 @@ def custom_runtime_error_handler(
 
 
 def test_grug(
-    grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.PyDLL
+    grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.CDLL
 ) -> None:
     global _g_grug_lib
     _g_grug_lib = grug_lib
@@ -512,7 +512,7 @@ def test_grug(
 
 
 class GameFnRegistrator:
-    def __init__(self, state: GrugState, grug_lib: ctypes.PyDLL):
+    def __init__(self, state: GrugState, grug_lib: ctypes.CDLL):
         self.state = state
         self.grug_lib = grug_lib
         
