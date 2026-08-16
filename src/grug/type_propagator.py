@@ -60,10 +60,7 @@ def type_matches(left: Type, right: Type) -> bool:
     if isinstance(left, IdType) and isinstance(right, IdType):
         if left.name != right.name or len(left.generics) != len(right.generics):
             return False
-        return all(
-            type_matches(left_generic, right_generic)
-            for left_generic, right_generic in zip(left.generics, right.generics)
-        )
+        return all(map(type_matches, left.generics, right.generics))
     # This is technically the correct, expected behaviour, but we just never
     # end up needing in the current implementation
     if isinstance(left, ExistentialType) or isinstance(right, ExistentialType): # pragma: no cover
