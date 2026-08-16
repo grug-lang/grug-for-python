@@ -200,7 +200,11 @@ class GrugState:
     def grug_class(self, cls: TClass) -> TClass:
         """Decorator for grug classes."""
         for name, fn in vars(cls).items():
-            if not isinstance(fn, types.FunctionType) and not isinstance(fn, staticmethod):
+            if isinstance(fn, staticmethod):
+                fn = fn.__func__
+            elif isinstance(fn, types.FunctionType):
+                pass
+            else:
                 continue
 
             hints = get_type_hints(fn) # pyright: ignore

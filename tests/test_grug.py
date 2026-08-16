@@ -1,6 +1,5 @@
 import ctypes
 import gc
-import os
 import sys
 import traceback
 from pathlib import Path
@@ -301,7 +300,6 @@ def test_grug(
         out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
     ) -> int:
         try:
-            start_time = os.times()
             global _grug_runtime_err
             _grug_runtime_err = None
 
@@ -315,8 +313,6 @@ def test_grug(
             entity_id = len(entities) + 1
             entities[entity_id] = entity
             out_err[0] = None
-            end_time = os.times()
-            print("create_entity time: ", end_time.system - start_time.system);
             return entity_id
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             out_err[0] = str(e).encode()
@@ -363,7 +359,6 @@ def test_grug(
         args_len: int,
     ) -> None:
         try:
-            start_time = os.times();
             global _grug_runtime_err
             _grug_runtime_err = None
 
@@ -382,8 +377,6 @@ def test_grug(
             ]
 
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
-            end_time = os.times();
-            print("create_entity time: ", end_time.system - start_time.system);
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as C doesn't propagate exceptions.
             _grug_runtime_err = e
