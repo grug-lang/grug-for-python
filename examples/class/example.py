@@ -11,8 +11,9 @@ class Printer:
         print(self)
         print(string)
 
+    @staticmethod
     def print(ty: List[Type]) -> HostFn:
-        def inner(self, state: GrugState, obj: object):
+        def inner(self: Printer, state: GrugState, obj: object):
             print(type(obj))
             print(self)
             print(obj)

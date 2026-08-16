@@ -371,7 +371,7 @@ Error: {error_message}
 def get_mod_api(mod_api_path: Path) -> ModApi:
     try:
         mod_api_text = mod_api_path.read_text()
-    # No, I'm not in fact going to test an os error here, i'm sorry
+    # No, I am not in fact going to test an os error here, i'm sorry
     except OSError as err: #pragma: no cover
         error_message = f"IO Error: {err}"
         error_string = f"""\

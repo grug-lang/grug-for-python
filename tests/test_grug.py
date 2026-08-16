@@ -1,5 +1,6 @@
 import ctypes
 import gc
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -12,11 +13,9 @@ from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExc
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
 from grug.grug_value import GrugValue, HostFn
 from grug.parser import (
-    EntityStrType,
     ExistentialType,
     IdType,
     PrimitiveType,
-    ResourceStrType,
     Type,
 )
 from grug.mod_api import get_mod_api
@@ -118,10 +117,7 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
     c_type = CGrugType()
 
     # Can never pass void, resource, entity, or an existential to a host function
-    assert(type != PrimitiveType.VOID)
-    assert(not isinstance(type, ResourceStrType))
-    assert(not isinstance(type, EntityStrType  ))
-    assert(not isinstance(type, ExistentialType))
+    assert(typ != PrimitiveType.VOID)
     if typ == PrimitiveType.BOOL:
         c_type.type = GRUG_TYPE_ENUM_BOOL
     elif typ == PrimitiveType.NUMBER:
@@ -130,6 +126,7 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
         c_type.type = GRUG_TYPE_ENUM_STRING
     # else type is IdType
     else:
+        assert(isinstance(typ, IdType))
         c_type.type = GRUG_TYPE_ENUM_ID
         name = typ.name.encode()
         keepalive.append(name)
@@ -304,6 +301,7 @@ def test_grug(
         out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
     ) -> int:
         try:
+            start_time = os.times()
             global _grug_runtime_err
             _grug_runtime_err = None
 
@@ -317,6 +315,8 @@ def test_grug(
             entity_id = len(entities) + 1
             entities[entity_id] = entity
             out_err[0] = None
+            end_time = os.times()
+            print("create_entity time: ", end_time.system - start_time.system);
             return entity_id
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             out_err[0] = str(e).encode()
@@ -363,6 +363,7 @@ def test_grug(
         args_len: int,
     ) -> None:
         try:
+            start_time = os.times();
             global _grug_runtime_err
             _grug_runtime_err = None
 
@@ -381,6 +382,8 @@ def test_grug(
             ]
 
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
+            end_time = os.times();
+            print("create_entity time: ", end_time.system - start_time.system);
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as C doesn't propagate exceptions.
             _grug_runtime_err = e
@@ -674,21 +677,24 @@ class GameFnRegistrator:
         raise ReraisedGameFnError(reason)
 
     # type of c_fn cannot be expressed properly
-    def wrap_fn(self, return_type: Type, c_fn) -> HostFn: #pyright: ignore
+    def wrap_fn(self, return_type: Type, c_fn) -> HostFn: # pyright: ignore
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
             self._keepalive += _keepalive
 
             # We pass 42 since `state` is a Python object
             # grug-tests just doesn't want us to *accidentally* pass NULL
-            result: GrugValueWorkaround = c_fn(42, c_args)
+
+            # type of c_fn cannot be expressed properly, so it's return type
+            # is also unknown
+            result: GrugValueWorkaround = c_fn(42, c_args) # pyright: ignore
 
             self._raise_game_fn_error_if_needed(state)
 
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
 
-            return self._unpack_workaround(result, return_type)
+            return self._unpack_workaround(result, return_type) # pyright: ignore
         return fn
 
     def _register_fn(self, name: str):
@@ -702,7 +708,7 @@ class GameFnRegistrator:
 
         return_type = self.state.mod_api.host_fns[name].return_type
 
-        self.state.mod_api.register_fn(None, name, self.wrap_fn(return_type, c_fn))
+        self.state.mod_api.register_fn(None, name, self.wrap_fn(return_type, c_fn)) # pyright: ignore
 
     def _register_generic_fn(self, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -729,7 +735,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            return self.wrap_fn(return_type, c_fn)
+            return self.wrap_fn(return_type, c_fn) # pyright: ignore
 
         self.state.mod_api.register_generic_fn(None, name, register)
 
@@ -742,9 +748,9 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api.classes[class_name].methods[name].return_type
+        return_type = self.state.mod_api.classes[class_name].methods[name].return_type # pyright: ignore
 
-        self.state.mod_api.register_fn(class_name, name, self.wrap_fn(return_type, c_fn))
+        self.state.mod_api.register_fn(class_name, name, self.wrap_fn(return_type, c_fn)) # pyright: ignore
 
     def _register_generic_method(self, class_name: str, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -771,7 +777,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            return self.wrap_fn(return_type, c_fn)
+            return self.wrap_fn(return_type, c_fn) # pyright: ignore
 
         self.state.mod_api.register_generic_fn(class_name, name, register)
 
