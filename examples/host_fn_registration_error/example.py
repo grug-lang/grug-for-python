@@ -13,12 +13,16 @@ def print_string(state: GrugState, string: str): # pragma: no cover
 def unknown_fn(state: GrugState): # pragma: no cover
     pass
 
+def unknown_generic_fn(ty: List[Type]): # pragma: no cover
+    pass
+
 def print_grug(state: GrugState, obj: object): # pragma: no cover
     print(obj)
 
 def print_grug_gen(types: List[Type]) -> HostFn: # pragma: no cover
     def inner(state: GrugState, obj: object):
         print(object)
+    return inner
 
 print_grug.__name__ = "print"
 print_grug_gen.__name__ = "print"
@@ -28,8 +32,8 @@ class UnknownClass:
         pass
 
 class UnknownClass2:
-    def unknown_method(types: List[Type]) -> HostFn: # pragma: no cover
-        def inner (self, state: GrugState): 
+    def unknown_method(self, types: List[Type]) -> HostFn: # pragma: no cover
+        def inner (self: UnknownClass2, state: GrugState): 
             pass
         return inner
 
@@ -48,28 +52,31 @@ class KnownClass3:
 KnownClass3.__name__ = "KnownClass"
 
 class KnownClass4:
+    @staticmethod
     def unknown_generic_method(types: List[Type]) -> HostFn: # pragma: no cover
-        def inner(self, state: GrugState):
+        def inner(self: KnownClass4, state: GrugState):
             pass
         return inner
 KnownClass4.__name__ = "KnownClass"
 
 class KnownClass5:
+    @staticmethod
     def supposed_to_be_non_generic(types: List[Type]) -> HostFn: # pragma: no cover
-        def inner(self, state: GrugState):
+        def inner(self: KnownClass5, state: GrugState):
             pass
         return inner
 KnownClass5.__name__ = "KnownClass"
 
 class KnownClass6:
+    @staticmethod
     def known_generic_method(types: List[Type]) -> HostFn: # pragma: no cover
-        def inner(self, state: GrugState):
+        def inner(self: KnownClass6, state: GrugState):
             pass
         return inner
 KnownClass6.__name__ = "KnownClass"
 
 class KnownClass7:
-    def invalid_method_signature(value: int): # pragma: no cover
+    def invalid_method_signature(self, value: int): # pragma: no cover
         print(value)
 KnownClass7.__name__ = "KnownClass"
 
@@ -133,7 +140,8 @@ except GrugError as err:
     print(err)
 
 try:
-    state.generic_fn(unknown_fn)
+    # We are testing the type mismatch here
+    state.generic_fn(unknown_fn) # pyright: ignore
 except GrugError as err:
     print(err)
 
@@ -144,7 +152,8 @@ except GrugError as err:
     print(err)
 
 try:
-    state.generic_fn(print_string)
+    # We are testing the type mismatch here
+    state.generic_fn(print_string) # pyright: ignore
 except GrugError as err:
     print(err)
 

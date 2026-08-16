@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 from typing import (
+    TypeVar,
     get_type_hints,
     cast,
     TYPE_CHECKING,
@@ -22,7 +23,7 @@ from typing import (
     Set,
 )
 
-from .grug_value import HostFn, HostFnReg
+from .grug_value import HostFn, HostFnReg, GrugValue
 
 from .mod_api import ModApi
 from .error import GrugError
@@ -128,6 +129,7 @@ def default_runtime_error_handler(
         file=sys.stderr,
     )
 
+TClass = TypeVar("TClass", bound=type)
 
 class GrugState:
     def __init__(
@@ -195,14 +197,14 @@ class GrugState:
         self.mod_api.register_fn(None, fn.__name__, fn)
         return fn
 
-    def grug_class(self, cls: type) -> type:
+    def grug_class(self, cls: TClass) -> TClass:
         """Decorator for grug classes."""
         for name, fn in vars(cls).items():
-            if not isinstance(fn, types.FunctionType):
+            if not isinstance(fn, types.FunctionType) and not isinstance(fn, staticmethod):
                 continue
 
-            hints = get_type_hints(fn)
-            parameters = list(inspect.signature(fn).parameters.values())
+            hints = get_type_hints(fn) # pyright: ignore
+            parameters = list(inspect.signature(fn).parameters.values()) # pyright: ignore
 
             if (
                 len(parameters) == 1
@@ -244,8 +246,8 @@ class GrugState:
         """Adapt grug's ``(state, receiver, ...)`` call to a Python method call."""
 
         @wraps(method)
-        def adapted(state, receiver, *args, **kwargs):
-            return method(receiver, state, *args, **kwargs)
+        def adapted(state: GrugState, receiver: GrugValue, *args: GrugValue):
+            return method(receiver, state, *args)
 
         return adapted
 

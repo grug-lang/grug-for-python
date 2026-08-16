@@ -2,11 +2,11 @@ import time
 
 import grug
 from grug.packages import grug_numpy, grug_stdlib
-from grug import GrugPackage
+from grug import GrugPackage, GrugState
 
 class Printer:
     @staticmethod
-    def print_string(state: GrugState, self, string: str):
+    def print_string(state: GrugState, self: "Printer", string: str):
         print(string)
 
 

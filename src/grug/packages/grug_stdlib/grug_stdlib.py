@@ -196,14 +196,14 @@ def dict_values(types: List[Type]) -> HostFn:
 
 
 def dict_items(types: List[Type]) -> HostFn:
-    def inner(state: GrugState, d: Dict[object, object]) -> List[Pair[object, object]]:
+    def inner(state: GrugState, d: Dict[object, object]) -> List[Pair]:
         return [Pair(first=k, second=v) for k, v in d.items()]
 
     return inner
 
 
 def dict_pop_item(types: List[Type]) -> HostFn:
-    def inner(state: GrugState, d: Dict[object, object]) -> List[object]:
+    def inner(state: GrugState, d: Dict[object, object]) -> Pair:
         k, v = d.popitem()
         return Pair(first=k, second=v)
 
