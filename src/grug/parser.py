@@ -3,77 +3,17 @@ from __future__ import annotations
 import math
 import struct
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from .error import GrugError, SourceSpan
 from .tokenizer import SPACES_PER_INDENT, Token, TokenType
-from .grug_value import HostFn
+from .types import HostFn, Type, PrimitiveType, ResourceStrType, EntityStrType, IdType
 
 MAX_PARSING_DEPTH = 100
 
 MIN_F64 = struct.unpack("!d", struct.pack("!Q", 0x0010000000000000))[0]
 MAX_F64 = struct.unpack("!d", struct.pack("!Q", 0x7FEFFFFFFFFFFFFF))[0]
-
-class PrimitiveType(Enum):
-    VOID = auto()
-    BOOL = auto()
-    NUMBER = auto()
-    STRING = auto()
-
-    def __str__(self) -> str:
-        # there should be no reason to print "void"
-        if self == PrimitiveType.VOID: # pragma: no cover
-            return "void"
-        elif self == PrimitiveType.BOOL:
-            return "bool"
-        elif self == PrimitiveType.NUMBER:
-            return "number"
-        return "string"
-
-@dataclass(frozen=True)
-class ExistentialType:
-    idx: int
-
-    # we never print an existential type, but a user might
-    def __str__(self): # pragma: no cover
-        return f"${self.idx}"
-
-@dataclass(frozen=True)
-class IdType:
-    name: str
-    generics: List[Type] = field(default_factory=lambda: [])
-
-    def __str__(self):
-        if len(self.generics) != 0:
-            generics = ", ".join(f"{generic}" for generic in self.generics)
-            return f"{self.name}[{generics}]"
-        return self.name
-
-@dataclass(frozen=True)
-class ResourceStrType:
-    extension: str
-
-    # We never print "resource" using this function
-    def __str__(self): #pragma: no cover
-        return "resource"
-
-@dataclass(frozen=True)
-class EntityStrType:
-    entity_type: Optional[str]
-
-    # We never print "entity" using this function
-    def __str__(self): #pragma: no cover
-        return "entity"
-
-Type = Union[
-    PrimitiveType,
-    IdType,
-    ResourceStrType,
-    EntityStrType,
-    ExistentialType,
-]
 
 @dataclass
 class ParserError(Exception):

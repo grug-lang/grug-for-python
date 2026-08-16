@@ -1,10 +1,15 @@
 import time
 from typing import Dict, List, Optional
 
-from grug.grug_state import GrugFile, GrugRuntimeErrorType
-from grug.grug_value import GrugValue, HostFn
-
-from .parser import Type, PrimitiveType, ResourceStrType, EntityStrType
+from .grug_state import GrugFile, GrugRuntimeErrorType
+from .types import (
+    GrugValue, 
+    HostFn, 
+    Type, 
+    PrimitiveType, 
+    ResourceStrType, 
+    EntityStrType
+)
 
 from .parser import (
     BinaryExpr,
