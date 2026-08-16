@@ -4,6 +4,14 @@ from typing import Dict, List, Optional, Tuple, Union
 import os
 
 from .error import GrugError, SourceSpan
+from .types import (
+    Type,
+    PrimitiveType,
+	IdType,
+	EntityStrType,
+	ResourceStrType,
+    ExistentialType
+)
 from .parser import (
     Ast,
     BinaryExpr,
@@ -25,12 +33,6 @@ from .parser import (
     Statement,
     StringExpr,
     TrueExpr,
-    Type,
-    PrimitiveType,
-	IdType,
-	EntityStrType,
-	ResourceStrType,
-    ExistentialType,
     UnaryExpr,
     VariableStatement,
     WhileStatement,

@@ -6,9 +6,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
 from .error import GrugError, SourceSpan
-from .grug_value import HostFn, HostFnReg
 
-from .parser import Type, Parameter, PrimitiveType, ResourceStrType, EntityStrType, IdType, ExistentialType
+from .parser import Parameter
+from .types import (
+    HostFn, 
+    HostFnReg, 
+    Type, 
+    PrimitiveType, 
+    ResourceStrType, 
+    EntityStrType, 
+    IdType, 
+    ExistentialType
+)
 
 @dataclass
 class ModApiHostFn:

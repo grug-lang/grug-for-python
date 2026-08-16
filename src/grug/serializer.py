@@ -2,13 +2,16 @@ import json
 from io import StringIO
 from typing import Any, Dict, List, Union
 
-from .parser import (
+from .types import (
     Type,
     PrimitiveType,
     ResourceStrType,
     EntityStrType,
     IdType,
     ExistentialType,
+)
+
+from .parser import (
     Ast,
     BinaryExpr,
     BreakStatement,

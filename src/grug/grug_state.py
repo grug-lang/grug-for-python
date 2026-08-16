@@ -23,7 +23,7 @@ from typing import (
     Set,
 )
 
-from .grug_value import HostFn, HostFnReg, GrugValue
+from .types import HostFn, HostFnReg, GrugValue
 
 from .mod_api import ModApi
 from .error import GrugError
