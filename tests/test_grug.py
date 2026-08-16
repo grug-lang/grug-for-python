@@ -3,6 +3,7 @@ import gc
 import sys
 import traceback
 from pathlib import Path
+from enum import Enum
 from typing import List, Optional, Tuple, Union
 
 import pytest  # pyright: ignore[reportMissingImports]
@@ -73,14 +74,14 @@ CGrugType._fields_ = [
     ("data", CGrugTypeData),
 ]
 
-
-GRUG_TYPE_ENUM_VOID = 0
-GRUG_TYPE_ENUM_BOOL = 1
-GRUG_TYPE_ENUM_NUMBER = 2
-GRUG_TYPE_ENUM_STRING = 3
-GRUG_TYPE_ENUM_ID = 4
-GRUG_TYPE_ENUM_RESOURCE = 5
-GRUG_TYPE_ENUM_ENTITY = 6
+class GrugType(Enum):
+    VOID = 0
+    BOOL = 1
+    NUMBER = 2
+    STRING = 3
+    ID = 4
+    RESOURCE = 5
+    ENTITY = 6
 
 
 game_fn_c_t = ctypes.PYFUNCTYPE(
@@ -118,15 +119,15 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
     # Can never pass void, resource, entity, or an existential to a host function
     assert(typ != PrimitiveType.VOID)
     if typ == PrimitiveType.BOOL:
-        c_type.type = GRUG_TYPE_ENUM_BOOL
+        c_type.type = GrugType.BOOL
     elif typ == PrimitiveType.NUMBER:
-        c_type.type = GRUG_TYPE_ENUM_NUMBER
+        c_type.type = GrugType.NUMBER
     elif typ == PrimitiveType.STRING:
-        c_type.type = GRUG_TYPE_ENUM_STRING
+        c_type.type = GrugType.STRING
     # else type is IdType
     else:
         assert(isinstance(typ, IdType))
-        c_type.type = GRUG_TYPE_ENUM_ID
+        c_type.type = GrugType.ID
         name = typ.name.encode()
         keepalive.append(name)
         c_type.data.id.name = name
