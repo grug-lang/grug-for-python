@@ -10,7 +10,8 @@ from .types import (
 	IdType,
 	EntityStrType,
 	ResourceStrType,
-    ExistentialType
+    ExistentialType,
+    HostFn
 )
 from .parser import (
     Ast,
@@ -39,7 +40,6 @@ from .parser import (
 )
 from .tokenizer import TokenType
 from .mod_api import ModApi, ModApiHostFn
-from .grug_value import HostFn
 
 
 @dataclass
