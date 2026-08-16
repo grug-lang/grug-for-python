@@ -6,7 +6,7 @@ from grug import GrugPackage, GrugState
 from grug.entity import GameFnError
 
 from grug.parser import Type
-from grug.grug_value import GrugValue, HostFn, HostFnReg
+from grug.types import GrugValue, HostFn, HostFnReg
 
 try:
     from typing import Protocol  # Python >= 3.8

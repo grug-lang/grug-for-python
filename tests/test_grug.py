@@ -3,7 +3,7 @@ import gc
 import sys
 import traceback
 from pathlib import Path
-from enum import Enum
+from enum import IntEnum
 from typing import List, Optional, Tuple, Union
 
 import pytest  # pyright: ignore[reportMissingImports]
@@ -11,8 +11,9 @@ import pytest  # pyright: ignore[reportMissingImports]
 import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
-from grug.grug_value import GrugValue, HostFn
-from grug.parser import (
+from grug.types import (
+    GrugValue,
+    HostFn,
     ExistentialType,
     IdType,
     PrimitiveType,
@@ -74,7 +75,7 @@ CGrugType._fields_ = [
     ("data", CGrugTypeData),
 ]
 
-class GrugType(Enum):
+class GrugType(IntEnum):
     VOID = 0
     BOOL = 1
     NUMBER = 2

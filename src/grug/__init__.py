@@ -2,7 +2,7 @@ from typing import Optional, Sequence
 
 from .entity import GameFnError
 from .grug_state import GrugDir, GrugPackage
-from .grug_value import HostFn, Type
+from .types import HostFn, Type
 
 from .error import GrugError
 from .grug_state import (
