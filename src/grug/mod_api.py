@@ -38,9 +38,9 @@ class ModApiClass:
 
 @dataclass
 class ModApi:
-    entities: Dict[str, ModApiEntity] = field(default_factory=lambda: {})
-    classes: Dict[str, ModApiClass] = field(default_factory=lambda: {})
-    host_fns: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
+    entities: Dict[str, ModApiEntity] = field(default_factory=dict)
+    classes: Dict[str, ModApiClass] = field(default_factory=dict)
+    host_fns: Dict[str, ModApiHostFn] = field(default_factory=dict)
 
     @staticmethod
     def new_registration_error(message: str) -> GrugError:
