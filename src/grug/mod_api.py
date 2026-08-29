@@ -37,6 +37,7 @@ class ModApiExportFn:
 class ModApiEntity:
     description: str
     export_fns: Dict[str, ModApiExportFn]
+    static_methods: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
 
 @dataclass
 class ModApiClass:
@@ -44,12 +45,29 @@ class ModApiClass:
     type: Type
     generics: List[str]
     methods: Dict[str, ModApiHostFn]
+    static_methods: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
 
 @dataclass
 class ModApi:
     entities: Dict[str, ModApiEntity] 
     classes: Dict[str, ModApiClass] 
     host_fns: Dict[str, ModApiHostFn] 
+
+    def static_methods_of(self, type_name: str) -> Optional[Dict[str, ModApiHostFn]]:
+        """The static functions declared on a class or entity, or None if the
+        name does not belong to either."""
+        mod_api_class = self.classes.get(type_name)
+        if mod_api_class is not None:
+            return mod_api_class.static_methods
+
+        entity = self.entities.get(type_name)
+        if entity is not None:
+            return entity.static_methods
+
+        return None
+
+    def declares_type(self, type_name: str) -> bool:
+        return type_name in self.classes or type_name in self.entities
 
     @staticmethod
     def new_registration_error(message: str) -> GrugError:
@@ -66,9 +84,27 @@ Error: {message}
         )
 
     def register_fn(
-        self, class_name: Optional[str], fn_name: str, ptr: HostFn
+        self, class_name: Optional[str], fn_name: str, ptr: HostFn, static: bool = False
     ) -> None:
         if class_name is not None:
+            if static:
+                host_fn_data = self._get_static_method_for_registration(
+                    class_name, fn_name
+                )
+
+                if len(host_fn_data.generics) != 0:
+                    raise self.new_registration_error(
+                        f"Static method '{fn_name}' on '{class_name}' is generic"
+                    )
+
+                if host_fn_data.fn_ptr is not None:
+                    raise self.new_registration_error(
+                        f"Static method named '{fn_name}' on '{class_name}' has already been registered"
+                    )
+
+                host_fn_data.fn_ptr = ptr
+                return
+
             mod_api_class = self.classes.get(class_name)
             if mod_api_class is None:
                 raise self.new_registration_error(
@@ -111,9 +147,27 @@ Error: {message}
         host_fn_data.fn_ptr = ptr
 
     def register_generic_fn(
-        self, class_name: Optional[str], fn_name: str, ptr: HostFnReg
+        self, class_name: Optional[str], fn_name: str, ptr: HostFnReg, static: bool = False
     ) -> None:
         if class_name is not None:
+            if static:
+                host_fn_data = self._get_static_method_for_registration(
+                    class_name, fn_name
+                )
+
+                if len(host_fn_data.generics) == 0:
+                    raise self.new_registration_error(
+                        f"Static method {class_name}.{fn_name} is not generic"
+                    )
+
+                if host_fn_data.generic_reg_fn is not None:
+                    raise self.new_registration_error(
+                        f"Static method {class_name}.{fn_name} has already been registered"
+                    )
+
+                host_fn_data.generic_reg_fn = ptr
+                return
+
             mod_api_class = self.classes.get(class_name)
             if mod_api_class is None:
                 raise self.new_registration_error(
@@ -156,6 +210,23 @@ Error: {message}
             )
 
         host_fn_data.generic_reg_fn = ptr
+
+    def _get_static_method_for_registration(
+        self, type_name: str, fn_name: str
+    ) -> ModApiHostFn:
+        static_methods = self.static_methods_of(type_name)
+        if static_methods is None:
+            raise self.new_registration_error(
+                f"Class or entity with name '{type_name}' is not found in mod_api.json"
+            )
+
+        host_fn_data = static_methods.get(fn_name)
+        if host_fn_data is None:
+            raise self.new_registration_error(
+                f"'{type_name}' does not contain static method with name '{fn_name}'"
+            )
+
+        return host_fn_data
 
 @dataclass
 class ModApiParseContext:
@@ -244,7 +315,6 @@ Error: {error_message}
 
         generics: List[Type]
         if "generics" in obj:
-            self.push_path(".generics")
             generics_value = self.get_list(obj, "generics")
             generics = []
             for index, generic in enumerate(generics_value):
@@ -295,7 +365,6 @@ Error: {error_message}
 
         generics = list(parent_generics)
         if "used_generics" in host_fn_values:
-            self.push_path(".used_generics")
             used_generics = self.get_list(host_fn_values, "used_generics")
             for index, generic in enumerate(used_generics):
                 self.push_path(f"[{index}]")
@@ -308,7 +377,6 @@ Error: {error_message}
             self.pop_path()
 
         if "parameters" in host_fn_values:
-            self.push_path(".parameters")
             parameters = self.parse_parameters(self.get_list(host_fn_values, "parameters"), generics)
             self.pop_path()
         else:
@@ -332,6 +400,33 @@ Error: {error_message}
             return_type=return_type,
             fn_ptr=None,
         )
+
+    def parse_static_methods(
+        self, owner_values: Dict[str, Any], parent_generics: List[str]
+    ) -> Dict[str, ModApiHostFn]:
+        static_methods: Dict[str, ModApiHostFn] = {}
+        if "static_methods" not in owner_values:
+            return static_methods
+
+        self.push_path(".static_methods")
+        static_methods_obj = owner_values["static_methods"]
+        if not isinstance(static_methods_obj, dict):
+            raise self.new_error("is not an object")
+        static_methods_obj = cast(Dict[str, Any], static_methods_obj)
+
+        for static_method_name, static_method_values in static_methods_obj.items():
+            self.push_path(f".{static_method_name}")
+            if not isinstance(static_method_values, dict):
+                raise self.new_error("is not an object")
+            static_method_values = cast(Dict[str, Any], static_method_values)
+
+            static_methods[static_method_name] = self.parse_host_fn(
+                static_method_values, parent_generics
+            )
+            self.pop_path()
+
+        self.pop_path()
+        return static_methods
 
     def validate_function(
         self,
@@ -460,7 +555,6 @@ Error: {error_message}
                     context.pop_path()
 
                     if "parameters" in export_fn_values:
-                        context.push_path(".parameters")
                         parameters = context.parse_parameters(
                             context.get_list(export_fn_values, "parameters"), []
                         )
@@ -473,8 +567,12 @@ Error: {error_message}
 
                 context.pop_path()
 
+            entity_static_methods = context.parse_static_methods(entity_values, [])
+
             context.pop_path()
-            entities[entity_name] = ModApiEntity(description, export_fns)
+            entities[entity_name] = ModApiEntity(
+                description, export_fns, entity_static_methods
+            )
         context.pop_path()
 
     # classes
@@ -525,8 +623,12 @@ Error: {error_message}
 
                 context.pop_path()
 
+            static_methods = context.parse_static_methods(class_values, generics)
+
             context.pop_path()
-            classes[class_name] = ModApiClass(description, ty, generics, methods)
+            classes[class_name] = ModApiClass(
+                description, ty, generics, methods, static_methods
+            )
 
         context.pop_path()
 
@@ -574,6 +676,15 @@ Error: {error_message}
             )
             context.pop_path()
         context.pop_path()
+
+        context.push_path(".static_methods")
+        for static_method_name, host_fn in class_data.static_methods.items():
+            context.push_path(f".{static_method_name}")
+            context.validate_function(
+                host_fn.parameters, host_fn.return_type, known_types
+            )
+            context.pop_path()
+        context.pop_path()
         context.pop_path()
     context.pop_path()
 
@@ -593,6 +704,15 @@ Error: {error_message}
                 export_fn.parameters, PrimitiveType.VOID, known_types
             )
             context.pop_path()
+
+        context.push_path(".static_methods")
+        for static_method_name, host_fn in entity.static_methods.items():
+            context.push_path(f".{static_method_name}")
+            context.validate_function(
+                host_fn.parameters, host_fn.return_type, known_types
+            )
+            context.pop_path()
+        context.pop_path()
         context.pop_path()
     context.pop_path()
 

@@ -9,6 +9,7 @@ from .grug_state import (
     GrugRuntimeErrorHandler,
     GrugState,
     default_runtime_error_handler,
+    static_method,
 )
 
 
@@ -29,4 +30,4 @@ def init(
     )
 
 
-__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "Type", "HostFn", "GrugError"]
+__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "Type", "HostFn", "GrugError", "static_method"]
