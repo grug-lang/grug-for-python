@@ -710,7 +710,71 @@ class TypePropagator:
                 raise self.new_error(expr.name_span, "Mods aren't allowed to call their own export functions")
             raise self.new_error(expr.name_span, f"The game function '{fn_name}' was not declared by mod_api.json")
 
+        static_receiver_name = self._static_receiver_name(expr)
+        if static_receiver_name is not None:
+            return self._fill_static_method_expr(
+                ty_ctx, substitutions, expr, static_receiver_name
+            )
+
         return self._fill_method_expr(ty_ctx, substitutions, expr)
+
+    def _static_receiver_name(self, expr: CallExpr) -> Optional[str]:
+        """The name of the class or entity `expr` is a static call on, or None
+        if this is an ordinary method call.
+
+        A variable of the same name wins, so that declaring one can never change
+        the meaning of a call that was already resolving to it."""
+        receiver = expr.receiver
+        if not isinstance(receiver, IdentifierExpr):
+            return None
+        if self.get_variable(receiver.name) is not None:
+            return None
+        if not self.mod_api.declares_type(receiver.name):
+            return None
+        return receiver.name
+
+    def _fill_static_method_expr(
+        self,
+        ty_ctx: TyCtx,
+        substitutions: Optional[List[Type]],
+        expr: CallExpr,
+        type_name: str,
+    ) -> Type:
+        static_methods = self.mod_api.static_methods_of(type_name)
+        assert static_methods is not None
+
+        host_fn = static_methods.get(expr.fn_name)
+        if host_fn is None:
+            mod_api_class = self.mod_api.classes.get(type_name)
+            if mod_api_class is not None and expr.fn_name in mod_api_class.methods:
+                raise self.new_error(
+                    expr.name_span,
+                    f"'{expr.fn_name}' is a method on '{type_name}', so it must be called on a value of that type, like 'x.{expr.fn_name}()'",
+                )
+            raise self.new_error(
+                expr.name_span,
+                f"Cannot find static method '{expr.fn_name}' on '{type_name}'",
+            )
+
+        # A static method has no receiver to infer the owner's generics from, so
+        # every generic it uses is inferred from its arguments and return type,
+        # exactly like a free host function's.
+        generics = self._call_generics(
+            ty_ctx, substitutions, expr.fn_name, expr.name_span, host_fn.generics
+        )
+        parameters = [
+            Parameter(param.name, self.convert_mod_api_type(param.type, generics), param.name_span, param.type_span)
+            for param in host_fn.parameters
+        ]
+
+        self.fill_arguments(expr.fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
+
+        expr.static_receiver_name = type_name
+        if substitutions is not None:
+            expr.fn_ptr = self.fill_host_fn_ptr(
+                host_fn, generics, expr.name_span, expr.fn_name, type_name
+            )
+        return self.convert_mod_api_type(host_fn.return_type, generics)
 
     def _fill_method_expr(
         self, ty_ctx: TyCtx, substitutions: Optional[List[Type]], expr: CallExpr
@@ -731,6 +795,11 @@ class TypePropagator:
 
         host_fn = mod_api_class.methods.get(expr.fn_name)
         if host_fn is None:
+            if expr.fn_name in mod_api_class.static_methods:
+                raise self.new_error(
+                    expr.name_span,
+                    f"'{expr.fn_name}' is a static method on '{receiver_name}', so it must be called as '{receiver_name}.{expr.fn_name}()'",
+                )
             raise self.new_error(expr.receiver.expr_span, f"Cannot find method '{expr.fn_name}' on type '{receiver_name}'")
 
         generics = self._call_generics(ty_ctx, substitutions, expr.fn_name, expr.name_span, host_fn.generics)

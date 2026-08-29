@@ -107,6 +107,12 @@ class CallExpr:
     arguments: List[Expr] = field(default_factory=lambda: [])
     fn_ptr: Optional[HostFn] = None
     result: Type = field(default_factory=lambda: PrimitiveType.VOID)
+    # `Foo.bar()` and `foo.bar()` have the same shape here, since the parser has
+    # no way of knowing whether `Foo` names a type or a variable. Type
+    # propagation decides, and writes the type's name here when the receiver
+    # turned out to be one, so that the backend knows not to evaluate the
+    # receiver and pass it as the first argument.
+    static_receiver_name: Optional[str] = None
 
 
 @dataclass

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 from typing import (
+    Any,
     TypeVar,
     get_type_hints,
     cast,
@@ -49,14 +50,35 @@ class GrugRuntimeErrorType(Enum):
 
 GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
+TFn = TypeVar("TFn", bound=Callable[..., object])
+
+_STATIC_MARKER = "__grug_static_method__"
+
+
+def static_method(fn: TFn) -> TFn:
+    """Marks a function inside a ``@grug_class`` as a grug static method.
+
+    A non-generic static method is recognized without this, by taking the
+    ``GrugState`` as its first parameter where a method takes it second. A
+    generic one cannot be: ``(List[Type]) -> HostFn`` is the signature of a
+    generic method too, so which of the two is meant has to be said out loud.
+
+    Combines with ``@staticmethod`` in either order.
+    """
+    marked: Any = getattr(fn, "__func__", fn)
+    setattr(marked, _STATIC_MARKER, True)
+    return fn
+
 
 class GrugPackage:
-    def __init__(self, *, prefix: str, host_fns: Sequence[HostFn], generic_fns: Sequence[HostFnReg], methods: Sequence[Tuple[str, HostFn]], generic_methods: Sequence[Tuple[str, HostFnReg]]):
+    def __init__(self, *, prefix: str, host_fns: Sequence[HostFn], generic_fns: Sequence[HostFnReg], methods: Sequence[Tuple[str, HostFn]], generic_methods: Sequence[Tuple[str, HostFnReg]], static_methods: Sequence[Tuple[str, HostFn]] = (), generic_static_methods: Sequence[Tuple[str, HostFnReg]] = ()):
         self.prefix = prefix
         self.host_fns = host_fns
         self.generic_fns = generic_fns
         self.methods = methods
         self.generic_methods = generic_methods
+        self.static_methods = static_methods
+        self.generic_static_methods = generic_static_methods
 
     def no_prefix(self):
         self.prefix = ""
@@ -191,6 +213,14 @@ class GrugState:
             for class_name, generic_method in pkg.generic_methods:
                 name = generic_method.__name__
                 self.mod_api.register_generic_fn(class_name, name, generic_method)
+            for type_name, static_fn in pkg.static_methods:
+                name = static_fn.__name__
+                self.mod_api.register_fn(type_name, name, static_fn, static=True)
+            for type_name, generic_static_fn in pkg.generic_static_methods:
+                name = generic_static_fn.__name__
+                self.mod_api.register_generic_fn(
+                    type_name, name, generic_static_fn, static=True
+                )
 
     def host_fn(self, fn: HostFn) -> HostFn:
         """Decorator for host functions."""
@@ -200,6 +230,12 @@ class GrugState:
     def grug_class(self, cls: TClass) -> TClass:
         """Decorator for grug classes."""
         for name, fn in vars(cls).items():
+            # Python plumbing, never something mod_api.json declares. Skipping
+            # it is what lets a grug class be an ordinary Python class with an
+            # `__init__`, which static methods make worth writing.
+            if name.startswith("__") and name.endswith("__"):
+                continue
+
             if isinstance(fn, staticmethod):
                 fn = fn.__func__
             elif isinstance(fn, types.FunctionType):
@@ -208,14 +244,30 @@ class GrugState:
             else: # pragma: no cover
                 continue
 
-            hints = get_type_hints(fn) # pyright: ignore
+            # The class is built before this decorator runs but is not bound to
+            # its name yet, so `-> "VecNumber"` on one of its own static methods
+            # resolves to nothing unless the class is handed over explicitly.
+            hints = get_type_hints(fn, localns={cls.__name__: cls}) # pyright: ignore
             parameters = list(inspect.signature(fn).parameters.values()) # pyright: ignore
 
-            if (
+            is_generic_signature = (
                 len(parameters) == 1
                 and hints.get(parameters[0].name) == List[Type]
                 and hints.get("return") == HostFn
-            ):
+            )
+
+            if getattr(fn, _STATIC_MARKER, False):
+                if is_generic_signature:
+                    self.mod_api.register_generic_fn(
+                        cls.__name__, name, cast(HostFnReg, fn), static=True
+                    )
+                else:
+                    self.mod_api.register_fn(
+                        cls.__name__, name, cast(HostFn, fn), static=True
+                    )
+                continue
+
+            if is_generic_signature:
                 generic_method = cast(HostFnReg, fn)
 
                 @wraps(generic_method)
@@ -238,9 +290,16 @@ class GrugState:
                 )
                 continue
 
+            if len(parameters) >= 1 and hints.get(parameters[0].name) is GrugState:
+                self.mod_api.register_fn(
+                    cls.__name__, name, cast(HostFn, fn), static=True
+                )
+                continue
+
             raise GrugError.new_init_error(
                 f"Method '{cls.__name__}.{name}' has an unsupported signature. "
                 "Expected a normal method whose first argument after the receiver "
+                "is annotated as GrugState, a static method whose first argument "
                 "is annotated as GrugState, or a generic method with signature "
                 "(List[Type]) -> HostFn"
             )
