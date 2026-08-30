@@ -6,18 +6,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .error import GrugError, SourceSpan
-
 from .parser import Parameter
 from .types import (
-    HostFn, 
-    HostFnReg, 
-    Type, 
-    PrimitiveType, 
-    ResourceStrType, 
-    EntityStrType, 
-    IdType, 
-    ExistentialType
+    EntityStrType,
+    ExistentialType,
+    HostFn,
+    HostFnReg,
+    IdType,
+    PrimitiveType,
+    ResourceStrType,
+    Type,
 )
+
 
 @dataclass
 class ModApiHostFn:
@@ -28,16 +28,19 @@ class ModApiHostFn:
     fn_ptr: Optional[HostFn] = None
     generic_reg_fn: Optional[HostFnReg] = None
 
+
 @dataclass
 class ModApiExportFn:
     description: str
     parameters: List[Parameter]
+
 
 @dataclass
 class ModApiEntity:
     description: str
     export_fns: Dict[str, ModApiExportFn]
     static_methods: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
+
 
 @dataclass
 class ModApiClass:
@@ -47,11 +50,12 @@ class ModApiClass:
     methods: Dict[str, ModApiHostFn]
     static_methods: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
 
+
 @dataclass
 class ModApi:
-    entities: Dict[str, ModApiEntity] 
-    classes: Dict[str, ModApiClass] 
-    host_fns: Dict[str, ModApiHostFn] 
+    entities: Dict[str, ModApiEntity]
+    classes: Dict[str, ModApiClass]
+    host_fns: Dict[str, ModApiHostFn]
 
     def static_methods_of(self, type_name: str) -> Optional[Dict[str, ModApiHostFn]]:
         """The static functions declared on a class or entity, or None if the
@@ -83,9 +87,7 @@ Error: {message}
             error_string=error_string,
         )
 
-    def register_fn(
-        self, class_name: Optional[str], fn_name: str, ptr: HostFn
-    ) -> None:
+    def register_fn(self, class_name: Optional[str], fn_name: str, ptr: HostFn) -> None:
         if class_name is not None:
             kind, host_fn_data = self._lookup_on_type(class_name, fn_name)
 
@@ -155,9 +157,7 @@ Error: {message}
 
         host_fn_data.generic_reg_fn = ptr
 
-    def _lookup_on_type(
-        self, type_name: str, fn_name: str
-    ) -> Tuple[str, ModApiHostFn]:
+    def _lookup_on_type(self, type_name: str, fn_name: str) -> Tuple[str, ModApiHostFn]:
         """The method or static method `type_name.fn_name` names, and which of
         the two it is.
 
@@ -183,6 +183,7 @@ Error: {message}
             )
 
         return "static method", host_fn_data
+
 
 @dataclass
 class ModApiParseContext:
@@ -242,7 +243,7 @@ Error: {error_message}
             raise self.new_error("is not an object")
         obj = cast(Dict[str, Any], obj)
 
-        ty = self.get_string(obj, "name");
+        ty = self.get_string(obj, "name")
         self.pop_path()
 
         if ty == "bool":
@@ -281,7 +282,9 @@ Error: {error_message}
 
         return IdType(ty, generics)
 
-    def parse_parameters(self, parameters: List[Any], generics: List[str]) -> List[Parameter]:
+    def parse_parameters(
+        self, parameters: List[Any], generics: List[str]
+    ) -> List[Parameter]:
         parsed_parameters: List[Parameter] = []
         for index, param_values in enumerate(parameters):
             self.push_path(f"[{index}]")
@@ -331,7 +334,9 @@ Error: {error_message}
             self.pop_path()
 
         if "parameters" in host_fn_values:
-            parameters = self.parse_parameters(self.get_list(host_fn_values, "parameters"), generics)
+            parameters = self.parse_parameters(
+                self.get_list(host_fn_values, "parameters"), generics
+            )
             self.pop_path()
         else:
             parameters: List[Parameter] = []
@@ -426,11 +431,12 @@ Error: {error_message}
             )
         self.pop_path()
 
+
 def get_mod_api(mod_api_path: Path) -> ModApi:
     try:
         mod_api_text = mod_api_path.read_text()
     # No, I am not in fact going to test an os error here, i'm sorry
-    except OSError as err: #pragma: no cover
+    except OSError as err:  # pragma: no cover
         error_message = f"IO Error: {err}"
         error_string = f"""\
   in ({mod_api_path})
@@ -505,7 +511,9 @@ Error: {error_message}
                     context.pop_path()
                     context.push_path(f'["{name}"]')
 
-                    export_description = context.get_string(export_fn_values, "description")
+                    export_description = context.get_string(
+                        export_fn_values, "description"
+                    )
                     context.pop_path()
 
                     if "parameters" in export_fn_values:
@@ -572,7 +580,9 @@ Error: {error_message}
                         raise context.new_error("is not an object")
                     method_values = cast(Dict[str, Any], method_values)
 
-                    methods[method_name] = context.parse_host_fn(method_values, generics)
+                    methods[method_name] = context.parse_host_fn(
+                        method_values, generics
+                    )
                     context.pop_path()
 
                 context.pop_path()

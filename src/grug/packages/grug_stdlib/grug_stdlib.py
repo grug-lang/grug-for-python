@@ -1,10 +1,9 @@
 import math
+from dataclasses import dataclass
 from typing import Dict, List, Tuple, TypeVar, cast
 
-from dataclasses import dataclass
 from grug import GrugPackage, GrugState
 from grug.entity import GameFnError
-
 from grug.parser import Type
 from grug.types import GrugValue, HostFn, HostFnReg
 
@@ -17,25 +16,33 @@ except ImportError:  # pragma: no cover
 # Type classes
 # --------------------
 
+
 @dataclass
 class Pair:
     first: object
     second: object
 
+
 def make_pair(types: List[Type]) -> HostFn:
     def inner(state: GrugState, first: object, second: object):
         return Pair(first, second)
+
     return inner
+
 
 def pair_first(types: List[Type]) -> HostFn:
     def inner(state: GrugState, pair: Pair):
         return pair.first
+
     return inner
+
 
 def pair_second(types: List[Type]) -> HostFn:
     def inner(state: GrugState, pair: Pair):
         return pair.second
+
     return inner
+
 
 pair_first.__name__ = "first"
 pair_second.__name__ = "second"
@@ -44,8 +51,10 @@ pair_second.__name__ = "second"
 # Assertions
 # --------------------
 
+
 def assert_(state: GrugState, value: bool):
     assert value, "assert failed"
+
 
 assert_.__name__ = "assert"
 
@@ -55,6 +64,7 @@ def assert_eq(types: List[Type]) -> HostFn:
         assert v1 == v2, f"assert failed {v1} != {v2}"
 
     return eq
+
 
 # --------------------
 # Math
@@ -72,6 +82,7 @@ def sqrt(state: GrugState, n: float) -> float:
 # --------------------
 # Dict core
 # --------------------
+
 
 def dict_len(types: List[Type]) -> HostFn:
     def inner(state: GrugState, d: Dict[object, object]) -> float:
@@ -252,9 +263,7 @@ def list_has(types: List[Type]) -> HostFn:
 
 
 def list_extend(types: List[Type]) -> HostFn:
-    def inner(
-        state: GrugState, values: List[object], other_values: List[object]
-    ):
+    def inner(state: GrugState, values: List[object], other_values: List[object]):
         values.extend(other_values)
 
     return inner
@@ -320,9 +329,7 @@ def list_index(types: List[Type]) -> HostFn:
 
 
 def list_insert(types: List[Type]) -> HostFn:
-    def inner(
-        state: GrugState, values: List[object], index: float, val: object
-    ):
+    def inner(state: GrugState, values: List[object], index: float, val: object):
         values.insert(int(index), val)
 
     return inner
@@ -369,10 +376,12 @@ list_remove.__name__ = "remove"
 # Printing
 # --------------------
 
+
 def format_number(x: object) -> object:
     if isinstance(x, float) and x.is_integer():
         return int(x)
     return x
+
 
 def print_value(types: List[Type]) -> HostFn:
     def inner(state: GrugState, value: GrugValue):
@@ -407,6 +416,7 @@ def dict_fns() -> List[HostFnReg]:
         dict_X,
         dict_fromkeys,
     ]
+
 
 def dict_methods() -> List[Tuple[str, HostFnReg]]:
     return [

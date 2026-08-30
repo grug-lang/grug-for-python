@@ -1,16 +1,16 @@
 from typing import Optional, Sequence
 
 from .entity import GameFnError
-from .grug_state import GrugDir, GrugPackage
-from .types import HostFn, Type
-
 from .error import GrugError
 from .grug_state import (
+    GrugDir,
+    GrugPackage,
     GrugRuntimeErrorHandler,
     GrugState,
     default_runtime_error_handler,
     static_method,
 )
+from .types import HostFn, Type
 
 
 def init(
@@ -30,4 +30,13 @@ def init(
     )
 
 
-__all__ = ["init", "GameFnError", "GrugPackage", "GrugDir", "Type", "HostFn", "GrugError", "static_method"]
+__all__ = [
+    "init",
+    "GameFnError",
+    "GrugPackage",
+    "GrugDir",
+    "Type",
+    "HostFn",
+    "GrugError",
+    "static_method",
+]

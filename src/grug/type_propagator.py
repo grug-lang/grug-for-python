@@ -1,18 +1,10 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
-import os
 
 from .error import GrugError, SourceSpan
-from .types import (
-    Type,
-    PrimitiveType,
-	IdType,
-	EntityStrType,
-	ResourceStrType,
-    ExistentialType,
-    HostFn
-)
+from .mod_api import ModApi, ModApiHostFn
 from .parser import (
     Ast,
     BinaryExpr,
@@ -27,8 +19,8 @@ from .parser import (
     LogicalExpr,
     NumberExpr,
     OnFn,
-    ParenthesizedExpr,
     Parameter,
+    ParenthesizedExpr,
     ResourceExpr,
     ReturnStatement,
     Statement,
@@ -39,7 +31,15 @@ from .parser import (
     WhileStatement,
 )
 from .tokenizer import TokenType
-from .mod_api import ModApi, ModApiHostFn
+from .types import (
+    EntityStrType,
+    ExistentialType,
+    HostFn,
+    IdType,
+    PrimitiveType,
+    ResourceStrType,
+    Type,
+)
 
 
 @dataclass
@@ -47,16 +47,19 @@ class Variable:
     name: str
     type: Type
 
+
 @dataclass
 class TypeMismatch(Exception):
     span: SourceSpan
     expected: Type
     actual: Type
 
+
 @dataclass
 class ExistentialData:
     function_name: str
     function_name_span: SourceSpan
+
 
 def type_matches(left: Type, right: Type) -> bool:
     if isinstance(left, IdType) and isinstance(right, IdType):
@@ -65,9 +68,12 @@ def type_matches(left: Type, right: Type) -> bool:
         return all(map(type_matches, left.generics, right.generics))
     # This is technically the correct, expected behaviour, but we just never
     # end up needing in the current implementation
-    if isinstance(left, ExistentialType) or isinstance(right, ExistentialType): # pragma: no cover
+    if isinstance(left, ExistentialType) or isinstance(
+        right, ExistentialType
+    ):  # pragma: no cover
         return True
     return left == right
+
 
 def type_diff(expected: Type, actual: Type) -> str:
     def type_name(ty: Type) -> str:
@@ -75,30 +81,40 @@ def type_diff(expected: Type, actual: Type) -> str:
             return str(ty)
         elif isinstance(ty, IdType):
             return ty.name
-        elif isinstance(ty, ResourceStrType): # pragma: no cover
+        elif isinstance(ty, ResourceStrType):  # pragma: no cover
             # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
             raise RuntimeError("not supposed to require type name of resource string")
-        elif isinstance(ty, EntityStrType): # pragma: no cover
+        elif isinstance(ty, EntityStrType):  # pragma: no cover
             # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
             raise RuntimeError("not supposed to require type name of entity string")
-        raise AssertionError("Unreachable") # pragma: no cover
+        raise AssertionError("Unreachable")  # pragma: no cover
 
     if type_matches(expected, actual):
         return "_"
-    if isinstance(expected, IdType) and isinstance(actual, IdType) and expected.name == actual.name:
+    if (
+        isinstance(expected, IdType)
+        and isinstance(actual, IdType)
+        and expected.name == actual.name
+    ):
         inner = ", ".join(
             type_diff(expected_generic, actual_generic)
-            for expected_generic, actual_generic in zip(expected.generics, actual.generics)
+            for expected_generic, actual_generic in zip(
+                expected.generics, actual.generics
+            )
         )
         return f"{expected.name}[{inner}]"
     return type_name(expected)
+
 
 def substitute_type(ty: Type, replacements: List[Type]) -> Type:
     if isinstance(ty, ExistentialType):
         return replacements[ty.idx]
     if isinstance(ty, IdType):
-        return IdType(ty.name, [substitute_type(generic, replacements) for generic in ty.generics])
+        return IdType(
+            ty.name, [substitute_type(generic, replacements) for generic in ty.generics]
+        )
     return ty
+
 
 class TyCtx:
     def __init__(self, function_name: str, type_propagator: "TypePropagator"):
@@ -108,7 +124,9 @@ class TyCtx:
         self.substitutions: List[Type] = []
         self.constraints: List[Tuple[Type, Type]] = []
 
-    def create_existential(self, function_name: str, function_name_span: SourceSpan) -> ExistentialType:
+    def create_existential(
+        self, function_name: str, function_name_span: SourceSpan
+    ) -> ExistentialType:
         existential = ExistentialType(len(self.existentials))
         self.existentials.append(ExistentialData(function_name, function_name_span))
         self.substitutions.append(existential)
@@ -119,7 +137,7 @@ class TyCtx:
         seen: List[int] = []
         while isinstance(ty, ExistentialType):
             # This is a sanity check used to ensure any recursive types that
-            # occur during type inference are caught. 
+            # occur during type inference are caught.
 
             # This includes things like this rust code
             # ```rs
@@ -127,7 +145,7 @@ class TyCtx:
             # x = Some(x)
             # ```
 
-            # which is disallowed by grug syntax, 
+            # which is disallowed by grug syntax,
             # and also cases where a type must be partially known during type
             # inference, but isn't. Like a method receiver with a fully unknown
             # type.
@@ -136,13 +154,15 @@ class TyCtx:
             # # assuming `Vec` is the only type which has a push method
             # default().push(25)
 
-            if ty.idx in seen: # pragma no cover
+            if ty.idx in seen:  # pragma no cover
                 return None
             seen.append(ty.idx)
             ty = self.substitutions[ty.idx]
         return ty
 
-    def add_constraint(self, span: SourceSpan, first_left: Type, first_right: Type) -> None:
+    def add_constraint(
+        self, span: SourceSpan, first_left: Type, first_right: Type
+    ) -> None:
         self.constraints.append((first_left, first_right))
         while self.constraints:
             left, right = self.constraints.pop()
@@ -151,12 +171,20 @@ class TyCtx:
                 continue
 
             # Should already be filtered out in `verify_generics`
-            assert(not isinstance(left, ResourceStrType) or isinstance(right, ResourceStrType))
-            assert(not isinstance(left, EntityStrType  ) or isinstance(right, EntityStrType  ))
+            assert not isinstance(left, ResourceStrType) or isinstance(
+                right, ResourceStrType
+            )
+            assert not isinstance(left, EntityStrType) or isinstance(
+                right, EntityStrType
+            )
 
             if isinstance(left, IdType) and isinstance(right, IdType):
                 if left.name != right.name:
-                    raise TypeMismatch(span, self._substitute_type(first_left), self._substitute_type(first_right))
+                    raise TypeMismatch(
+                        span,
+                        self._substitute_type(first_left),
+                        self._substitute_type(first_right),
+                    )
                 assert len(left.generics) == len(right.generics)
                 self.constraints.extend(zip(left.generics, right.generics))
                 continue
@@ -168,7 +196,11 @@ class TyCtx:
                 self._bind_or_constrain(right.idx, left)
                 continue
 
-            raise TypeMismatch(span, self._substitute_type(first_left), self._substitute_type(first_right))
+            raise TypeMismatch(
+                span,
+                self._substitute_type(first_left),
+                self._substitute_type(first_right),
+            )
 
     # If this existential is still unresolved, bind it to the other type.
     # Otherwise, require the existing binding and the new type to agree.
@@ -191,11 +223,13 @@ class TyCtx:
             replacement = self.substitutions[ty.idx]
             # If no constraint has been placed on an existential yet,
             # (i.e. the type is fully unknown) returns self
-            if isinstance(replacement, ExistentialType) and replacement.idx == ty.idx: 
+            if isinstance(replacement, ExistentialType) and replacement.idx == ty.idx:
                 return replacement
             return self._substitute_type(replacement)
         if isinstance(ty, IdType):
-            return IdType(ty.name, [self._substitute_type(generic) for generic in ty.generics])
+            return IdType(
+                ty.name, [self._substitute_type(generic) for generic in ty.generics]
+            )
         return ty
 
     # Ensure that all existentials are fully inferred, and there are no recursive types
@@ -209,7 +243,7 @@ class TyCtx:
                 )
             # AFAIK this is not actually possible with grug syntax currently,
             # Just being defensive here in case I missed something
-            if ty.idx in stack: # pragma: no cover
+            if ty.idx in stack:  # pragma: no cover
                 data = self.existentials[ty.idx]
                 raise self.type_propagator.new_error(
                     data.function_name_span,
@@ -219,6 +253,7 @@ class TyCtx:
         elif isinstance(ty, IdType):
             for generic in ty.generics:
                 self._check_consistency(generic, stack)
+
 
 class TypePropagator:
     def __init__(
@@ -271,9 +306,7 @@ class TypePropagator:
                     "since variable names must be lowercase",
                 )
 
-    def add_global_variable(
-        self, name: str, var_type: Type, span: SourceSpan
-    ):
+    def add_global_variable(self, name: str, var_type: Type, span: SourceSpan):
         self.validate_variable_name(name, span)
 
         if name in self.global_variables:
@@ -291,9 +324,7 @@ class TypePropagator:
             return self.global_variables[name]
         return None
 
-    def add_local_variable(
-        self, name: str, var_type: Type, span: SourceSpan
-    ):
+    def add_local_variable(self, name: str, var_type: Type, span: SourceSpan):
         self.validate_variable_name(name, span)
 
         if name in self.local_variables:
@@ -456,7 +487,7 @@ class TypePropagator:
     ) -> Optional[HostFn]:
         if len(generics) == 0:
             # not handled in tests yet
-            if host_fn.fn_ptr is None: # pragma: no cover
+            if host_fn.fn_ptr is None:  # pragma: no cover
                 if method_receiver_name is None:
                     raise RuntimeError(
                         f"host function {function_name} was not registered"
@@ -467,7 +498,7 @@ class TypePropagator:
             return host_fn.fn_ptr
 
         # not handled in tests yet
-        if host_fn.generic_reg_fn is None: # pragma: no cover
+        if host_fn.generic_reg_fn is None:  # pragma: no cover
             if method_receiver_name is None:
                 raise RuntimeError(
                     f"generic function {function_name} was not registered"
@@ -498,7 +529,9 @@ class TypePropagator:
         if expected_type is not None:
             ty_ctx.add_constraint(expr.expr_span, expected_type, expr_type)
         substitutions = ty_ctx.substitute()
-        return self.fill_expr(TyCtx(self.filled_fn_name or "member scope", self), substitutions, expr)
+        return self.fill_expr(
+            TyCtx(self.filled_fn_name or "member scope", self), substitutions, expr
+        )
 
     def fill_arguments(
         self,
@@ -526,13 +559,19 @@ class TypePropagator:
         for param, arg in zip(signature, arguments):
             arg_result_ty = self.fill_expr(ty_ctx, substitutions, arg)
 
-            if isinstance(param.type, ResourceStrType) and isinstance(arg, ResourceExpr):
+            if isinstance(param.type, ResourceStrType) and isinstance(
+                arg, ResourceExpr
+            ):
                 if substitutions is not None:
-                    self.validate_resource_string(arg.string, param.type.extension, arg.expr_span)
+                    self.validate_resource_string(
+                        arg.string, param.type.extension, arg.expr_span
+                    )
             elif isinstance(param.type, EntityStrType) and isinstance(arg, EntityExpr):
                 if substitutions is not None:
                     self.validate_entity_string(arg.string, arg.expr_span)
-            elif isinstance(param.type, ResourceStrType) and isinstance(arg, StringExpr):
+            elif isinstance(param.type, ResourceStrType) and isinstance(
+                arg, StringExpr
+            ):
                 raise self.new_error(
                     arg.expr_span,
                     f"The host function '{function_name}' expects a resource string, so put an 'r' in front of string \"{arg.string}\"",
@@ -556,7 +595,7 @@ class TypePropagator:
                         f"Function call '{function_name}' expected the type {type_diff(mismatch.expected, mismatch.actual)} for argument '{param.name}', but got {type_diff(mismatch.actual, mismatch.expected)}",
                     ) from mismatch
 
-    # Creates existentials for the generics of a host function. 
+    # Creates existentials for the generics of a host function.
     # substitues the existentials if available
     def _call_generics(
         self,
@@ -620,7 +659,11 @@ class TypePropagator:
             )
 
         result_ty = self.fill_expr(ty_ctx, substitutions, expr.expr)
-        expected = PrimitiveType.BOOL if expr.operator == TokenType.NOT_TOKEN else PrimitiveType.NUMBER
+        expected = (
+            PrimitiveType.BOOL
+            if expr.operator == TokenType.NOT_TOKEN
+            else PrimitiveType.NUMBER
+        )
         op_text = "not" if expr.operator == TokenType.NOT_TOKEN else "-"
         expected_name = "bool" if expr.operator == TokenType.NOT_TOKEN else "number"
 
@@ -640,7 +683,10 @@ class TypePropagator:
         return result_ty
 
     def _fill_binary_expr(
-        self, ty_ctx: TyCtx, substitutions: Optional[List[Type]], expr: Union[BinaryExpr, LogicalExpr]
+        self,
+        ty_ctx: TyCtx,
+        substitutions: Optional[List[Type]],
+        expr: Union[BinaryExpr, LogicalExpr],
     ) -> Type:
         left = expr.left_expr
         right = expr.right_expr
@@ -663,7 +709,9 @@ class TypePropagator:
             if op not in (TokenType.EQUALS_TOKEN, TokenType.NOT_EQUALS_TOKEN):
                 if op == TokenType.PLUS_TOKEN:
                     raise self.new_error(expr.op_span, "cannot add strings with '+'")
-                raise self.new_error(expr.op_span, f"You can't use the {op} operator on strings")
+                raise self.new_error(
+                    expr.op_span, f"You can't use the {op} operator on strings"
+                )
 
         if op in (TokenType.AND_TOKEN, TokenType.OR_TOKEN):
             expected_type: Type = PrimitiveType.BOOL
@@ -683,7 +731,10 @@ class TypePropagator:
             expected_type = PrimitiveType.NUMBER
             result_type = PrimitiveType.NUMBER
 
-        for expr_result, expr_span in ((current_0, left.expr_span), (current_1, right.expr_span)):
+        for expr_result, expr_span in (
+            (current_0, left.expr_span),
+            (current_1, right.expr_span),
+        ):
             try:
                 ty_ctx.add_constraint(expr_span, expected_type, expr_result)
             except TypeMismatch as mismatch:
@@ -702,17 +753,38 @@ class TypePropagator:
         if expr.receiver is None:
             if fn_name in self.helper_fns:
                 helper_fn = self.helper_fns[fn_name]
-                self.fill_arguments(fn_name, ty_ctx, substitutions, expr.name_span, helper_fn.parameters, expr.arguments)
+                self.fill_arguments(
+                    fn_name,
+                    ty_ctx,
+                    substitutions,
+                    expr.name_span,
+                    helper_fn.parameters,
+                    expr.arguments,
+                )
                 return helper_fn.return_type
 
             if fn_name in self.mod_api.host_fns:
                 host_fn = self.mod_api.host_fns[fn_name]
-                generics = self._call_generics(ty_ctx, substitutions, fn_name, expr.name_span, host_fn.generics)
+                generics = self._call_generics(
+                    ty_ctx, substitutions, fn_name, expr.name_span, host_fn.generics
+                )
                 parameters = [
-                    Parameter(param.name, self.convert_mod_api_type(param.type, generics), param.name_span, param.type_span)
+                    Parameter(
+                        param.name,
+                        self.convert_mod_api_type(param.type, generics),
+                        param.name_span,
+                        param.type_span,
+                    )
                     for param in host_fn.parameters
                 ]
-                self.fill_arguments(fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
+                self.fill_arguments(
+                    fn_name,
+                    ty_ctx,
+                    substitutions,
+                    expr.name_span,
+                    parameters,
+                    expr.arguments,
+                )
                 if substitutions is not None:
                     expr.fn_ptr = self.fill_host_fn_ptr(
                         host_fn, generics, expr.name_span, fn_name
@@ -720,10 +792,19 @@ class TypePropagator:
                 return self.convert_mod_api_type(host_fn.return_type, generics)
 
             if fn_name.startswith("_"):
-                raise self.new_error(expr.name_span, f"The local function '{fn_name}' was not defined by this grug file")
+                raise self.new_error(
+                    expr.name_span,
+                    f"The local function '{fn_name}' was not defined by this grug file",
+                )
             if fn_name in self.mod_api.entities[self.file_entity_type].export_fns:
-                raise self.new_error(expr.name_span, "Mods aren't allowed to call their own export functions")
-            raise self.new_error(expr.name_span, f"The game function '{fn_name}' was not declared by mod_api.json")
+                raise self.new_error(
+                    expr.name_span,
+                    "Mods aren't allowed to call their own export functions",
+                )
+            raise self.new_error(
+                expr.name_span,
+                f"The game function '{fn_name}' was not declared by mod_api.json",
+            )
 
         static_receiver_name = self._static_receiver_name(expr)
         if static_receiver_name is not None:
@@ -778,11 +859,23 @@ class TypePropagator:
             ty_ctx, substitutions, expr.fn_name, expr.name_span, host_fn.generics
         )
         parameters = [
-            Parameter(param.name, self.convert_mod_api_type(param.type, generics), param.name_span, param.type_span)
+            Parameter(
+                param.name,
+                self.convert_mod_api_type(param.type, generics),
+                param.name_span,
+                param.type_span,
+            )
             for param in host_fn.parameters
         ]
 
-        self.fill_arguments(expr.fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
+        self.fill_arguments(
+            expr.fn_name,
+            ty_ctx,
+            substitutions,
+            expr.name_span,
+            parameters,
+            expr.arguments,
+        )
 
         if substitutions is not None:
             expr.fn_ptr = self.fill_host_fn_ptr(
@@ -803,14 +896,21 @@ class TypePropagator:
         receiver_type = self.fill_expr(ty_ctx, substitutions, expr.receiver)
         receiver_type = ty_ctx.get_current_type(receiver_type)
         if receiver_type is None:
-            raise self.new_error(expr.receiver.expr_span, "Unable to infer type of method receiver")
+            raise self.new_error(
+                expr.receiver.expr_span, "Unable to infer type of method receiver"
+            )
         if not isinstance(receiver_type, IdType):
-            raise self.new_error(expr.receiver.expr_span, f"Cannot call method on '{receiver_type}' type")
+            raise self.new_error(
+                expr.receiver.expr_span, f"Cannot call method on '{receiver_type}' type"
+            )
 
         receiver_name = receiver_type.name
         mod_api_class = self.mod_api.classes.get(receiver_name)
         if mod_api_class is None:
-            raise self.new_error(expr.receiver.expr_span, f"Type '{receiver_name}' does not have any methods")
+            raise self.new_error(
+                expr.receiver.expr_span,
+                f"Type '{receiver_name}' does not have any methods",
+            )
 
         host_fn = mod_api_class.methods.get(expr.fn_name)
         if host_fn is None:
@@ -819,22 +919,41 @@ class TypePropagator:
                     expr.name_span,
                     f"'{expr.fn_name}' is a static method on '{receiver_name}', so it must be called as '{receiver_name}.{expr.fn_name}()'",
                 )
-            raise self.new_error(expr.receiver.expr_span, f"Cannot find method '{expr.fn_name}' on type '{receiver_name}'")
+            raise self.new_error(
+                expr.receiver.expr_span,
+                f"Cannot find method '{expr.fn_name}' on type '{receiver_name}'",
+            )
 
-        generics = self._call_generics(ty_ctx, substitutions, expr.fn_name, expr.name_span, host_fn.generics)
+        generics = self._call_generics(
+            ty_ctx, substitutions, expr.fn_name, expr.name_span, host_fn.generics
+        )
         parameters = [
-            Parameter(param.name, self.convert_mod_api_type(param.type, generics), param.name_span, param.type_span)
+            Parameter(
+                param.name,
+                self.convert_mod_api_type(param.type, generics),
+                param.name_span,
+                param.type_span,
+            )
             for param in host_fn.parameters
         ]
         expected_receiver_type = self.convert_mod_api_type(mod_api_class.type, generics)
 
         # Note(nikhil): This call can only fail if we allow non-generic methods on
         # generic classes that are only defined for specific generic params
-        # 
+        #
         # i.e. `Vec.sort` only defined for `Vec[number]` and no other type
-        ty_ctx.add_constraint(expr.receiver.expr_span, expected_receiver_type, receiver_type)
+        ty_ctx.add_constraint(
+            expr.receiver.expr_span, expected_receiver_type, receiver_type
+        )
 
-        self.fill_arguments(expr.fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
+        self.fill_arguments(
+            expr.fn_name,
+            ty_ctx,
+            substitutions,
+            expr.name_span,
+            parameters,
+            expr.arguments,
+        )
         if substitutions is not None:
             expr.fn_ptr = self.fill_host_fn_ptr(
                 host_fn, generics, expr.name_span, expr.fn_name, receiver_name
@@ -854,9 +973,7 @@ class TypePropagator:
                     f"Can't assign {type_diff(mismatch.actual, mismatch.expected)} to '{stmt.name}', which has type {type_diff(mismatch.expected, mismatch.actual)}",
                 ) from mismatch
 
-            self.add_local_variable(
-                stmt.name, stmt.type, stmt.name_span
-            )
+            self.add_local_variable(stmt.name, stmt.type, stmt.name_span)
         else:
             if not var:
                 raise self.new_error(
@@ -984,7 +1101,9 @@ class TypePropagator:
 
         # Check ordering and validate signatures by iterating through expected order
         previous_on_fn_index = 0
-        for expected_fn_name in self.mod_api.entities[self.file_entity_type].export_fns.keys():
+        for expected_fn_name in self.mod_api.entities[
+            self.file_entity_type
+        ].export_fns.keys():
             if expected_fn_name not in self.on_fns:
                 continue
 
@@ -1004,7 +1123,11 @@ class TypePropagator:
             self.fn_return_type = PrimitiveType.VOID
             self.filled_fn_name = expected_fn_name
 
-            params = self.mod_api.entities[self.file_entity_type].export_fns[expected_fn_name].parameters
+            params = (
+                self.mod_api.entities[self.file_entity_type]
+                .export_fns[expected_fn_name]
+                .parameters
+            )
 
             if len(fn.parameters) != len(params):
                 if len(fn.parameters) < len(params):
@@ -1082,9 +1205,7 @@ class TypePropagator:
                             "Global variables can't be assigned 'me'",
                         )
 
-                self.add_global_variable(
-                    stmt.name, stmt.type, stmt.name_span
-                )
+                self.add_global_variable(stmt.name, stmt.type, stmt.name_span)
 
     def fill(self):
         """Main entry point for type propagation"""
