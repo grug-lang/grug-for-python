@@ -784,11 +784,15 @@ class TypePropagator:
 
         self.fill_arguments(expr.fn_name, ty_ctx, substitutions, expr.name_span, parameters, expr.arguments)
 
-        expr.static_receiver_name = type_name
         if substitutions is not None:
             expr.fn_ptr = self.fill_host_fn_ptr(
                 host_fn, generics, expr.name_span, expr.fn_name, type_name
             )
+            # The receiver named a type rather than a value, so there is nothing
+            # to evaluate and pass: a resolved static call has the shape of a
+            # free function's. Only the final pass may drop it, since the pass
+            # that collects constraints still has to recognize the call.
+            expr.receiver = None
         return self.convert_mod_api_type(host_fn.return_type, generics)
 
     def _fill_method_expr(

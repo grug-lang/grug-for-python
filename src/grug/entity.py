@@ -323,7 +323,7 @@ class Entity:
 
         if call_expr.fn_name.startswith("_"):
             return self._run_helper_fn(call_expr.fn_name, *args)
-        elif call_expr.receiver and call_expr.static_receiver_name is None:
+        elif call_expr.receiver:
             receiver = self._run_expr(call_expr.receiver)
             args.insert(0, receiver)
 
