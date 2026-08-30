@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from .error import GrugError, SourceSpan
 
@@ -84,47 +84,19 @@ Error: {message}
         )
 
     def register_fn(
-        self, class_name: Optional[str], fn_name: str, ptr: HostFn, static: bool = False
+        self, class_name: Optional[str], fn_name: str, ptr: HostFn
     ) -> None:
         if class_name is not None:
-            if static:
-                host_fn_data = self._get_static_method_for_registration(
-                    class_name, fn_name
-                )
-
-                if len(host_fn_data.generics) != 0:
-                    raise self.new_registration_error(
-                        f"Static method '{fn_name}' on '{class_name}' is generic"
-                    )
-
-                if host_fn_data.fn_ptr is not None:
-                    raise self.new_registration_error(
-                        f"Static method named '{fn_name}' on '{class_name}' has already been registered"
-                    )
-
-                host_fn_data.fn_ptr = ptr
-                return
-
-            mod_api_class = self.classes.get(class_name)
-            if mod_api_class is None:
-                raise self.new_registration_error(
-                    f"Class with name '{class_name}' is not found in mod_api.json"
-                )
-
-            host_fn_data = mod_api_class.methods.get(fn_name)
-            if host_fn_data is None:
-                raise self.new_registration_error(
-                    f"Class with name '{class_name}' does not contain method with name '{fn_name}'"
-                )
+            kind, host_fn_data = self._lookup_on_type(class_name, fn_name)
 
             if len(host_fn_data.generics) != 0:
                 raise self.new_registration_error(
-                    f"Host method '{fn_name}' on class '{class_name}' is generic"
+                    f"Host {kind} '{fn_name}' on class '{class_name}' is generic"
                 )
 
             if host_fn_data.fn_ptr is not None:
                 raise self.new_registration_error(
-                    f"Host method named '{fn_name}' on class '{class_name}' has already been registered"
+                    f"Host {kind} named '{fn_name}' on class '{class_name}' has already been registered"
                 )
 
             host_fn_data.fn_ptr = ptr
@@ -147,47 +119,19 @@ Error: {message}
         host_fn_data.fn_ptr = ptr
 
     def register_generic_fn(
-        self, class_name: Optional[str], fn_name: str, ptr: HostFnReg, static: bool = False
+        self, class_name: Optional[str], fn_name: str, ptr: HostFnReg
     ) -> None:
         if class_name is not None:
-            if static:
-                host_fn_data = self._get_static_method_for_registration(
-                    class_name, fn_name
-                )
-
-                if len(host_fn_data.generics) == 0:
-                    raise self.new_registration_error(
-                        f"Static method {class_name}.{fn_name} is not generic"
-                    )
-
-                if host_fn_data.generic_reg_fn is not None:
-                    raise self.new_registration_error(
-                        f"Static method {class_name}.{fn_name} has already been registered"
-                    )
-
-                host_fn_data.generic_reg_fn = ptr
-                return
-
-            mod_api_class = self.classes.get(class_name)
-            if mod_api_class is None:
-                raise self.new_registration_error(
-                    f"Class with name '{class_name}' is not found in mod_api.json"
-                )
-
-            host_fn_data = mod_api_class.methods.get(fn_name)
-            if host_fn_data is None:
-                raise self.new_registration_error(
-                    f"Method {class_name}.{fn_name} is not found in mod_api.json"
-                )
+            kind, host_fn_data = self._lookup_on_type(class_name, fn_name)
 
             if len(host_fn_data.generics) == 0:
                 raise self.new_registration_error(
-                    f"Method {class_name}.{fn_name} is not generic"
+                    f"{kind.capitalize()} {class_name}.{fn_name} is not generic"
                 )
 
             if host_fn_data.generic_reg_fn is not None:
                 raise self.new_registration_error(
-                    f"Method {fn_name}.{class_name} has already been registered"
+                    f"{kind.capitalize()} {class_name}.{fn_name} has already been registered"
                 )
 
             host_fn_data.generic_reg_fn = ptr
@@ -211,22 +155,34 @@ Error: {message}
 
         host_fn_data.generic_reg_fn = ptr
 
-    def _get_static_method_for_registration(
+    def _lookup_on_type(
         self, type_name: str, fn_name: str
-    ) -> ModApiHostFn:
+    ) -> Tuple[str, ModApiHostFn]:
+        """The method or static method `type_name.fn_name` names, and which of
+        the two it is.
+
+        A name identifies at most one of them, because a class or entity that
+        declares both is rejected when mod_api.json is parsed. That is what lets
+        registering one take a name and nothing else."""
+        mod_api_class = self.classes.get(type_name)
+        if mod_api_class is not None:
+            host_fn_data = mod_api_class.methods.get(fn_name)
+            if host_fn_data is not None:
+                return "method", host_fn_data
+
         static_methods = self.static_methods_of(type_name)
         if static_methods is None:
             raise self.new_registration_error(
-                f"Class or entity with name '{type_name}' is not found in mod_api.json"
+                f"Class with name '{type_name}' is not found in mod_api.json"
             )
 
         host_fn_data = static_methods.get(fn_name)
         if host_fn_data is None:
             raise self.new_registration_error(
-                f"'{type_name}' does not contain static method with name '{fn_name}'"
+                f"Class with name '{type_name}' does not contain method with name '{fn_name}'"
             )
 
-        return host_fn_data
+        return "static method", host_fn_data
 
 @dataclass
 class ModApiParseContext:
@@ -680,6 +636,8 @@ Error: {error_message}
         context.push_path(".static_methods")
         for static_method_name, host_fn in class_data.static_methods.items():
             context.push_path(f".{static_method_name}")
+            if static_method_name in class_data.methods:
+                raise context.new_error("is already declared as a method")
             context.validate_function(
                 host_fn.parameters, host_fn.return_type, known_types
             )

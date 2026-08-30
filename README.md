@@ -71,7 +71,9 @@ export bark(sound: string) {
 ```
 
 Calling a method statically (`VecNumber.push(x)`) and calling a static method on
-a value (`x.new()`) are both compile errors, each naming the other spelling.
+a value (`x.new()`) are both compile errors, each naming the other spelling. A
+class or entity may not declare a method and a static method with the same name,
+which is what lets a name alone say which of the two is being registered.
 
 On the Python side, a static method takes the `GrugState` as its first argument,
 where a method takes the receiver first and the state second:
