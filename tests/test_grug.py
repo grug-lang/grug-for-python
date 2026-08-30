@@ -3,7 +3,7 @@ import sys
 import traceback
 from enum import IntEnum
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import pytest  # pyright: ignore[reportMissingImports]
 
@@ -672,7 +672,7 @@ class GameFnRegistrator:
         raise ReraisedGameFnError(reason)
 
     # type of c_fn cannot be expressed properly
-    def wrap_fn(self, return_type: Type, c_fn) -> HostFn:  # pyright: ignore
+    def wrap_fn(self, return_type: Type, c_fn: Any) -> HostFn:
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
             self._keepalive += _keepalive
@@ -682,14 +682,14 @@ class GameFnRegistrator:
 
             # type of c_fn cannot be expressed properly, so it's return type
             # is also unknown
-            result: GrugValueWorkaround = c_fn(42, c_args)  # pyright: ignore
+            result: GrugValueWorkaround = c_fn(42, c_args)
 
             self._raise_game_fn_error_if_needed(state)
 
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
 
-            return self._unpack_workaround(result, return_type)  # pyright: ignore
+            return self._unpack_workaround(result, return_type)
 
         return fn
 
@@ -704,9 +704,7 @@ class GameFnRegistrator:
 
         return_type = self.state.mod_api.host_fns[name].return_type
 
-        self.state.mod_api.register_fn(
-            None, name, self.wrap_fn(return_type, c_fn)
-        )  # pyright: ignore
+        self.state.mod_api.register_fn(None, name, self.wrap_fn(return_type, c_fn))
 
     def _register_generic_fn(self, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -733,7 +731,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            return self.wrap_fn(return_type, c_fn)  # pyright: ignore
+            return self.wrap_fn(return_type, c_fn)
 
         self.state.mod_api.register_generic_fn(None, name, register)
 
@@ -746,18 +744,14 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = (
-            self.state.mod_api.classes[class_name].methods[name].return_type
-        )  # pyright: ignore
+        return_type = self.state.mod_api.classes[class_name].methods[name].return_type
 
         self.state.mod_api.register_fn(
             class_name, name, self.wrap_fn(return_type, c_fn)
-        )  # pyright: ignore
+        )
 
     def _static_method_data(self, type_name: str, name: str):
-        static_methods = self.state.mod_api.static_methods_of(
-            type_name
-        )  # pyright: ignore
+        static_methods = self.state.mod_api.static_methods_of(type_name)
         assert static_methods is not None, type_name
         return static_methods[name]
 
@@ -772,9 +766,7 @@ class GameFnRegistrator:
 
         return_type = self._static_method_data(type_name, name).return_type
 
-        self.state.mod_api.register_fn(
-            type_name, name, self.wrap_fn(return_type, c_fn)
-        )  # pyright: ignore
+        self.state.mod_api.register_fn(type_name, name, self.wrap_fn(return_type, c_fn))
 
     def _register_generic_method(
         self, class_name: str, name: str, native_name: str, static: bool = False
@@ -807,7 +799,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            return self.wrap_fn(return_type, c_fn)  # pyright: ignore
+            return self.wrap_fn(return_type, c_fn)
 
         self.state.mod_api.register_generic_fn(class_name, name, register)
 
