@@ -44,56 +44,6 @@ Run it by cloning the repository, `cd`-ing into it, running `cd examples/minimal
 
 See the [`examples/` directory](https://github.com/grug-lang/grug-for-python/tree/main/examples) for more interesting programs, like [`examples/using_grug_packages`](https://github.com/grug-lang/grug-for-python/tree/main/examples/using_grug_packages).
 
-## Static methods
-
-A class or entity can declare `static_methods` in `mod_api.json`. Their receiver
-is the type itself rather than a value of it, which is what lets a mod construct
-one without a free game function like `vec_number_new()`:
-
-```py
-export bark(sound: string) {
-    sounds: VecNumber = VecNumber.new()
-    sounds.push(1)
-}
-```
-
-```json
-"VecNumber": {
-    "description": "A growable list of numbers.",
-    "static_methods": {
-        "new": {
-            "description": "Creates a new empty VecNumber.",
-            "parameters": [],
-            "return_type": { "name": "VecNumber" }
-        }
-    }
-}
-```
-
-Calling a method statically (`VecNumber.push(x)`) and calling a static method on
-a value (`x.new()`) are both compile errors, each naming the other spelling. A
-class or entity may not declare a method and a static method with the same name,
-which is what lets a name alone say which of the two is being registered.
-
-On the Python side, a static method takes the `GrugState` as its first argument,
-where a method takes the receiver first and the state second:
-
-```py
-@state.grug_class
-class VecNumber:
-    @staticmethod
-    def new(state: GrugState) -> "VecNumber":
-        ...
-
-    def push(self, state: GrugState, value: float) -> None:
-        ...
-```
-
-A *generic* static method has the same Python signature as a generic method, so
-it is marked with `@grug.static_method` to say which one is meant. See
-[`examples/static_method`](https://github.com/grug-lang/grug-for-python/tree/main/examples/static_method)
-for a program using all of these.
-
 ## Dependencies
 
 This project requires Python version 3.7 or newer. You can manage your Python versions using [pyenv](https://github.com/pyenv/pyenv).
