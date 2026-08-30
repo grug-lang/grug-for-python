@@ -1,8 +1,8 @@
 import ctypes
 import sys
 import traceback
-from pathlib import Path
 from enum import IntEnum
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import pytest  # pyright: ignore[reportMissingImports]
@@ -10,15 +10,15 @@ import pytest  # pyright: ignore[reportMissingImports]
 import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
+from grug.mod_api import get_mod_api
 from grug.types import (
+    ExistentialType,
     GrugValue,
     HostFn,
-    ExistentialType,
     IdType,
     PrimitiveType,
     Type,
 )
-from grug.mod_api import get_mod_api
 
 
 class GrugValueUnion(ctypes.Union):
@@ -74,6 +74,7 @@ CGrugType._fields_ = [
     ("data", CGrugTypeData),
 ]
 
+
 class GrugType(IntEnum):
     VOID = 0
     BOOL = 1
@@ -87,9 +88,7 @@ class GrugType(IntEnum):
 game_fn_c_t = ctypes.CFUNCTYPE(
     GrugValueWorkaround, ctypes.c_void_p, ctypes.POINTER(GrugValueUnion)
 )
-generic_fn_reg_c_t = ctypes.CFUNCTYPE(
-    ctypes.c_void_p, ctypes.POINTER(CGrugType)
-)
+generic_fn_reg_c_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.POINTER(CGrugType))
 
 
 def c_to_py_value(value: GrugValueUnion, typ: Type):
@@ -108,7 +107,9 @@ def substitute_type(typ: Type, generics: List[Type]) -> Type:
     if isinstance(typ, ExistentialType):
         return generics[typ.idx]
     if isinstance(typ, IdType):
-        return IdType(typ.name, [substitute_type(generic, generics) for generic in typ.generics])
+        return IdType(
+            typ.name, [substitute_type(generic, generics) for generic in typ.generics]
+        )
     return typ
 
 
@@ -117,7 +118,7 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
     c_type = CGrugType()
 
     # Can never pass void, resource, entity, or an existential to a host function
-    assert(typ != PrimitiveType.VOID)
+    assert typ != PrimitiveType.VOID
     if typ == PrimitiveType.BOOL:
         c_type.type = GrugType.BOOL
     elif typ == PrimitiveType.NUMBER:
@@ -126,7 +127,7 @@ def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
         c_type.type = GrugType.STRING
     # else type is IdType
     else:
-        assert(isinstance(typ, IdType))
+        assert isinstance(typ, IdType)
         c_type.type = GrugType.ID
         name = typ.name.encode()
         keepalive.append(name)
@@ -465,7 +466,7 @@ def test_grug(
                 mods_dir_path=ctypes.string_at(mod_api_path).decode(),
                 on_fn_time_limit_ms=100,
             )
-        except RuntimeError: # pragma: no cover
+        except RuntimeError:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
             return 0
         except Exception:  # pragma: no cover
@@ -515,7 +516,7 @@ class GameFnRegistrator:
     def __init__(self, state: GrugState, grug_lib: ctypes.CDLL):
         self.state = state
         self.grug_lib = grug_lib
-        
+
         self._keepalive: List[bytes] = []
 
     def register_game_fns(self):
@@ -597,7 +598,9 @@ class GameFnRegistrator:
             ("call_on_b_fn", "Utils_call_on_b_fn"),
         ):
             self._register_method("Utils", method_name, native_name)
-        self._register_generic_method("Utils", "cause_game_fn_error_generic", "Utils_cause_game_fn_error_generic")
+        self._register_generic_method(
+            "Utils", "cause_game_fn_error_generic", "Utils_cause_game_fn_error_generic"
+        )
 
         for method_name, native_name in (
             ("push", "vec_push"),
@@ -607,10 +610,7 @@ class GameFnRegistrator:
             self._register_generic_method("Vec", method_name, native_name)
         self._register_generic_method("Vec", "new", "vec_new", static=True)
 
-        for method_name, native_name in (
-            ("get", "box_get"),
-
-        ):
+        for method_name, native_name in (("get", "box_get"),):
             self._register_generic_method("Box", method_name, native_name)
 
         self._register_generic_method("Dict", "put", "dict_put")
@@ -649,7 +649,7 @@ class GameFnRegistrator:
             ctypes.byref(value), ctypes.byref(c_workaround), ctypes.sizeof(value)
         )
         return c_to_py_value(value, return_type)
-    
+
     def _raise_game_fn_error_if_needed(self, state: GrugState):
         global _game_fn_error_reason
 
@@ -672,7 +672,7 @@ class GameFnRegistrator:
         raise ReraisedGameFnError(reason)
 
     # type of c_fn cannot be expressed properly
-    def wrap_fn(self, return_type: Type, c_fn) -> HostFn: # pyright: ignore
+    def wrap_fn(self, return_type: Type, c_fn) -> HostFn:  # pyright: ignore
         def fn(state: GrugState, *args: GrugValue):
             c_args, _keepalive = self._get_c_args(*args)
             self._keepalive += _keepalive
@@ -682,14 +682,15 @@ class GameFnRegistrator:
 
             # type of c_fn cannot be expressed properly, so it's return type
             # is also unknown
-            result: GrugValueWorkaround = c_fn(42, c_args) # pyright: ignore
+            result: GrugValueWorkaround = c_fn(42, c_args)  # pyright: ignore
 
             self._raise_game_fn_error_if_needed(state)
 
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
 
-            return self._unpack_workaround(result, return_type) # pyright: ignore
+            return self._unpack_workaround(result, return_type)  # pyright: ignore
+
         return fn
 
     def _register_fn(self, name: str):
@@ -703,7 +704,9 @@ class GameFnRegistrator:
 
         return_type = self.state.mod_api.host_fns[name].return_type
 
-        self.state.mod_api.register_fn(None, name, self.wrap_fn(return_type, c_fn)) # pyright: ignore
+        self.state.mod_api.register_fn(
+            None, name, self.wrap_fn(return_type, c_fn)
+        )  # pyright: ignore
 
     def _register_generic_fn(self, name: str, native_name: str):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
@@ -730,7 +733,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            return self.wrap_fn(return_type, c_fn) # pyright: ignore
+            return self.wrap_fn(return_type, c_fn)  # pyright: ignore
 
         self.state.mod_api.register_generic_fn(None, name, register)
 
@@ -743,12 +746,18 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api.classes[class_name].methods[name].return_type # pyright: ignore
+        return_type = (
+            self.state.mod_api.classes[class_name].methods[name].return_type
+        )  # pyright: ignore
 
-        self.state.mod_api.register_fn(class_name, name, self.wrap_fn(return_type, c_fn)) # pyright: ignore
+        self.state.mod_api.register_fn(
+            class_name, name, self.wrap_fn(return_type, c_fn)
+        )  # pyright: ignore
 
     def _static_method_data(self, type_name: str, name: str):
-        static_methods = self.state.mod_api.static_methods_of(type_name) # pyright: ignore
+        static_methods = self.state.mod_api.static_methods_of(
+            type_name
+        )  # pyright: ignore
         assert static_methods is not None, type_name
         return static_methods[name]
 
@@ -763,7 +772,9 @@ class GameFnRegistrator:
 
         return_type = self._static_method_data(type_name, name).return_type
 
-        self.state.mod_api.register_fn(type_name, name, self.wrap_fn(return_type, c_fn)) # pyright: ignore
+        self.state.mod_api.register_fn(
+            type_name, name, self.wrap_fn(return_type, c_fn)
+        )  # pyright: ignore
 
     def _register_generic_method(
         self, class_name: str, name: str, native_name: str, static: bool = False
@@ -796,7 +807,7 @@ class GameFnRegistrator:
             c_fn = game_fn_c_t(c_fn_ptr)
             return_type = substitute_type(host_fn_data.return_type, generics)
 
-            return self.wrap_fn(return_type, c_fn) # pyright: ignore
+            return self.wrap_fn(return_type, c_fn)  # pyright: ignore
 
         self.state.mod_api.register_generic_fn(class_name, name, register)
 
