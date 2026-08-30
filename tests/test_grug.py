@@ -559,8 +559,6 @@ class GameFnRegistrator:
             "cause_game_fn_error",
             "call_on_b_fn",
             "call_on_b_fn_number",
-            "store",
-            "retrieve",
             "box_number",
             "vec_number_new",
         ):
