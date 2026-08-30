@@ -1,4 +1,0 @@
-export bark() {
-    x: VecNumber = VecNumber.new()
-    x.push(1)
-}
