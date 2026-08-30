@@ -3,8 +3,8 @@
         "Dog": {
             "description": "A dog.",
             "static_methods": {
-                "count": {
-                    "description": "How many dogs exist.",
+                "magic": {
+                    "description": "The Answer to the Ultimate Question of Life, the Universe, and Everything.",
                     "return_type": {
                         "name": "number"
                     }
@@ -27,52 +27,6 @@
         }
     },
     "classes": {
-        "VecNumber": {
-            "description": "A growable list of numbers.",
-            "static_methods": {
-                "new": {
-                    "description": "Creates a new empty VecNumber.",
-                    "parameters": [],
-                    "return_type": {
-                        "name": "VecNumber"
-                    }
-                },
-                "with_capacity": {
-                    "description": "Creates a new empty VecNumber with a minimum capacity.",
-                    "parameters": [
-                        {
-                            "name": "capacity",
-                            "type": {
-                                "name": "number"
-                            }
-                        }
-                    ],
-                    "return_type": {
-                        "name": "VecNumber"
-                    }
-                }
-            },
-            "methods": {
-                "push": {
-                    "description": "Pushes a number to the end of the list.",
-                    "parameters": [
-                        {
-                            "name": "value",
-                            "type": {
-                                "name": "number"
-                            }
-                        }
-                    ]
-                },
-                "pop": {
-                    "description": "Removes the last element from the list and returns it.",
-                    "parameters": [],
-                    "return_type": {
-                        "name": "number"
-                    }
-                }
-            }
-        },
         "Box": {
             "description": "Holds one value of any type.",
             "used_generics": [
@@ -109,36 +63,32 @@
                 }
             }
         },
-        "vec": {
-            "description": "A list whose name is not PascalCase.",
+        "VecNumber": {
+            "description": "A growable list of numbers.",
             "static_methods": {
                 "new": {
-                    "description": "Creates a new vec.",
+                    "description": "Creates a new empty VecNumber.",
+                    "parameters": [],
                     "return_type": {
-                        "name": "vec"
-                    }
-                },
-                "of": {
-                    "description": "Creates a vec holding one value.",
-                    "used_generics": [
-                        "$T"
-                    ],
-                    "parameters": [
-                        {
-                            "name": "value",
-                            "type": {
-                                "name": "$T"
-                            }
-                        }
-                    ],
-                    "return_type": {
-                        "name": "vec"
+                        "name": "VecNumber"
                     }
                 }
             },
             "methods": {
-                "len": {
-                    "description": "How many items it holds.",
+                "push": {
+                    "description": "Pushes a number to the end of the list.",
+                    "parameters": [
+                        {
+                            "name": "value",
+                            "type": {
+                                "name": "number"
+                            }
+                        }
+                    ]
+                },
+                "pop": {
+                    "description": "Removes the last element from the list and returns it.",
+                    "parameters": [],
                     "return_type": {
                         "name": "number"
                     }

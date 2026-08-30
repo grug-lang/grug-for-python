@@ -1,30 +1,12 @@
 export bark(sound: string) {
-    # `VecNumber.new()` is a static method: the receiver is the type itself,
-    # so no `vec_number_new()` game function is needed to construct one.
     sounds: VecNumber = VecNumber.new()
     sounds.push(1)
     sounds.push(2)
     print_number(sounds.pop())
 
-    # Static methods take arguments like any other function.
-    sized: VecNumber = VecNumber.with_capacity(8)
-    sized.push(3)
-    print_number(sized.pop())
-
-    # A static method on a generic class infers the generic from its arguments,
-    # since there is no receiver to read it from.
     boxed: Box[string] = Box.of(sound)
     print_string(boxed.get())
 
     # Entities may declare static methods too.
-    print_number(Dog.count())
-
-    # A class name need not be PascalCase, so a variable can share a type's
-    # name. The variable wins, which is what stops a static method from
-    # changing what code that already existed means.
-    one: vec = vec.of(9)
-    print_number(one.len())
-
-    vec: vec = vec.new()
-    print_number(vec.len())
+    print_number(Dog.magic())
 }
