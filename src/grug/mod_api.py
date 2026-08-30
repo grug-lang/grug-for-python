@@ -39,7 +39,7 @@ class ModApiExportFn:
 class ModApiEntity:
     description: str
     export_fns: Dict[str, ModApiExportFn]
-    static_methods: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
+    static_methods: Dict[str, ModApiHostFn]
 
 
 @dataclass
@@ -48,7 +48,7 @@ class ModApiClass:
     type: Type
     generics: List[str]
     methods: Dict[str, ModApiHostFn]
-    static_methods: Dict[str, ModApiHostFn] = field(default_factory=lambda: {})
+    static_methods: Dict[str, ModApiHostFn]
 
 
 @dataclass
