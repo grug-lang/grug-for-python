@@ -530,6 +530,8 @@ class GameFnRegistrator:
             "sin",
             "cos",
             "mega",
+            "eval_order_1",
+            "eval_order_2",
             "get_false",
             "set_is_happy",
             "mega_f32",
