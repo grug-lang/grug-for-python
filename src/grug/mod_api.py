@@ -251,8 +251,6 @@ Error: {error_message}
             return PrimitiveType.NUMBER
         if ty == "string":
             return PrimitiveType.STRING
-        if ty == "id":
-            return IdType("id")
         if ty == "entity":
             entity_type = self.get_string(obj, "entity_type")
             self.pop_path()
