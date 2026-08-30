@@ -1,38 +1,36 @@
 from __future__ import annotations
 
-import json
 import inspect
+import json
 import sys
-import weakref
 import types
-from functools import wraps
+import weakref
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from functools import wraps
 from pathlib import Path
 from typing import (
-    Any,
-    TypeVar,
-    get_type_hints,
-    cast,
     TYPE_CHECKING,
-    Tuple,
+    Any,
     Callable,
     Dict,
     List,
     Optional,
     Sequence,
     Set,
+    Tuple,
+    TypeVar,
+    cast,
+    get_type_hints,
 )
 
-from .types import HostFn, HostFnReg, GrugValue
-
-from .mod_api import ModApi
 from .error import GrugError
+from .mod_api import ModApi, get_mod_api
 from .parser import HelperFn, OnFn, Parser, Type, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
 from .type_propagator import TypePropagator
-from .mod_api import ModApi, get_mod_api
+from .types import GrugValue, HostFn, HostFnReg
 
 if TYPE_CHECKING:  # pragma: no cover
     from .entity import Entity
@@ -71,7 +69,17 @@ def static_method(fn: TFn) -> TFn:
 
 
 class GrugPackage:
-    def __init__(self, *, prefix: str, host_fns: Sequence[HostFn], generic_fns: Sequence[HostFnReg], methods: Sequence[Tuple[str, HostFn]], generic_methods: Sequence[Tuple[str, HostFnReg]], static_methods: Sequence[Tuple[str, HostFn]] = (), generic_static_methods: Sequence[Tuple[str, HostFnReg]] = ()):
+    def __init__(
+        self,
+        *,
+        prefix: str,
+        host_fns: Sequence[HostFn],
+        generic_fns: Sequence[HostFnReg],
+        methods: Sequence[Tuple[str, HostFn]],
+        generic_methods: Sequence[Tuple[str, HostFnReg]],
+        static_methods: Sequence[Tuple[str, HostFn]] = (),
+        generic_static_methods: Sequence[Tuple[str, HostFnReg]] = (),
+    ):
         self.prefix = prefix
         self.host_fns = host_fns
         self.generic_fns = generic_fns
@@ -151,7 +159,9 @@ def default_runtime_error_handler(
         file=sys.stderr,
     )
 
+
 TClass = TypeVar("TClass", bound=type)
+
 
 class GrugState:
     def __init__(
@@ -207,7 +217,7 @@ class GrugState:
                     else generic_fn.__name__
                 )
                 self.mod_api.register_generic_fn(None, name, generic_fn)
-            for class_name, method in pkg.methods: 
+            for class_name, method in pkg.methods:
                 name = method.__name__
                 self.mod_api.register_fn(class_name, name, method)
             for class_name, generic_method in pkg.generic_methods:
@@ -218,9 +228,7 @@ class GrugState:
                 self.mod_api.register_fn(type_name, name, static_fn)
             for type_name, generic_static_fn in pkg.generic_static_methods:
                 name = generic_static_fn.__name__
-                self.mod_api.register_generic_fn(
-                    type_name, name, generic_static_fn
-                )
+                self.mod_api.register_generic_fn(type_name, name, generic_static_fn)
 
     def host_fn(self, fn: HostFn) -> HostFn:
         """Decorator for host functions."""
@@ -241,14 +249,16 @@ class GrugState:
             elif isinstance(fn, types.FunctionType):
                 pass
             # python 3.7 doesn't have any members other than methods
-            else: # pragma: no cover
+            else:  # pragma: no cover
                 continue
 
             # The class is built before this decorator runs but is not bound to
             # its name yet, so `-> "VecNumber"` on one of its own static methods
             # resolves to nothing unless the class is handed over explicitly.
-            hints = get_type_hints(fn, localns={cls.__name__: cls}) # pyright: ignore
-            parameters = list(inspect.signature(fn).parameters.values()) # pyright: ignore
+            hints = get_type_hints(fn, localns={cls.__name__: cls})  # pyright: ignore
+            parameters = list(
+                inspect.signature(fn).parameters.values()
+            )  # pyright: ignore
 
             is_generic_signature = (
                 len(parameters) == 1
@@ -262,9 +272,7 @@ class GrugState:
                         cls.__name__, name, cast(HostFnReg, fn)
                     )
                 else:
-                    self.mod_api.register_fn(
-                        cls.__name__, name, cast(HostFn, fn)
-                    )
+                    self.mod_api.register_fn(cls.__name__, name, cast(HostFn, fn))
                 continue
 
             if is_generic_signature:
@@ -291,9 +299,7 @@ class GrugState:
                 continue
 
             if len(parameters) >= 1 and hints.get(parameters[0].name) is GrugState:
-                self.mod_api.register_fn(
-                    cls.__name__, name, cast(HostFn, fn)
-                )
+                self.mod_api.register_fn(cls.__name__, name, cast(HostFn, fn))
                 continue
 
             raise GrugError.new_init_error(

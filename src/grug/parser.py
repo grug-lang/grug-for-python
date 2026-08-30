@@ -8,12 +8,13 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 
 from .error import GrugError, SourceSpan
 from .tokenizer import SPACES_PER_INDENT, Token, TokenType
-from .types import HostFn, Type, PrimitiveType, ResourceStrType, EntityStrType, IdType
+from .types import EntityStrType, HostFn, IdType, PrimitiveType, ResourceStrType, Type
 
 MAX_PARSING_DEPTH = 100
 
 MIN_F64 = struct.unpack("!d", struct.pack("!Q", 0x0010000000000000))[0]
 MAX_F64 = struct.unpack("!d", struct.pack("!Q", 0x7FEFFFFFFFFFFFFF))[0]
+
 
 @dataclass
 class ParserError(Exception):
@@ -228,6 +229,7 @@ Ast = List[
     Union[VariableStatement, EmptyLineStatement, CommentStatement, OnFn, HelperFn]
 ]
 
+
 class Parser:
     def __init__(self, tokens: List[Token], file_path: Path, source_text: str):
         self.tokens = tokens
@@ -287,7 +289,7 @@ class Parser:
         newline_allowed = False
         newline_required = False
 
-        try: 
+        try:
             i = [0]  # Use a list to allow modification by called functions
             while i[0] < len(self.tokens):
                 token = self.tokens[i[0]]
@@ -300,7 +302,7 @@ class Parser:
                     if seen_on_fn:
                         raise self.new_error(
                             token.span,
-                            "Cannot declare member variables after on_ functions"
+                            "Cannot declare member variables after on_ functions",
                         )
 
                     self.ast.append(self.parse_global_variable(i))
@@ -312,16 +314,11 @@ class Parser:
 
                     continue
 
-                elif (
-                    token.type == TokenType.EXPORT_TOKEN
-                ):
+                elif token.type == TokenType.EXPORT_TOKEN:
                     self.assert_token_type(i[0] + 1, TokenType.SPACE_TOKEN)
                     name_token = self.peek_token(i[0] + 2)
                     if newline_required:
-                        raise ParserError(
-                            name_token.span,
-                            f"Expected an empty line"
-                        )
+                        raise ParserError(name_token.span, f"Expected an empty line")
 
                     fn = self.parse_export_fn(i)
                     if fn.fn_name in self.on_fns:
@@ -330,7 +327,7 @@ class Parser:
                             fn.fn_name,
                             self.source_text,
                             fn.span,
-                            f"The function '{fn.fn_name}' was defined several times in the same file"
+                            f"The function '{fn.fn_name}' was defined several times in the same file",
                         )
                     self.on_fns[fn.fn_name] = fn
 
@@ -343,17 +340,12 @@ class Parser:
 
                     continue
 
-                elif (
-                    token.type == TokenType.LOCAL_TOKEN
-                ):
+                elif token.type == TokenType.LOCAL_TOKEN:
                     self.assert_token_type(i[0] + 1, TokenType.SPACE_TOKEN)
                     self.assert_token_type(i[0] + 2, TokenType.WORD_TOKEN)
                     name_token = self.peek_token(i[0] + 2)
                     if newline_required:
-                        raise ParserError(
-                            name_token.span,
-                            f"Expected an empty line"
-                        )
+                        raise ParserError(name_token.span, f"Expected an empty line")
 
                     fn = self.parse_local_fn(i)
                     if fn.fn_name in self.helper_fns:
@@ -362,7 +354,7 @@ class Parser:
                             fn.fn_name,
                             self.source_text,
                             fn.span,
-                            f"The function '{fn.fn_name}' was defined several times in the same file"
+                            f"The function '{fn.fn_name}' was defined several times in the same file",
                         )
                     self.helper_fns[fn.fn_name] = fn
 
@@ -375,10 +367,7 @@ class Parser:
 
                 elif token.type == TokenType.NEWLINE_TOKEN:
                     if not newline_allowed:
-                        raise ParserError(
-                            token.span,
-                            f"Unexpected empty line"
-                        )
+                        raise ParserError(token.span, f"Unexpected empty line")
 
                     seen_newline = True
 
@@ -399,13 +388,12 @@ class Parser:
                 else:
                     raise ParserError(
                         token.span,
-                        f"Unexpected token '{token.value}' on line {self.get_token_line_number(i[0])}"
+                        f"Unexpected token '{token.value}' on line {self.get_token_line_number(i[0])}",
                     )
 
             if seen_newline and not newline_allowed:
                 raise ParserError(
-                    self.token_span(len(self.tokens) - 1),
-                    f"Unexpected empty line"
+                    self.token_span(len(self.tokens) - 1), f"Unexpected empty line"
                 )
         except ParserError as err:
             raise self.new_error(err.span, err.message) from err
@@ -414,10 +402,7 @@ class Parser:
 
     def peek_token(self, token_index: int):
         if token_index >= len(self.tokens):
-            raise ParserError(
-                self.token_span(token_index),
-                f"unexpected end of file"
-            )
+            raise ParserError(self.token_span(token_index), f"unexpected end of file")
         return self.tokens[token_index]
 
     def consume_token(self, i: List[int]):
@@ -427,17 +412,16 @@ class Parser:
         return token
 
     def assert_token_type(self, token_index: int, expected_type: TokenType):
-        try: 
+        try:
             token = self.peek_token(token_index)
         except Exception as _:
             raise ParserError(
                 self.token_span(token_index),
-                f"Expected {expected_type} but got end of file"
+                f"Expected {expected_type} but got end of file",
             )
         if token.type != expected_type:
             raise ParserError(
-                token.span,
-                f"Expected {expected_type} but got {token.type}"
+                token.span, f"Expected {expected_type} but got {token.type}"
             )
 
     def consume_token_type(self, i: List[int], expected_type: TokenType):
@@ -459,7 +443,10 @@ class Parser:
 
         if switch_token.type == TokenType.WORD_TOKEN:
             token = self.peek_token(i[0] + 1)
-            if token.type == TokenType.OPEN_PARENTHESIS_TOKEN or token.type == TokenType.DOT_TOKEN:
+            if (
+                token.type == TokenType.OPEN_PARENTHESIS_TOKEN
+                or token.type == TokenType.DOT_TOKEN
+            ):
                 expr = self.parse_call(i)
                 expr = self.try_parse_method(expr, i)
 
@@ -476,7 +463,7 @@ class Parser:
             else:
                 raise ParserError(
                     self.peek_token(i[0] + 1).span,
-                    f"Expected '(', or ':', or ' =' after the word '{switch_token.value}' on line {self.get_token_line_number(i[0])}"
+                    f"Expected '(', or ':', or ' =' after the word '{switch_token.value}' on line {self.get_token_line_number(i[0])}",
                 )
         elif switch_token.type == TokenType.IF_TOKEN:
             statement = self.parse_if_statement(i)
@@ -496,7 +483,7 @@ class Parser:
             if self.loop_depth == 0:
                 raise self.new_error(
                     switch_token.span,
-                    f"There is a break statement that isn't inside of a while loop"
+                    f"There is a break statement that isn't inside of a while loop",
                 )
             i[0] += 1
             statement = BreakStatement(switch_token.span)
@@ -504,7 +491,7 @@ class Parser:
             if self.loop_depth == 0:
                 raise self.new_error(
                     switch_token.span,
-                    f"There is a continue statement that isn't inside of a while loop"
+                    f"There is a continue statement that isn't inside of a while loop",
                 )
             i[0] += 1
             statement = ContinueStatement(switch_token.span)
@@ -514,7 +501,7 @@ class Parser:
         else:
             raise ParserError(
                 switch_token.span,
-                f"Expected a statement token, but got {switch_token.type} on line {self.get_token_line_number(i[0])}"
+                f"Expected a statement token, but got {switch_token.type} on line {self.get_token_line_number(i[0])}",
             )
 
         self.decrease_parsing_depth()
@@ -571,13 +558,13 @@ class Parser:
         if Parser.type_contains_entity(param_type):
             raise self.new_error(
                 type_span,
-                f"The argument '{param_name}' can't contain 'entity' in its type"
+                f"The argument '{param_name}' can't contain 'entity' in its type",
             )
 
         if Parser.type_contains_resource(param_type):
             raise self.new_error(
                 type_span,
-                f"The argument '{param_name}' can't contain 'resource' in its type"
+                f"The argument '{param_name}' can't contain 'resource' in its type",
             )
 
         parameters.append(
@@ -610,12 +597,12 @@ class Parser:
             if Parser.type_contains_entity(param_type):
                 raise self.new_error(
                     type_span,
-                    f"The argument '{param_name}' can't contain 'entity' in its type"
+                    f"The argument '{param_name}' can't contain 'entity' in its type",
                 )
             if Parser.type_contains_resource(param_type):
                 raise self.new_error(
                     type_span,
-                    f"The argument '{param_name}' can't contain 'resource' in its type"
+                    f"The argument '{param_name}' can't contain 'resource' in its type",
                 )
 
             parameters.append(
@@ -641,15 +628,13 @@ class Parser:
         self.current_function = fn.fn_name
         if not fn.fn_name.startswith("_"):
             raise self.new_error(
-                fn_name.span,
-                f"Local function name must begin with '_'"
+                fn_name.span, f"Local function name must begin with '_'"
             )
-
 
         if fn.fn_name not in self.called_helper_fn_names:
             raise self.new_error(
                 fn.span,
-                f"{fn.fn_name}() is defined before the first time it gets called"
+                f"{fn.fn_name}() is defined before the first time it gets called",
             )
 
         self.consume_token_type(i, TokenType.OPEN_PARENTHESIS_TOKEN)
@@ -666,16 +651,15 @@ class Parser:
             i[0] += 1
             fn.return_type, type_span = self.parse_type(i)
 
-
             if Parser.type_contains_entity(fn.return_type):
                 raise self.new_error(
                     type_span,
-                    f"The function '{fn.fn_name}' can't contain 'entity' in its return type"
+                    f"The function '{fn.fn_name}' can't contain 'entity' in its return type",
                 )
             if Parser.type_contains_resource(fn.return_type):
                 raise self.new_error(
                     type_span,
-                    f"The function '{fn.fn_name}' can't contain 'resource' in its return type"
+                    f"The function '{fn.fn_name}' can't contain 'resource' in its return type",
                 )
 
         self.indentation = 0
@@ -704,7 +688,7 @@ class Parser:
                 name_token.value,
                 self.source_text,
                 name_token.span,
-                f"{name_token.value}() must be defined before all local functions"
+                f"{name_token.value}() must be defined before all local functions",
             )
 
         fn = OnFn(name_token.value, name_token.span)
@@ -748,10 +732,7 @@ class Parser:
             tok = self.peek_token(i[0])
             if tok.type == TokenType.NEWLINE_TOKEN:
                 if not newline_allowed:
-                    raise ParserError(
-                        tok.span,
-                        f"Unexpected empty line"
-                    )
+                    raise ParserError(tok.span, f"Unexpected empty line")
                 i[0] += 1
                 seen_newline = True
                 newline_allowed = False
@@ -761,10 +742,7 @@ class Parser:
 
                 self.consume_indentation(i)
                 if self.peek_token(i[0]).type == TokenType.NEWLINE_TOKEN:
-                    raise ParserError(
-                        tok.span,
-                        "Empty line cannot have indentation"
-                    )
+                    raise ParserError(tok.span, "Empty line cannot have indentation")
 
                 stmt = self.parse_statement(i)
                 stmts.append(stmt)
@@ -772,10 +750,7 @@ class Parser:
                 self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
 
         if seen_newline and not newline_allowed:
-            raise ParserError(
-                self.token_span(i[0] - 1),
-                f"Unexpected empty line"
-            )
+            raise ParserError(self.token_span(i[0] - 1), f"Unexpected empty line")
 
         self.indentation -= 1
 
@@ -792,8 +767,7 @@ class Parser:
         tok = self.peek_token(i[0])
         if tok.type != TokenType.SPACE_TOKEN:
             raise ParserError(
-                tok.span,
-                f"Expected token type SPACE_TOKEN, but got {tok.type}"
+                tok.span, f"Expected token type SPACE_TOKEN, but got {tok.type}"
             )
         i[0] += 1
 
@@ -804,7 +778,7 @@ class Parser:
         if spaces != expected:
             raise ParserError(
                 self.peek_token(i[0]).span,
-                f"Expected {expected} spaces, but got {spaces} spaces"
+                f"Expected {expected} spaces, but got {spaces} spaces",
             )
         i[0] += 1
 
@@ -820,16 +794,16 @@ class Parser:
         else:
             raise ParserError(
                 tok.span,
-                f"Expected indentation, line break, or '}}' but got '{tok.value}'"
+                f"Expected indentation, line break, or '}}' but got '{tok.value}'",
             )
 
     def increase_parsing_depth(self, i: List[int]):
         self.parsing_depth += 1
         # TODO: We don't cover this test yet
-        if self.parsing_depth >= MAX_PARSING_DEPTH: # pragma: no cover
+        if self.parsing_depth >= MAX_PARSING_DEPTH:  # pragma: no cover
             raise ParserError(
                 self.token_span(i[0]),
-                f"There is a function that contains more than {MAX_PARSING_DEPTH} levels of nested expressions"
+                f"There is a function that contains more than {MAX_PARSING_DEPTH} levels of nested expressions",
             )
 
     def decrease_parsing_depth(self):
@@ -847,10 +821,7 @@ class Parser:
             i[0] += 1
 
             if var_name == "me":
-                raise self.new_error(
-                    var_token.span,
-                    "variable cannot be named 'me'"
-                )
+                raise self.new_error(var_token.span, "variable cannot be named 'me'")
 
             self.consume_space(i)
 
@@ -859,20 +830,19 @@ class Parser:
             if Parser.type_contains_resource(var_type):
                 raise self.new_error(
                     type_span,
-                    f"The variable '{var_name}' can't contain 'resource' in its type"
+                    f"The variable '{var_name}' can't contain 'resource' in its type",
                 )
             if Parser.type_contains_entity(var_type):
                 raise self.new_error(
                     type_span,
-                    f"The variable '{var_name}' can't contain 'entity' in its type"
+                    f"The variable '{var_name}' can't contain 'entity' in its type",
                 )
 
         if self.peek_token(i[0]).type != TokenType.SPACE_TOKEN:
             next_token = self.peek_token(i[0])
             err_span = SourceSpan(next_token.span.line, next_token.span.offset)
             raise self.new_error(
-                err_span,
-                f"Variable '{var_name}' was not assigned a value"
+                err_span, f"Variable '{var_name}' was not assigned a value"
             )
 
         self.consume_space(i)
@@ -882,7 +852,7 @@ class Parser:
         if var_name == "me":
             raise self.new_error(
                 var_token.span,
-                "Assigning a new value to the entity's 'me' variable is not allowed"
+                "Assigning a new value to the entity's 'me' variable is not allowed",
             )
 
         self.consume_space(i)
@@ -896,10 +866,7 @@ class Parser:
         global_name = name_token.value
 
         if global_name == "me":
-            raise self.new_error(
-                name_token.span,
-                "variable cannot be named 'me'"
-            )
+            raise self.new_error(name_token.span, "variable cannot be named 'me'")
 
         self.consume_token_type(i, TokenType.COLON_TOKEN)
         self.consume_space(i)
@@ -909,19 +876,19 @@ class Parser:
         if Parser.type_contains_resource(global_type):
             raise self.new_error(
                 type_span,
-                f"The global variable '{global_name}' can't contain 'resource' in its type"
+                f"The global variable '{global_name}' can't contain 'resource' in its type",
             )
         if Parser.type_contains_entity(global_type):
             raise self.new_error(
                 type_span,
-                f"The global variable '{global_name}' can't contain 'entity' in its type"
+                f"The global variable '{global_name}' can't contain 'entity' in its type",
             )
 
         next_token = self.peek_token(i[0])
         if next_token.type != TokenType.SPACE_TOKEN:
             raise self.new_error(
                 next_token.span,
-                f"The global variable '{global_name}' was not assigned a value"
+                f"The global variable '{global_name}' was not assigned a value",
             )
 
         self.consume_space(i)
@@ -966,13 +933,12 @@ class Parser:
             return expr
 
         if not isinstance(expr, IdentifierExpr):
-            raise ParserError(
-                token.span,
-                "Expected ')' but got '('"
-            )
+            raise ParserError(token.span, "Expected ')' but got '('")
 
         fn_name = expr.name
-        expr = CallExpr(None, fn_name, expr_span=expr.expr_span, name_span=expr.expr_span)
+        expr = CallExpr(
+            None, fn_name, expr_span=expr.expr_span, name_span=expr.expr_span
+        )
 
         if fn_name.startswith("_"):
             self.called_helper_fn_names.add(fn_name)
@@ -1050,12 +1016,13 @@ class Parser:
         elif token.type == TokenType.NUMBER_TOKEN:
             i[0] += 1
             expr = NumberExpr(
-                self.str_to_number(token.value, token.span), token.value, expr_span=token.span
+                self.str_to_number(token.value, token.span),
+                token.value,
+                expr_span=token.span,
             )
         else:
             raise ParserError(
-                token.span,
-                f"Expected a primary expression token but got {token.type}"
+                token.span, f"Expected a primary expression token but got {token.type}"
             )
 
         self.decrease_parsing_depth()
@@ -1073,18 +1040,19 @@ class Parser:
             # name must be word
             self.assert_token_type(i[0], TokenType.WORD_TOKEN)
             i[0] += 1
-            
+
             token = self.peek_token(i[0])
             if token.type != TokenType.OPEN_PARENTHESIS_TOKEN:
                 # Reserved for struct field accesses
-                raise ParserError(
-                    token.span,
-                    "Method call expected '('"
-                );
+                raise ParserError(token.span, "Method call expected '('")
             i[0] += 1
 
-            expr = CallExpr(receiver, name_token.value, expr_span=receiver.expr_span, name_span=name_token.span)
-
+            expr = CallExpr(
+                receiver,
+                name_token.value,
+                expr_span=receiver.expr_span,
+                name_span=name_token.span,
+            )
 
             token = self.peek_token(i[0])
             if token.type == TokenType.CLOSE_PARENTHESIS_TOKEN:
@@ -1119,7 +1087,11 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_unary(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
+                    expr,
+                    op,
+                    right_expr,
+                    expr_span=expr.expr_span,
+                    op_span=op_token.span,
                 )
             else:
                 break
@@ -1144,7 +1116,11 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_factor(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
+                    expr,
+                    op,
+                    right_expr,
+                    expr_span=expr.expr_span,
+                    op_span=op_token.span,
                 )
             else:
                 break
@@ -1171,7 +1147,11 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_term(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
+                    expr,
+                    op,
+                    right_expr,
+                    expr_span=expr.expr_span,
+                    op_span=op_token.span,
                 )
             else:
                 break
@@ -1196,7 +1176,11 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_comparison(i)
                 expr = BinaryExpr(
-                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
+                    expr,
+                    op,
+                    right_expr,
+                    expr_span=expr.expr_span,
+                    op_span=op_token.span,
                 )
             else:
                 break
@@ -1217,7 +1201,11 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_equality(i)
                 expr = LogicalExpr(
-                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
+                    expr,
+                    op,
+                    right_expr,
+                    expr_span=expr.expr_span,
+                    op_span=op_token.span,
                 )
             else:
                 break
@@ -1238,7 +1226,11 @@ class Parser:
                 self.consume_space(i)
                 right_expr = self.parse_and(i)
                 expr = LogicalExpr(
-                    expr, op, right_expr, expr_span=expr.expr_span, op_span=op_token.span
+                    expr,
+                    op,
+                    right_expr,
+                    expr_span=expr.expr_span,
+                    op_span=op_token.span,
                 )
             else:
                 break
@@ -1275,7 +1267,7 @@ class Parser:
                     continue
                 else:
                     else_body = self.parse_statements(i)
-            else: 
+            else:
                 else_body = []
 
             ifs.append((condition, if_body))

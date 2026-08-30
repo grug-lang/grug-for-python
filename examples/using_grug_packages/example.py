@@ -1,8 +1,9 @@
 import time
 
 import grug
-from grug.packages import grug_numpy, grug_stdlib
 from grug import GrugPackage, GrugState
+from grug.packages import grug_numpy, grug_stdlib
+
 
 class Printer:
     @staticmethod
@@ -12,6 +13,7 @@ class Printer:
 
 def printer(state: GrugState) -> Printer:
     return Printer()
+
 
 my_package = GrugPackage(
     prefix="",

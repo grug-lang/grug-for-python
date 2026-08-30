@@ -1,6 +1,7 @@
-import grug
-from grug import GrugState, Type, HostFn
 from typing import List
+
+import grug
+from grug import GrugState, HostFn, Type
 
 state = grug.init()
 
@@ -17,7 +18,7 @@ class Printer:
             print(type(obj))
             print(self)
             print(obj)
-        
+
         return inner
 
 

@@ -11,7 +11,6 @@ class Printer:
         if string == "":
             raise GameFnError("Printer.print_string() received an empty string")
         print(string)
-        
 
 
 @state.host_fn

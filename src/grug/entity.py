@@ -2,15 +2,6 @@ import time
 from typing import Dict, List, Optional
 
 from .grug_state import GrugFile, GrugRuntimeErrorType
-from .types import (
-    GrugValue, 
-    HostFn, 
-    Type, 
-    PrimitiveType, 
-    ResourceStrType, 
-    EntityStrType
-)
-
 from .parser import (
     BinaryExpr,
     BreakStatement,
@@ -36,6 +27,14 @@ from .parser import (
     UnaryExpr,
     VariableStatement,
     WhileStatement,
+)
+from .types import (
+    EntityStrType,
+    GrugValue,
+    HostFn,
+    PrimitiveType,
+    ResourceStrType,
+    Type,
 )
 
 MAX_DEPTH = 100
@@ -187,7 +186,11 @@ class Entity:
             return float
         if type is PrimitiveType.BOOL:
             return bool
-        if type is PrimitiveType.STRING or isinstance(type, ResourceStrType) or isinstance(type, EntityStrType):
+        if (
+            type is PrimitiveType.STRING
+            or isinstance(type, ResourceStrType)
+            or isinstance(type, EntityStrType)
+        ):
             return str
         return object
 
@@ -329,7 +332,9 @@ class Entity:
 
         # fn_ptr should always be filled in during type propagation
         assert call_expr.fn_ptr, call_expr.fn_name
-        return self._run_host_fn(call_expr.fn_name, call_expr.fn_ptr, call_expr.result, *args)
+        return self._run_host_fn(
+            call_expr.fn_name, call_expr.fn_ptr, call_expr.result, *args
+        )
 
     def _run_if_statement(self, statement: IfStatement):
         while True:
@@ -414,7 +419,7 @@ class Entity:
             self.local_variables = parent_local_variables
 
     def _run_host_fn(
-            self, fn_name: str, fn: HostFn, return_type: Type, *args: GrugValue
+        self, fn_name: str, fn: HostFn, return_type: Type, *args: GrugValue
     ) -> Optional[GrugValue]:
         try:
             result = fn(self.state, *args)

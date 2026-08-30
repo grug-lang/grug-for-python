@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Union
-from enum import Enum, auto
 from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Callable, List, Optional, Union
 
 GrugValue = Union[float, bool, str, object]
 HostFn = Callable[..., Optional[GrugValue]]
 HostFnReg = Callable[[List["Type"]], Optional[HostFn]]
+
 
 class PrimitiveType(Enum):
     VOID = auto()
@@ -16,7 +17,7 @@ class PrimitiveType(Enum):
 
     def __str__(self) -> str:
         # there should be no reason to print "void"
-        if self == PrimitiveType.VOID: # pragma: no cover
+        if self == PrimitiveType.VOID:  # pragma: no cover
             return "void"
         elif self == PrimitiveType.BOOL:
             return "bool"
@@ -24,13 +25,15 @@ class PrimitiveType(Enum):
             return "number"
         return "string"
 
+
 @dataclass(frozen=True)
 class ExistentialType:
     idx: int
 
     # we never print an existential type, but a user might
-    def __str__(self): # pragma: no cover
+    def __str__(self):  # pragma: no cover
         return f"${self.idx}"
+
 
 @dataclass(frozen=True)
 class IdType:
@@ -43,21 +46,24 @@ class IdType:
             return f"{self.name}[{generics}]"
         return self.name
 
+
 @dataclass(frozen=True)
 class ResourceStrType:
     extension: str
 
     # We never print "resource" using this function
-    def __str__(self): #pragma: no cover
+    def __str__(self):  # pragma: no cover
         return "resource"
+
 
 @dataclass(frozen=True)
 class EntityStrType:
     entity_type: Optional[str]
 
     # We never print "entity" using this function
-    def __str__(self): #pragma: no cover
+    def __str__(self):  # pragma: no cover
         return "entity"
+
 
 Type = Union[
     PrimitiveType,
