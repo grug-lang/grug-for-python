@@ -260,9 +260,22 @@ class TypePropagator:
             error_message,
         )
 
+    def validate_variable_name(self, name: str, span: SourceSpan) -> None:
+        """Variable names are lowercase, which is what keeps them apart from the
+        PascalCase type names a static method call is written on."""
+        for c in name:
+            if not (c.islower() or c.isdigit() or c == "_"):
+                raise self.new_error(
+                    span,
+                    f"The variable '{name}' contains the invalid character '{c}', "
+                    "since variable names must be lowercase",
+                )
+
     def add_global_variable(
         self, name: str, var_type: Type, span: SourceSpan
     ):
+        self.validate_variable_name(name, span)
+
         if name in self.global_variables:
             raise self.new_error(
                 span, f"The global variable '{name}' shadows an earlier global variable"
@@ -281,6 +294,8 @@ class TypePropagator:
     def add_local_variable(
         self, name: str, var_type: Type, span: SourceSpan
     ):
+        self.validate_variable_name(name, span)
+
         if name in self.local_variables:
             raise self.new_error(
                 span, f"The local variable '{name}' shadows an earlier local variable"

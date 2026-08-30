@@ -4,7 +4,47 @@ import grug
 from grug import GrugState, HostFn, Type
 
 
-state = grug.init()
+# A package may carry static methods alongside its methods. This one is
+# registered on a class whose name is lowercase, which mod_api.json permits.
+class Lowercase:
+    items: List[float]
+
+
+def new(state: GrugState) -> Lowercase:
+    vec = Lowercase()
+    vec.items = [1.0, 2.0]
+    return vec
+
+
+def length(state: GrugState, receiver: Lowercase) -> float:
+    return float(len(receiver.items))
+
+
+length.__name__ = "len"
+
+
+def of(generics: List[Type]) -> HostFn:
+    def inner(state: GrugState, value: Any) -> Lowercase:
+        vec = Lowercase()
+        vec.items = [value]
+        return vec
+
+    return inner
+
+
+state = grug.init(
+    packages=[
+        grug.GrugPackage(
+            prefix="",
+            host_fns=[],
+            generic_fns=[],
+            methods=[("vec", length)],
+            generic_methods=[],
+            static_methods=[("vec", new)],
+            generic_static_methods=[("vec", of)],
+        )
+    ]
+)
 
 
 @state.grug_class

@@ -108,6 +108,42 @@
                     }
                 }
             }
+        },
+        "vec": {
+            "description": "A list whose name is not PascalCase.",
+            "static_methods": {
+                "new": {
+                    "description": "Creates a new vec.",
+                    "return_type": {
+                        "name": "vec"
+                    }
+                },
+                "of": {
+                    "description": "Creates a vec holding one value.",
+                    "used_generics": [
+                        "$T"
+                    ],
+                    "parameters": [
+                        {
+                            "name": "value",
+                            "type": {
+                                "name": "$T"
+                            }
+                        }
+                    ],
+                    "return_type": {
+                        "name": "vec"
+                    }
+                }
+            },
+            "methods": {
+                "len": {
+                    "description": "How many items it holds.",
+                    "return_type": {
+                        "name": "number"
+                    }
+                }
+            }
         }
     },
     "host_functions": {

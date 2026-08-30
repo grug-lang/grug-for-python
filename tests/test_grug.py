@@ -534,8 +534,6 @@ class GameFnRegistrator:
             "eval_order_2",
             "get_false",
             "set_is_happy",
-            "mega_f32",
-            "mega_i32",
             "draw",
             "utils",
             "assert_state_is_not_null",
@@ -587,6 +585,15 @@ class GameFnRegistrator:
             self._register_method("VecNumber", method_name, native_name)
 
         for method_name, native_name in (
+            ("new", "vec_number_new"),
+            ("with_capacity", "vec_number_with_capacity"),
+        ):
+            self._register_static_method("VecNumber", method_name, native_name)
+
+        self._register_static_method("D", "magic", "magic")
+        self._register_static_method("Utils", "fail", "cause_game_fn_error")
+
+        for method_name, native_name in (
             ("assert_state_is_not_null", "Utils_assert_state_is_not_null"),
             ("cause_game_fn_error", "Utils_cause_game_fn_error"),
             ("call_on_b_fn", "Utils_call_on_b_fn"),
@@ -600,10 +607,11 @@ class GameFnRegistrator:
             ("insert", "vec_insert"),
         ):
             self._register_generic_method("Vec", method_name, native_name)
+        self._register_generic_method("Vec", "new", "vec_new", static=True)
 
         for method_name, native_name in (
             ("get", "box_get"),
-            ("set", "box_set"),
+
         ):
             self._register_generic_method("Box", method_name, native_name)
 
@@ -741,12 +749,36 @@ class GameFnRegistrator:
 
         self.state.mod_api.register_fn(class_name, name, self.wrap_fn(return_type, c_fn)) # pyright: ignore
 
-    def _register_generic_method(self, class_name: str, name: str, native_name: str):
+    def _static_method_data(self, type_name: str, name: str):
+        static_methods = self.state.mod_api.static_methods_of(type_name) # pyright: ignore
+        assert static_methods is not None, type_name
+        return static_methods[name]
+
+    def _register_static_method(self, type_name: str, name: str, native_name: str):
+        c_fn = self.grug_lib["game_fn_" + native_name]
+
+        c_fn.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(GrugValueUnion),
+        )
+        c_fn.restype = GrugValueWorkaround
+
+        return_type = self._static_method_data(type_name, name).return_type
+
+        self.state.mod_api.register_fn(type_name, name, self.wrap_fn(return_type, c_fn)) # pyright: ignore
+
+    def _register_generic_method(
+        self, class_name: str, name: str, native_name: str, static: bool = False
+    ):
         c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
         c_reg_fn.argtypes = (ctypes.POINTER(CGrugType),)
         c_reg_fn.restype = ctypes.c_void_p
 
-        host_fn_data = self.state.mod_api.classes[class_name].methods[name]
+        host_fn_data = (
+            self._static_method_data(class_name, name)
+            if static
+            else self.state.mod_api.classes[class_name].methods[name]
+        )
 
         def register(generics: List[Type]):
             c_generics: List[CGrugType] = []

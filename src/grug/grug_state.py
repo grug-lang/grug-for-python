@@ -215,11 +215,11 @@ class GrugState:
                 self.mod_api.register_generic_fn(class_name, name, generic_method)
             for type_name, static_fn in pkg.static_methods:
                 name = static_fn.__name__
-                self.mod_api.register_fn(type_name, name, static_fn, static=True)
+                self.mod_api.register_fn(type_name, name, static_fn)
             for type_name, generic_static_fn in pkg.generic_static_methods:
                 name = generic_static_fn.__name__
                 self.mod_api.register_generic_fn(
-                    type_name, name, generic_static_fn, static=True
+                    type_name, name, generic_static_fn
                 )
 
     def host_fn(self, fn: HostFn) -> HostFn:
@@ -259,11 +259,11 @@ class GrugState:
             if getattr(fn, _STATIC_MARKER, False):
                 if is_generic_signature:
                     self.mod_api.register_generic_fn(
-                        cls.__name__, name, cast(HostFnReg, fn), static=True
+                        cls.__name__, name, cast(HostFnReg, fn)
                     )
                 else:
                     self.mod_api.register_fn(
-                        cls.__name__, name, cast(HostFn, fn), static=True
+                        cls.__name__, name, cast(HostFn, fn)
                     )
                 continue
 
@@ -292,7 +292,7 @@ class GrugState:
 
             if len(parameters) >= 1 and hints.get(parameters[0].name) is GrugState:
                 self.mod_api.register_fn(
-                    cls.__name__, name, cast(HostFn, fn), static=True
+                    cls.__name__, name, cast(HostFn, fn)
                 )
                 continue
 

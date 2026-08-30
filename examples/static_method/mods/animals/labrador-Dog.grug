@@ -18,4 +18,13 @@ export bark(sound: string) {
 
     # Entities may declare static methods too.
     print_number(Dog.count())
+
+    # A class name need not be PascalCase, so a variable can share a type's
+    # name. The variable wins, which is what stops a static method from
+    # changing what code that already existed means.
+    one: vec = vec.of(9)
+    print_number(one.len())
+
+    vec: vec = vec.new()
+    print_number(vec.len())
 }
