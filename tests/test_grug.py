@@ -200,6 +200,18 @@ class GrugStateVTableStruct(ctypes.Structure):
     ]
 
 
+class GrugTestsOptionsStruct(ctypes.Structure):
+    """
+    Corresponds to struct grug_tests_options in tests.h
+    """
+
+    _fields_ = [
+        ("whitelisted_test", ctypes.c_char_p),
+        ("continue_on_fail", ctypes.c_bool),
+        ("results_json_path", ctypes.c_char_p),
+    ]
+
+
 _g_grug_lib: ctypes.CDLL
 
 _grug_runtime_err: Optional[
@@ -224,7 +236,11 @@ def custom_runtime_error_handler(
 
 
 def test_grug(
-    grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.CDLL
+    grug_tests_path: Path,
+    whitelisted_test: Optional[str],
+    continue_on_fail: bool,
+    results_json_path: Optional[str],
+    grug_lib: ctypes.CDLL,
 ) -> None:
     global _g_grug_lib
     _g_grug_lib = grug_lib
@@ -500,11 +516,17 @@ def test_grug(
         game_fn_error,
     )
 
+    grug_tests_options: GrugTestsOptionsStruct = GrugTestsOptionsStruct(
+        whitelisted_test.encode() if whitelisted_test else None,
+        continue_on_fail,
+        results_json_path.encode() if results_json_path else None,
+    )
+
     grug_lib.grug_tests_run(
         str(grug_tests_path / "tests").encode(),
         str(grug_tests_path / "mod_api.json").encode(),
         grug_state_vtable,
-        whitelisted_test.encode() if whitelisted_test else None,
+        grug_tests_options,
     )
 
     assert len(states) == 0

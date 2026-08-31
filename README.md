@@ -105,6 +105,10 @@ If you compiled grug-tests with `ASAN=1` in your environment, you need to pass `
 
 Pass `--whitelisted-test=f32_too_big` to only run the test called `f32_too_big`.
 
+Pass `--continue-on-fail` to keep running the rest of the grug-tests suite after one fails, instead of stopping at the first failure.
+
+Pass `--results-json-path=path/to/results.json` to control where the JSON summary of the test results gets written. By default it's written to `results.json` in the current working directory.
+
 Alternatively, you can *walk* through the tests and set breakpoints by installing the [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) VS Code extension. Hit `F5` to run all tests. You can edit `.vscode/launch.json` to pass `--whitelisted-test=f32_too_big`.
 
 ## Benchmarks
