@@ -516,10 +516,14 @@ def test_grug(
         game_fn_error,
     )
 
+    # Keep references alive so ctypes doesn't pass dangling pointers
+    whitelisted_test_bytes = whitelisted_test.encode() if whitelisted_test else None
+    results_json_path_bytes = results_json_path.encode() if results_json_path else None
+
     grug_tests_options: GrugTestsOptionsStruct = GrugTestsOptionsStruct(
-        whitelisted_test.encode() if whitelisted_test else None,
+        whitelisted_test_bytes,
         continue_on_fail,
-        results_json_path.encode() if results_json_path else None,
+        results_json_path_bytes,
     )
 
     grug_lib.grug_tests_run(
