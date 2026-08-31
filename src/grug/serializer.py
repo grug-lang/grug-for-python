@@ -179,7 +179,7 @@ class Serializer:
         result: Dict[str, Any] = {}
 
         if isinstance(global_stmt, OnFn):
-            result["type"] = "GLOBAL_ON_FN"
+            result["type"] = "EXPORT_FN"
             result["name"] = global_stmt.fn_name
             if global_stmt.parameters:
                 result["parameters"] = Serializer._serialize_parameters(
@@ -189,7 +189,7 @@ class Serializer:
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements
             ]
         elif isinstance(global_stmt, HelperFn):
-            result["type"] = "GLOBAL_HELPER_FN"
+            result["type"] = "LOCAL_FN"
             result["name"] = global_stmt.fn_name
             if global_stmt.parameters:
                 result["parameters"] = Serializer._serialize_parameters(
@@ -203,17 +203,17 @@ class Serializer:
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements
             ]
         elif isinstance(global_stmt, VariableStatement):
-            result["type"] = "GLOBAL_VARIABLE"
+            result["type"] = "VARIABLE_STATEMENT"
             result["name"] = global_stmt.name
             assert global_stmt.type
             result["variable_type"] = Serializer._serialize_type(global_stmt.type)
             result["assignment"] = Serializer._serialize_expr(global_stmt.expr)
         elif isinstance(global_stmt, CommentStatement):
-            result["type"] = "GLOBAL_COMMENT"
+            result["type"] = "COMMENT_STATEMENT"
             result["comment"] = global_stmt.string
         else:
             assert isinstance(global_stmt, EmptyLineStatement)
-            result["type"] = "GLOBAL_EMPTY_LINE"
+            result["type"] = "EMPTY_LINE_STATEMENT"
 
         return result
 
@@ -498,16 +498,16 @@ class Serializer:
             for statement in root:
                 stmt_type = statement["type"]
 
-                if stmt_type == "GLOBAL_VARIABLE":
+                if stmt_type == "VARIABLE_STATEMENT":
                     apply_global_variable(statement)
-                elif stmt_type == "GLOBAL_ON_FN":
+                elif stmt_type == "EXPORT_FN":
                     apply_export_fn(statement)
-                elif stmt_type == "GLOBAL_HELPER_FN":
+                elif stmt_type == "LOCAL_FN":
                     apply_local_fn(statement)
-                elif stmt_type == "GLOBAL_EMPTY_LINE":
+                elif stmt_type == "EMPTY_LINE_STATEMENT":
                     write("\n")
                 else:
-                    assert stmt_type == "GLOBAL_COMMENT"
+                    assert stmt_type == "COMMENT_STATEMENT"
                     apply_comment(statement)
 
         # Main execution
