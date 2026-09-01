@@ -1,3 +1,4 @@
+import os
 import time
 from typing import Dict, List, Optional
 
@@ -209,7 +210,7 @@ class Entity:
         elif isinstance(expr, StringExpr):
             return expr.string
         elif isinstance(expr, ResourceExpr):
-            return f"{self.file.mod}/{expr.string}"
+            return os.path.join(self.file.mod, expr.string)
         elif isinstance(expr, EntityExpr):
             return (
                 expr.string if ":" in expr.string else f"{self.file.mod}:{expr.string}"

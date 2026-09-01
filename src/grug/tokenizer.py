@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import List
+from typing import List, Tuple
 
 SPACES_PER_INDENT = 4
 
@@ -38,6 +38,8 @@ class TokenType(Enum):
     SPACE_TOKEN = auto()
     INDENTATION_TOKEN = auto()
     STRING_TOKEN = auto()
+    ENTITY_TOKEN = auto()
+    RESOURCE_TOKEN = auto()
     WORD_TOKEN = auto()
     NUMBER_TOKEN = auto()
     COMMENT_TOKEN = auto()
@@ -169,24 +171,18 @@ class Tokenizer:
 
                 tokens.append(Token(TokenType.INDENTATION_TOKEN, " " * spaces))
             elif c == '"':
-                open_quote_index = i
+                string, i = self.tokenize_string(i)
+                tokens.append(Token(TokenType.STRING_TOKEN, string))
                 i += 1
-                start = i
-                while i < len(src) and src[i] != '"':
-                    if src[i] == "\0":
-                        raise TokenizerError(
-                            f"Unexpected null byte on line {self.get_character_line_number(i)}"
-                        )
-                    elif src[i] == "\\" and i + 1 < len(src) and src[i + 1] == "\n":
-                        raise TokenizerError(
-                            f"Unexpected line break in string on line {self.get_character_line_number(i)}"
-                        )
-                    i += 1
-                if i >= len(src):
-                    raise TokenizerError(
-                        f'Unclosed " on line {self.get_character_line_number(open_quote_index)}'
-                    )
-                tokens.append(Token(TokenType.STRING_TOKEN, src[start:i]))
+            elif c == "e" and i + 1 < len(src) and src[i + 1] == '"':
+                i += 1
+                string, i = self.tokenize_string(i)
+                tokens.append(Token(TokenType.ENTITY_TOKEN, string))
+                i += 1
+            elif c == "r" and i + 1 < len(src) and src[i + 1] == '"':
+                i += 1
+                string, i = self.tokenize_string(i)
+                tokens.append(Token(TokenType.RESOURCE_TOKEN, string))
                 i += 1
             elif c.isalpha() or c == "_":
                 start = i
@@ -258,3 +254,24 @@ class Tokenizer:
         return idx >= len(self.src) or not (
             self.src[idx].isalnum() or self.src[idx] == "_"
         )
+
+    def tokenize_string(self, i: int) -> Tuple[str, int]:
+        src = self.src
+        open_quote_index = i
+        i += 1
+        start = i
+        while i < len(src) and src[i] != '"':
+            if src[i] == "\0":
+                raise TokenizerError(
+                    f"Unexpected null byte on line {self.get_character_line_number(i)}"
+                )
+            elif src[i] == "\\" and i + 1 < len(src) and src[i + 1] == "\n":
+                raise TokenizerError(
+                    f"Unexpected line break in string on line {self.get_character_line_number(i)}"
+                )
+            i += 1
+        if i >= len(src):
+            raise TokenizerError(
+                f'Unclosed " on line {self.get_character_line_number(open_quote_index)}'
+            )
+        return src[start:i], i

@@ -166,7 +166,7 @@ def list_reverse(state: GrugState, l: List[object]):
 
 
 class SupportsLessThan(Protocol):
-    def __lt__(self, __other: object) -> bool: ...
+    def __lt__(self, __other: object) -> bool: ...  # pragma: no cover
 
 
 T = TypeVar("T", bound=SupportsLessThan)

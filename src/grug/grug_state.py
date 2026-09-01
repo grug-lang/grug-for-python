@@ -152,7 +152,7 @@ class GrugState:
                         f"Error: Entities must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
                     )
-            assert False
+            assert False  # pragma: no cover
 
     def _assert_on_functions_sorted(
         self, entity_name: str, on_functions: Dict[str, Any]
@@ -168,7 +168,7 @@ class GrugState:
                         f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
                         f"so '{expected}' must come before '{actual}'"
                     )
-            assert False
+            assert False  # pragma: no cover
 
     def _assert_game_functions_sorted(self, game_functions: Dict[str, Any]):
         keys = list(game_functions.keys())
@@ -181,7 +181,7 @@ class GrugState:
                         f"Error: Game functions must be sorted alphabetically in mod_api.json, "
                         f"so {expected}() must come before {actual}()"
                     )
-            assert False
+            assert False  # pragma: no cover
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:
@@ -207,7 +207,7 @@ class GrugState:
         self.game_fns[name] = fn
 
     def compile_grug_file(self, grug_file_relative_path: str):
-        mod = Path(grug_file_relative_path).parts[0]
+        mod = Path(grug_file_relative_path).parts[0].replace("\\", "/")
 
         grug_file_absolute_path = Path(self.mods_dir_path) / grug_file_relative_path
         text = grug_file_absolute_path.read_text()
@@ -343,9 +343,9 @@ class GrugState:
         tests_ran = 0
 
         def run(dir: GrugDir):
-            for subdir in dir.dirs.values():
+            for subdir in sorted(dir.dirs.values(), key=lambda d: d.name):
                 run(subdir)
-            for file in dir.files.values():
+            for file in sorted(dir.files.values(), key=lambda f: f.relative_path):
                 print(f"Testing {file.relative_path}...")
                 test = file.create_entity()
                 test.on_run()

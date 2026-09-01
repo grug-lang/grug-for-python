@@ -242,12 +242,11 @@ class Parser:
         i = [0]  # Use a list to allow modification by called functions
         while i[0] < len(self.tokens):
             token = self.tokens[i[0]]
-            tname = token.type.name
 
             if (
-                tname == "WORD_TOKEN"
+                token.type == TokenType.WORD_TOKEN
                 and i[0] + 1 < len(self.tokens)
-                and self.tokens[i[0] + 1].type.name == "COLON_TOKEN"
+                and self.tokens[i[0] + 1].type == TokenType.COLON_TOKEN
             ):
                 if seen_on_fn:
                     raise ParserError(
@@ -264,10 +263,10 @@ class Parser:
                 continue
 
             elif (
-                tname == "WORD_TOKEN"
+                token.type == TokenType.WORD_TOKEN
                 and token.value.startswith("on_")
                 and i[0] + 1 < len(self.tokens)
-                and self.tokens[i[0] + 1].type.name == "OPEN_PARENTHESIS_TOKEN"
+                and self.tokens[i[0] + 1].type == TokenType.OPEN_PARENTHESIS_TOKEN
             ):
                 if self.helper_fns:
                     raise ParserError(
@@ -295,10 +294,10 @@ class Parser:
                 continue
 
             elif (
-                tname == "WORD_TOKEN"
+                token.type == TokenType.WORD_TOKEN
                 and token.value.startswith("helper_")
                 and i[0] + 1 < len(self.tokens)
-                and self.tokens[i[0] + 1].type.name == "OPEN_PARENTHESIS_TOKEN"
+                and self.tokens[i[0] + 1].type == TokenType.OPEN_PARENTHESIS_TOKEN
             ):
                 if newline_required:
                     raise ParserError(
@@ -319,7 +318,7 @@ class Parser:
 
                 continue
 
-            elif tname == "NEWLINE_TOKEN":
+            elif token.type == TokenType.NEWLINE_TOKEN:
                 if not newline_allowed:
                     raise ParserError(
                         f"Unexpected empty line, on line {self.get_token_line_number(i[0])}"
@@ -334,7 +333,7 @@ class Parser:
                 i[0] += 1
                 continue
 
-            elif tname == "COMMENT_TOKEN":
+            elif token.type == TokenType.COMMENT_TOKEN:
                 newline_allowed = True
                 self.ast.append(CommentStatement(token.value))
                 i[0] += 1
@@ -846,29 +845,34 @@ class Parser:
 
         expr: Expr
 
-        tname = token.type.name
-        if tname == "OPEN_PARENTHESIS_TOKEN":
+        if token.type == TokenType.OPEN_PARENTHESIS_TOKEN:
             i[0] += 1
             expr = ParenthesizedExpr(self.parse_expression(i))
             self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
-        elif tname == "TRUE_TOKEN":
+        elif token.type == TokenType.TRUE_TOKEN:
             i[0] += 1
             expr = TrueExpr()
-        elif tname == "FALSE_TOKEN":
+        elif token.type == TokenType.FALSE_TOKEN:
             i[0] += 1
             expr = FalseExpr()
-        elif tname == "STRING_TOKEN":
+        elif token.type == TokenType.STRING_TOKEN:
             i[0] += 1
             expr = StringExpr(token.value)
-        elif tname == "WORD_TOKEN":
+        elif token.type == TokenType.ENTITY_TOKEN:
+            i[0] += 1
+            expr = EntityExpr(token.value)
+        elif token.type == TokenType.RESOURCE_TOKEN:
+            i[0] += 1
+            expr = ResourceExpr(token.value)
+        elif token.type == TokenType.WORD_TOKEN:
             i[0] += 1
             expr = IdentifierExpr(token.value)
-        elif tname == "NUMBER_TOKEN":
+        elif token.type == TokenType.NUMBER_TOKEN:
             i[0] += 1
             expr = NumberExpr(self.str_to_number(token.value), token.value)
         else:
             raise ParserError(
-                f"Expected a primary expression token, but got token type {tname} on line {self.get_token_line_number(i[0])}"
+                f"Expected a primary expression token, but got token type {token.type.name} on line {self.get_token_line_number(i[0])}"
             )
 
         self.decrease_parsing_depth()

@@ -46,7 +46,18 @@ def run_package_tests():
         )
 
 
+def run_coverage_tests():
+    coverage_tests_path = ROOT / "tests/test_coverage.py"
+    if coverage_tests_path.exists():
+        print(f"\nRunning coverage tests...")
+        subprocess.run(
+            [*COVERAGE_BASE_CMD, "-m", "pytest", str(coverage_tests_path), "-v"],
+            check=True,
+        )
+
+
 if __name__ == "__main__":
     print("Running all example programs and package tests...")
     run_examples()
     run_package_tests()
+    run_coverage_tests()
