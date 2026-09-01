@@ -1,0 +1,6 @@
+export bark() {
+    v: VecNumber = VecNumber.new()
+    b: Box[number] = Box.of(42.0)
+
+    print_number(Dog.magic())
+}

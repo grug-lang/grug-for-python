@@ -1,6 +1,6 @@
-l: List = list()
+l: List[number] = list()
 
-on_run() {
-    list_number_append(l, 42)
-    print_list(l)
+export run() {
+    l.append(42)
+    print(l)
 }

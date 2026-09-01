@@ -1,0 +1,12 @@
+export bark(sound: string) {
+    sounds: VecNumber = VecNumber.new()
+    sounds.push(1)
+    sounds.push(2)
+    print_number(sounds.pop())
+
+    boxed: Box[string] = Box.of(sound)
+    print_string(boxed.get())
+
+    # Entities may declare static methods too.
+    print_number(Dog.magic())
+}

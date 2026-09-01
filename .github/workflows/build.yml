@@ -2,9 +2,11 @@ name: Test
 
 on:
   push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
   pull_request:
-  schedule:
-    - cron: "0 2 * * *" # nightly at 02:00 UTC
 
 permissions:
   contents: write
@@ -23,29 +25,57 @@ jobs:
 
       - name: Install pyenv and build dependencies (Ubuntu)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential zlib1g-dev libssl-dev libbz2-dev \
-            libreadline-dev libsqlite3-dev libffi-dev liblzma-dev \
-            libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev \
-            curl cmake git wget
-
-          curl https://pyenv.run | bash
-
-      - name: Setup Python (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/setup-python@v5
+      - name: Cache pyenv and Python
+        id: cache-pyenv
+        uses: actions/cache@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          path: ~/.pyenv
+          key: ${{ runner.os }}-pyenv-${{ matrix.python-version }}
 
-      - name: Install Python (Ubuntu)
-        if: runner.os == 'Linux'
+      - name: Cache pip
+        id: cache-pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache pyright
+        id: cache-pyright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pyright-python
+          key: ${{ runner.os }}-pyright-python-v1
+
+      - name: Install pyenv and build dependencies
+        run: |
+          if [ "${{ steps.cache-pyenv.outputs.cache-hit }}" = "true" ]; then
+            echo "Python is already cached. Skipping build dependency installation!"
+          else
+            echo "Cache miss. Installing build dependencies..."
+            sudo apt-get update
+            sudo apt-get install -y \
+              build-essential zlib1g-dev libssl-dev libbz2-dev \
+              libreadline-dev libsqlite3-dev libffi-dev liblzma-dev \
+              libncurses5-dev libncursesw5-dev libgdbm-dev uuid-dev \
+              curl cmake git wget
+
+            # Only run the installer if the directory wasn't restored from cache
+            if [ ! -d "$HOME/.pyenv" ]; then
+              curl https://pyenv.run | bash
+            fi
+          fi
+
+      - name: Install Python ${{ matrix.python-version }}
         run: |
           export PYENV_ROOT="$HOME/.pyenv"
           export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
 
+          # The -s flag tells pyenv to skip compilation if the version is already installed via cache
           pyenv install -s ${{ matrix.python-version }}
+          pyenv global ${{ matrix.python-version }}
+          python --version
 
       - name: Install MinGW (Windows)
         if: runner.os == 'Windows'
@@ -62,6 +92,7 @@ jobs:
           git clone https://github.com/grug-lang/grug-tests
           cd grug-tests
           git checkout main
+          export ASAN=1
           cmake -S . -B build
           cmake --build build
         shell: bash
@@ -101,19 +132,13 @@ jobs:
           pip install -e .[dev]
         shell: bash
 
-      - name: Build corpus
+      - name: Clone and build grug-bench
         run: |
-          mkdir -p corpus
-
-          find grug-tests/tests -path "*/results/applied.grug" -prune -o \
-            -path "grug-tests/tests/*/*/*.grug" -type f -print | while read f; do
-              flat_name=$(echo "$f" | sed 's|/|_|g')
-              cp "$f" "corpus/$flat_name"
-            done
-
-          echo "Corpus size:"
-          ls corpus | wc -l
-        shell: bash
+          git clone https://github.com/grug-lang/grug-bench
+          cd grug-bench
+          git checkout master
+          cmake -S . -B build
+          cmake --build build
 
       - name: Run Pyright (Python ${{ matrix.python-version }})
         run: |
@@ -136,14 +161,13 @@ jobs:
 
       - name: Run grug-tests tests (Python ${{ matrix.python-version }})
         run: |
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            export PYENV_ROOT="$HOME/.pyenv"
-            export PATH="$PYENV_ROOT/bin:$PYENV_ROOT/shims:$PATH"
-            pyenv global ${{ matrix.python-version }}
-          fi
-
+          export LD_PRELOAD=$(gcc -print-file-name=libasan.so) ASAN_OPTIONS="detect_leaks=0"
           coverage run -m pytest --grug-tests-path=./grug-tests -s -v
         shell: bash
+
+      - name: Run grug-bench tests (Python ${{ matrix.python-version }})
+        run: |
+          coverage run --append benchmarks.py --grug-bench-path=./grug-bench
 
       - name: Run grug-for-python tests (Python ${{ matrix.python-version }})
         run: |
@@ -188,4 +212,29 @@ jobs:
           else
             echo "No changes to coverage.svg"
           fi
-        shell: bash
+
+  publish:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment: pypi
+    
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        
+    - name: Build distribution
+      run: |
+        python -m pip install build
+        python -m build
+        
+    - name: Publish package to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

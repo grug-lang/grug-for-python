@@ -1,3 +1,3 @@
-on_run() {
-    assert_string("a", "a")
+export run() {
+    assert_eq("a", "a")
 }

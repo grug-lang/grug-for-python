@@ -1,5 +1,8 @@
 __pycache__
+.grug_tmp*
+.vscode/settings.json
 build
 dist
 .coverage
 grug_lang.egg-info
+results.json

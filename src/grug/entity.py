@@ -2,9 +2,7 @@ import os
 import time
 from typing import Dict, List, Optional
 
-from grug.grug_state import GrugFile, GrugRuntimeErrorType
-from grug.grug_value import GrugValue
-
+from .grug_state import GrugFile, GrugRuntimeErrorType
 from .parser import (
     BinaryExpr,
     BreakStatement,
@@ -30,6 +28,14 @@ from .parser import (
     UnaryExpr,
     VariableStatement,
     WhileStatement,
+)
+from .types import (
+    EntityStrType,
+    GrugValue,
+    HostFn,
+    PrimitiveType,
+    ResourceStrType,
+    Type,
 )
 
 MAX_DEPTH = 100
@@ -73,11 +79,7 @@ class Entity:
         self.file = file
         self.state = file.state
 
-        self.game_fns = file.game_fns
-
-        self.game_fn_return_types = file.game_fn_return_types
-
-        self.on_fn_time_limit_sec = file.state.on_fn_time_limit_ms / 1000
+        self.file.entities.add(self)
 
         self.start_time: float
 
@@ -88,6 +90,11 @@ class Entity:
         self._init_globals(file.global_variables)
 
     def _init_globals(self, global_variables: List[VariableStatement]):
+        old_executed_file = self.state.executed_file
+        self.state.executed_file = self.file
+        old_executed_entity = self.state.executed_entity
+        self.state.executed_entity = self
+
         self.fn_name = "init_globals"
 
         self.global_variables: Dict[str, GrugValue] = {}
@@ -106,6 +113,9 @@ class Entity:
         finally:
             self.state.fn_depth = old_fn_depth
 
+            self.state.executed_entity = old_executed_entity
+            self.state.executed_file = old_executed_file
+
     def __getattr__(self, name: str):
         """
         This function lets `dog.spawn(42)` call `dog._run_on_fn("spawn", 42)`.
@@ -123,20 +133,26 @@ class Entity:
                 f"The function '{on_fn_name}' is not defined by the file {self.file.relative_path}"
             )
 
+        old_fn_name = self.fn_name
+        self.fn_name = on_fn_name
+
+        old_executed_file = self.state.executed_file
+        self.state.executed_file = self.file
+        old_executed_entity = self.state.executed_entity
+        self.state.executed_entity = self
+
         # TODO: Add an ok/ test that verifies that the local vars of a single entity its on_a()
         #       isn't overwritten when it calls on_b().
         parent_local_variables = self.local_variables
         self.local_variables = {}
 
-        self.fn_name = on_fn_name
-
         # Assign and verify argument types
-        for arg, argument in zip(args, on_fn.arguments):
+        for arg, parameter in zip(args, on_fn.parameters):
             assert isinstance(
-                arg, self._get_expected_py_type(argument.type_name)
-            ), f"Argument '{argument.name}' of {on_fn_name}() must be {argument.type_name}, got {type(arg).__name__}"
+                arg, self._get_expected_py_type(parameter.type)
+            ), f"Argument '{parameter.name}' of {on_fn_name}() must be {parameter.type}, got {type(arg).__name__}"
 
-            self.local_variables[argument.name] = arg
+            self.local_variables[parameter.name] = arg
 
         old_fn_depth = self.state.fn_depth
         self.state.fn_depth += 1
@@ -161,12 +177,21 @@ class Entity:
             self.on_fn_depth = old_on_fn_depth
             self.local_variables = parent_local_variables
 
-    def _get_expected_py_type(self, expected_arg_type_name: str):
-        if expected_arg_type_name == "number":
+            self.fn_name = old_fn_name
+
+            self.state.executed_entity = old_executed_entity
+            self.state.executed_file = old_executed_file
+
+    def _get_expected_py_type(self, type: Type):
+        if type is PrimitiveType.NUMBER:
             return float
-        elif expected_arg_type_name == "bool":
+        if type is PrimitiveType.BOOL:
             return bool
-        elif expected_arg_type_name in ("string", "resource", "entity"):
+        if (
+            type is PrimitiveType.STRING
+            or isinstance(type, ResourceStrType)
+            or isinstance(type, EntityStrType)
+        ):
             return str
         return object
 
@@ -300,16 +325,31 @@ class Entity:
     def _run_call_expr(self, call_expr: CallExpr):
         args = [self._run_expr(arg) for arg in call_expr.arguments]
 
-        if call_expr.fn_name.startswith("helper_"):
+        if call_expr.fn_name.startswith("_"):
             return self._run_helper_fn(call_expr.fn_name, *args)
-        else:
-            return self._run_game_fn(call_expr.fn_name, *args)
+        elif call_expr.receiver:
+            receiver = self._run_expr(call_expr.receiver)
+            args.insert(0, receiver)
+
+        # fn_ptr should always be filled in during type propagation
+        assert call_expr.fn_ptr, call_expr.fn_name
+        return self._run_host_fn(
+            call_expr.fn_name, call_expr.fn_ptr, call_expr.result, *args
+        )
 
     def _run_if_statement(self, statement: IfStatement):
-        if self._run_expr(statement.condition):
-            self._run_statements(statement.if_body)
-        else:
-            self._run_statements(statement.else_body)
+        while True:
+            if self._run_expr(statement.condition):
+                self._run_statements(statement.if_body)
+                break
+            elif len(statement.else_body) == 1 and isinstance(
+                statement.else_body[0], IfStatement
+            ):
+                statement = statement.else_body[0]
+                continue
+            else:
+                self._run_statements(statement.else_body)
+                break
 
     def _run_return_statement(self, statement: ReturnStatement):
         if statement.value:
@@ -328,9 +368,10 @@ class Entity:
             pass
 
     def _check_time_limit_exceeded(self):
-        if time.time() - self.start_time > self.on_fn_time_limit_sec:
+        limit_sec = self.file.state.on_fn_time_limit_ms / 1000
+        if time.time() - self.start_time > limit_sec:
             self.state.runtime_error_handler(
-                f"Took longer than {self.on_fn_time_limit_sec * 1000:g} milliseconds to run",
+                f"Took longer than {limit_sec * 1000:g} milliseconds to run",
                 GrugRuntimeErrorType.TIME_LIMIT_EXCEEDED,
                 self.fn_name,
                 self.file.relative_path,
@@ -348,59 +389,57 @@ class Entity:
         parent_local_variables = self.local_variables
         self.local_variables = {}
 
-        for arg, argument in zip(args, helper_fn.arguments):
-            self.local_variables[argument.name] = arg
+        for arg, parameter in zip(args, helper_fn.parameters):
+            self.local_variables[parameter.name] = arg
 
         old_fn_depth = self.state.fn_depth
         self.state.fn_depth += 1
-        if self.state.fn_depth > MAX_DEPTH:
-            self.state.runtime_error_handler(
-                "Stack overflow, so check for accidental infinite recursion",
-                GrugRuntimeErrorType.STACK_OVERFLOW,
-                self.fn_name,
-                self.file.relative_path,
-            )
-            raise StackOverflow()
 
-        self._check_time_limit_exceeded()
-
-        result: Optional[GrugValue] = None
         try:
-            self._run_statements(helper_fn.body_statements)
-        except Return as e:
-            result = e.value
+            if self.state.fn_depth > MAX_DEPTH:
+                self.state.runtime_error_handler(
+                    "Stack overflow, so check for accidental infinite recursion",
+                    GrugRuntimeErrorType.STACK_OVERFLOW,
+                    self.fn_name,
+                    self.file.relative_path,
+                )
+                raise StackOverflow()
 
-        self.state.fn_depth = old_fn_depth
+            self._check_time_limit_exceeded()
 
-        self.local_variables = parent_local_variables
+            result: Optional[GrugValue] = None
+            try:
+                self._run_statements(helper_fn.body_statements)
+            except Return as e:
+                result = e.value
 
-        return result
+            return result
 
-    def _run_game_fn(self, name: str, *args: GrugValue) -> Optional[GrugValue]:
-        game_fn = self.game_fns[name]
+        finally:
+            self.state.fn_depth = old_fn_depth
+            self.local_variables = parent_local_variables
 
-        parent_fn_name = self.fn_name
+    def _run_host_fn(
+        self, fn_name: str, fn: HostFn, return_type: Type, *args: GrugValue
+    ) -> Optional[GrugValue]:
         try:
-            result = game_fn(self.state, *args)
+            result = fn(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,
                 GrugRuntimeErrorType.GAME_FN_ERROR,
-                parent_fn_name,
+                self.fn_name,
                 self.file.relative_path,
             )
             raise ReraisedGameFnError()
-        finally:
-            self.fn_name = parent_fn_name
 
-        t = self.game_fn_return_types[name]
-        if t is None:
+        if return_type is PrimitiveType.VOID:
             return
 
-        expected_type = self._get_expected_py_type(t)
+        expected_type = self._get_expected_py_type(return_type)
 
         assert isinstance(
             result, expected_type
-        ), f"Return value of game function {name}() must be {expected_type.__name__}, got {type(result).__name__}"
+        ), f"Return value of game function {fn_name}() must be {expected_type.__name__}, got {type(result).__name__}"
 
         return result

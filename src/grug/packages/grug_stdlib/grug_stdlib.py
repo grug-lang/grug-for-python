@@ -1,34 +1,69 @@
 import math
-from typing import Any, Callable, Dict, List, Tuple, TypeVar
+from dataclasses import dataclass
+from typing import Dict, List, Tuple, TypeVar, cast
 
 from grug import GrugPackage, GrugState
 from grug.entity import GameFnError
+from grug.parser import Type
+from grug.types import GrugValue, HostFn, HostFnReg
 
 try:
     from typing import Protocol  # Python >= 3.8
 except ImportError:  # pragma: no cover
     from typing_extensions import Protocol  # Python 3.7
 
+# --------------------
+# Type classes
+# --------------------
+
+
+@dataclass
+class Pair:
+    first: object
+    second: object
+
+
+def make_pair(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, first: object, second: object):
+        return Pair(first, second)
+
+    return inner
+
+
+def pair_first(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, pair: Pair):
+        return pair.first
+
+    return inner
+
+
+def pair_second(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, pair: Pair):
+        return pair.second
+
+    return inner
+
+
+pair_first.__name__ = "first"
+pair_second.__name__ = "second"
 
 # --------------------
 # Assertions
 # --------------------
 
 
-def assert_bool(state: GrugState, b1: bool, b2: bool):
-    assert b1 == b2, f"assert_bool failed: {b1} != {b2}"
+def assert_(state: GrugState, value: bool):
+    assert value, "assert failed"
 
 
-def assert_id(state: GrugState, id1: object, id2: object):
-    assert id1 == id2, f"assert_id failed: {id1} != {id2}"
+assert_.__name__ = "assert"
 
 
-def assert_number(state: GrugState, n1: float, n2: float):
-    assert n1 == n2, f"assert_number failed: {n1} != {n2}"
+def assert_eq(types: List[Type]) -> HostFn:
+    def eq(state: GrugState, v1: GrugValue, v2: GrugValue):
+        assert v1 == v2, f"assert failed {v1} != {v2}"
 
-
-def assert_string(state: GrugState, s1: str, s2: str):
-    assert s1 == s2, f"assert_string failed: '{s1}' != '{s2}'"
+    return eq
 
 
 # --------------------
@@ -49,120 +84,203 @@ def sqrt(state: GrugState, n: float) -> float:
 # --------------------
 
 
-def id_to_dict(state: GrugState, id_: Dict[object, object]) -> Dict[object, object]:
-    return id_
+def dict_len(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object]) -> float:
+        return float(len(d))
+
+    return inner
 
 
-def dict_len(state: GrugState, d: Dict[object, object]) -> float:
-    return float(len(d))
+def dict_X(types: List[Type]) -> HostFn:
+    def inner(state: GrugState) -> Dict[object, object]:
+        return {}
 
-
-def dict_X(state: GrugState) -> Dict[object, object]:
-    return {}
+    return inner
 
 
 dict_X.__name__ = "dict"
 
 
-def dict_set(state: GrugState, d: Dict[object, object], key: object, val: object):
-    d[key] = val
+def dict_set(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object], key: object, val: object):
+        d[key] = val
+
+    return inner
 
 
-def dict_has_key(state: GrugState, d: Dict[object, object], key: object) -> bool:
-    return key in d
+def dict_has_key(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object], key: object) -> bool:
+        return key in d
+
+    return inner
 
 
-def dict_get(state: GrugState, d: Dict[object, object], key: object) -> object:
-    value = d.get(key)
-    if value is None:
-        raise GameFnError(
-            f"dict_get({d}, {key}) failed, as key '{key}' is not in the Dict"
-        )
-    return value
+def dict_get(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object], key: object) -> object:
+        try:
+            return d[key]
+        except KeyError:
+            raise GameFnError(
+                f"dict_get({d}, {key}) failed, as key '{key}' is not in the Dict"
+            )
+
+    return inner
 
 
-def dict_get_default(
-    state: GrugState, d: Dict[object, object], key: object, default: object
-) -> object:
-    return d.get(key, default)
+def dict_get_or_default(types: List[Type]) -> HostFn:
+    def inner(
+        state: GrugState, d: Dict[object, object], key: object, default: object
+    ) -> object:
+        return d.get(key, default)
+
+    return inner
 
 
-def dict_set_default(
-    state: GrugState, d: Dict[object, object], key: object, val: object
-) -> object:
-    return d.setdefault(key, val)
+def dict_set_if_empty(types: List[Type]) -> HostFn:
+    def inner(
+        state: GrugState, d: Dict[object, object], key: object, val: object
+    ) -> bool:
+        if key in d:
+            return False
+        d[key] = val
+        return True
+
+    return inner
 
 
-def dict_pop(state: GrugState, d: Dict[object, object], key: object) -> object:
-    return d.pop(key)
+def dict_pop(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object], key: object) -> object:
+        return d.pop(key)
+
+    return inner
 
 
-def dict_update(state: GrugState, d: Dict[object, object], other: Dict[object, object]):
-    d.update(other)
+def dict_update(types: List[Type]) -> HostFn:
+    def inner(
+        state: GrugState,
+        d: Dict[object, object],
+        other: Dict[object, object],
+    ):
+        d.update(other)
+
+    return inner
 
 
-def dict_fromkeys(
-    state: GrugState, keys: List[object], val: object
-) -> Dict[object, object]:
-    return dict.fromkeys(keys, val)
+def dict_fromkeys(types: List[Type]) -> HostFn:
+    def inner(
+        state: GrugState, keys: List[object], val: object
+    ) -> Dict[object, object]:
+        return dict.fromkeys(keys, val)
+
+    return inner
 
 
-def dict_copy(state: GrugState, d: Dict[object, object]) -> Dict[object, object]:
-    return d.copy()
+dict_fromkeys.__name__ = "dict_from_keys"
 
 
-def dict_clear(state: GrugState, d: Dict[object, object]):
-    d.clear()
+def dict_copy(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object]) -> Dict[object, object]:
+        return d.copy()
+
+    return inner
 
 
-def dict_keys(state: GrugState, d: Dict[object, object]) -> List[object]:
-    return list(d.keys())
+def dict_clear(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object]):
+        d.clear()
+
+    return inner
 
 
-def dict_values(state: GrugState, d: Dict[object, object]) -> List[object]:
-    return list(d.values())
+def dict_keys(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object]) -> List[object]:
+        return list(d.keys())
+
+    return inner
 
 
-def dict_items(state: GrugState, d: Dict[object, object]) -> List[List[object]]:
-    return [[k, v] for k, v in d.items()]
+def dict_values(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object]) -> List[object]:
+        return list(d.values())
+
+    return inner
 
 
-def dict_popitem(state: GrugState, d: Dict[object, object]) -> List[object]:
-    k, v = d.popitem()
-    return [k, v]
+def dict_items(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object]) -> List[Pair]:
+        return [Pair(first=k, second=v) for k, v in d.items()]
 
+    return inner
+
+
+def dict_pop_item(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, d: Dict[object, object]) -> Pair:
+        k, v = d.popitem()
+        return Pair(first=k, second=v)
+
+    return inner
+
+
+dict_has_key.__name__ = "has_key"
+dict_set.__name__ = "set"
+dict_set_if_empty.__name__ = "set_if_empty"
+dict_get.__name__ = "get"
+dict_get_or_default.__name__ = "get_or_default"
+dict_clear.__name__ = "clear"
+dict_len.__name__ = "len"
+dict_pop.__name__ = "pop"
+dict_pop_item.__name__ = "pop_item"
+dict_keys.__name__ = "keys"
+dict_values.__name__ = "values"
+dict_items.__name__ = "items"
+dict_update.__name__ = "update"
+dict_copy.__name__ = "copy"
 
 # --------------------
 # List core
 # --------------------
 
 
-def id_to_list(state: GrugState, id_: List[object]) -> List[object]:
-    return id_
+def list_clear(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object]):
+        values.clear()
+
+    return inner
 
 
-def list_clear(state: GrugState, l: List[object]):
-    l.clear()
+def list_copy(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object]) -> List[object]:
+        return values.copy()
+
+    return inner
 
 
-def list_copy(state: GrugState, l: List[object]) -> List[object]:
-    return l.copy()
+def list_has(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], value: object) -> bool:
+        return value in values
+
+    return inner
 
 
-def list_has(state: GrugState, l: List[object], value: object) -> bool:
-    return value in l
+def list_extend(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], other_values: List[object]):
+        values.extend(other_values)
+
+    return inner
 
 
-def list_extend(state: GrugState, lst1: List[object], lst2: List[object]):
-    lst1.extend(lst2)
+def list_len(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object]) -> float:
+        return float(len(values))
+
+    return inner
 
 
-def list_len(state: GrugState, l: List[object]) -> float:
-    return float(len(l))
+def list_reverse(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object]):
+        values.reverse()
 
-
-def list_reverse(state: GrugState, l: List[object]):
-    l.reverse()
+    return inner
 
 
 class SupportsLessThan(Protocol):
@@ -172,56 +290,91 @@ class SupportsLessThan(Protocol):
 T = TypeVar("T", bound=SupportsLessThan)
 
 
-def list_sort(state: GrugState, l: List[T]):
-    l.sort()
+def list_sort(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[T]):
+        values.sort()
+
+    return inner
 
 
-def list_X(state: GrugState) -> List[object]:
-    return []
+def list_X(types: List[Type]) -> HostFn:
+    def inner(state: GrugState) -> List[object]:
+        return []
+
+    return inner
 
 
 list_X.__name__ = "list"
 
 
-def list_append(state: GrugState, l: List[object], val: object):
-    l.append(val)
+def list_append(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], val: object):
+        values.append(val)
+
+    return inner
 
 
-def list_count(state: GrugState, l: List[object], val: object) -> float:
-    return float(l.count(val))
+def list_count(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], val: object) -> float:
+        return float(values.count(val))
+
+    return inner
 
 
-def list_index(state: GrugState, l: List[object], val: object) -> float:
-    return float(l.index(val))
+def list_index(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], val: object) -> float:
+        return float(values.index(val))
+
+    return inner
 
 
-def list_insert(state: GrugState, l: List[object], index: float, val: object):
-    l.insert(int(index), val)
+def list_insert(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], index: float, val: object):
+        values.insert(int(index), val)
+
+    return inner
 
 
-def list_pop(state: GrugState, l: List[object]):
-    return l.pop()
+def list_pop(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object]) -> object:
+        return values.pop()
+
+    return inner
 
 
-def list_pop_index(state: GrugState, l: List[object], index: float):
-    return l.pop(int(index))
+def list_pop_index(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], index: float) -> object:
+        return values.pop(int(index))
+
+    return inner
 
 
-def list_remove(state: GrugState, l: List[object], val: object):
-    l.remove(val)
+def list_remove(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, values: List[object], val: object):
+        values.remove(val)
+
+    return inner
+
+
+list_len.__name__ = "len"
+list_sort.__name__ = "sort"
+list_clear.__name__ = "clear"
+list_copy.__name__ = "copy"
+list_extend.__name__ = "extend"
+list_reverse.__name__ = "reverse"
+list_append.__name__ = "append"
+list_count.__name__ = "count"
+list_has.__name__ = "has"
+list_index.__name__ = "index"
+list_insert.__name__ = "insert"
+list_pop.__name__ = "pop"
+list_pop_index.__name__ = "pop_index"
+list_remove.__name__ = "remove"
 
 
 # --------------------
 # Printing
 # --------------------
-
-
-def print_bool(state: GrugState, b: bool):
-    print(b)
-
-
-def print_id(state: GrugState, id: object):
-    print(id)
 
 
 def format_number(x: object) -> object:
@@ -230,139 +383,83 @@ def format_number(x: object) -> object:
     return x
 
 
-def print_list(state: GrugState, l: List[object]):
-    print([format_number(x) for x in l])
+def print_value(types: List[Type]) -> HostFn:
+    def inner(state: GrugState, value: GrugValue):
+        if isinstance(value, float):
+            print(format_number(value))
+        elif isinstance(value, list):
+            values = cast(List[object], value)
+            print([format_number(item) for item in values])
+        elif isinstance(value, dict):
+            values_by_key = cast(Dict[object, object], value)
+            print(
+                {
+                    format_number(key): format_number(item)
+                    for key, item in values_by_key.items()
+                }
+            )
+        else:
+            print(value)
+
+    return inner
 
 
-def print_dict(state: GrugState, d: Dict[object, object]):
-    print({format_number(k): format_number(v) for k, v in d.items()})
-
-
-def print_number(state: GrugState, n: float):
-    print(int(n) if n.is_integer() else n)
-
-
-def print_string(state: GrugState, s: str):
-    print(s)
-
-
-# --------------------
-# Game fn registration
-# --------------------
-
-
-def assert_fns() -> List[Callable[..., Any]]:
-    return [
-        assert_bool,
-        assert_id,
-        assert_number,
-        assert_string,
-    ]
-
-
-def casting_fns() -> List[Callable[..., Any]]:
-    return [
-        id_to_dict,
-        id_to_list,
-    ]
-
-
-def math_fns() -> List[Callable[..., Any]]:
-    return [
-        ceil,
-        sqrt,
-    ]
-
-
-def printing_fns() -> List[Callable[..., Any]]:
-    return [
-        print_bool,
-        print_id,
-        print_list,
-        print_dict,
-        print_number,
-        print_string,
-    ]
-
+print_value.__name__ = "print"
 
 # --------------------
 # Container registration
 # --------------------
 
 
-def wrap(fn: Callable[..., Any], name: str) -> Callable[..., Any]:
-    def wrapper(*args: Tuple[Any, ...], **kwargs: Dict[str, Any]) -> Any:
-        return fn(*args, **kwargs)
-
-    wrapper.__name__ = name
-    return wrapper
-
-
-HASHABLE_TYPES = ("number", "bool", "string")
-VALUE_TYPES = ("number", "bool", "string", "id")
-
-
-def dict_fns() -> List[Callable[..., Any]]:
-    fns: List[Callable[..., Any]] = []
-
-    for fn in [
+def dict_fns() -> List[HostFnReg]:
+    return [
         dict_X,
-        dict_len,
-        dict_keys,
-        dict_values,
-        dict_items,
-        dict_popitem,
-        dict_update,
-        dict_copy,
-        dict_clear,
-    ]:
-        fns.append(fn)
-
-    for value_type in VALUE_TYPES:
-        fns.append(wrap(dict_fromkeys, f"dict_{value_type}_fromkeys"))
-
-    for key_type in HASHABLE_TYPES:
-        fns.append(wrap(dict_has_key, f"dict_{key_type}_has_key"))
-
-        for value_type in VALUE_TYPES:
-            fns.append(wrap(dict_get, f"dict_{key_type}_{value_type}_get"))
-            fns.append(
-                wrap(dict_get_default, f"dict_{key_type}_{value_type}_get_default")
-            )
-            fns.append(wrap(dict_pop, f"dict_{key_type}_{value_type}_pop"))
-            fns.append(wrap(dict_set, f"dict_{key_type}_{value_type}_set"))
-            fns.append(
-                wrap(dict_set_default, f"dict_{key_type}_{value_type}_set_default")
-            )
-
-    return fns
+        dict_fromkeys,
+    ]
 
 
-def list_fns() -> List[Callable[..., Any]]:
-    fns: List[Callable[..., Any]] = []
+def dict_methods() -> List[Tuple[str, HostFnReg]]:
+    return [
+        ("Dict", dict_has_key),
+        ("Dict", dict_set),
+        ("Dict", dict_set_if_empty),
+        ("Dict", dict_get),
+        ("Dict", dict_get_or_default),
+        ("Dict", dict_clear),
+        ("Dict", dict_len),
+        ("Dict", dict_pop),
+        ("Dict", dict_pop_item),
+        ("Dict", dict_keys),
+        ("Dict", dict_values),
+        ("Dict", dict_items),
+        ("Dict", dict_update),
+        ("Dict", dict_copy),
+    ]
 
-    for fn in [
+
+def list_fns() -> List[HostFnReg]:
+    return [
         list_X,
-        list_len,
-        list_sort,
-        list_clear,
-        list_copy,
-        list_extend,
-        list_reverse,
-    ]:
-        fns.append(fn)
+    ]
 
-    for value_type in VALUE_TYPES:
-        fns.append(wrap(list_append, f"list_{value_type}_append"))
-        fns.append(wrap(list_count, f"list_{value_type}_count"))
-        fns.append(wrap(list_has, f"list_{value_type}_has"))
-        fns.append(wrap(list_index, f"list_{value_type}_index"))
-        fns.append(wrap(list_insert, f"list_{value_type}_insert"))
-        fns.append(wrap(list_pop, f"list_{value_type}_pop"))
-        fns.append(wrap(list_pop_index, f"list_{value_type}_pop_index"))
-        fns.append(wrap(list_remove, f"list_{value_type}_remove"))
 
-    return fns
+def list_methods() -> List[Tuple[str, HostFnReg]]:
+    return [
+        ("List", list_len),
+        ("List", list_sort),
+        ("List", list_clear),
+        ("List", list_copy),
+        ("List", list_extend),
+        ("List", list_reverse),
+        ("List", list_append),
+        ("List", list_count),
+        ("List", list_has),
+        ("List", list_index),
+        ("List", list_insert),
+        ("List", list_pop),
+        ("List", list_pop_index),
+        ("List", list_remove),
+    ]
 
 
 # --------------------
@@ -371,18 +468,25 @@ def list_fns() -> List[Callable[..., Any]]:
 
 
 def get():
-    game_fns: List[Callable[..., Any]] = []
+    host_fns: List[HostFn] = []
+    generic_fns: List[HostFnReg] = [assert_eq, print_value]
 
-    game_fns.extend(assert_fns())
-    game_fns.extend(casting_fns())
-    game_fns.extend(math_fns())
-    game_fns.extend(printing_fns())
+    # bare assert function
+    host_fns.append(assert_)
+    # math functions
+    host_fns.extend([ceil, sqrt])
 
-    # Containers
-    game_fns.extend(dict_fns())
-    game_fns.extend(list_fns())
+    generic_fns.extend(dict_fns())
+    generic_fns.extend(list_fns())
+    generic_fns.extend([make_pair])
+    generic_methods = dict_methods()
+    generic_methods.extend(list_methods())
+    generic_methods.extend([("Pair", pair_first), ("Pair", pair_second)])
 
     return GrugPackage(
         prefix="",
-        game_fns=game_fns,
+        host_fns=host_fns,
+        generic_fns=generic_fns,
+        methods=[],
+        generic_methods=generic_methods,
     )

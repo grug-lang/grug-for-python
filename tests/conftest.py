@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Optional, cast
 
 import pytest
-from test_grug import GrugStateVTableStruct
+
+from tests.test_grug import GrugStateVTableStruct, GrugTestsOptionsStruct
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -21,6 +22,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         required=False,
         help="A specific test name to run",
+    )
+    parser.addoption(
+        "--continue-on-fail",
+        action="store_true",
+        default=False,
+        required=False,
+        help="Keep running the rest of the tests after one fails, "
+        "instead of stopping at the first failure",
+    )
+    parser.addoption(
+        "--results-json-path",
+        action="store",
+        default=None,
+        required=False,
+        help="Path that results.json gets written to "
+        "(defaults to results.json in the current working directory)",
     )
 
 
@@ -49,7 +66,23 @@ def whitelisted_test(request: pytest.FixtureRequest) -> Optional[str]:
 
 
 @pytest.fixture(scope="session")
-def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
+def continue_on_fail(request: pytest.FixtureRequest) -> bool:
+    """
+    Returns whether the rest of the tests should keep running after one fails.
+    """
+    return cast(bool, request.config.getoption("--continue-on-fail"))
+
+
+@pytest.fixture(scope="session")
+def results_json_path(request: pytest.FixtureRequest) -> Optional[str]:
+    """
+    Returns the path that results.json gets written to.
+    """
+    return cast(Optional[str], request.config.getoption("--results-json-path"))
+
+
+@pytest.fixture(scope="session")
+def grug_lib(grug_tests_path: Path) -> ctypes.CDLL:
     """
     Loads tests.so and sets argument signatures
     """
@@ -64,7 +97,7 @@ def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
     if not lib_path.is_file():  # pragma: no cover
         pytest.exit(f"Error: Shared library not found: {lib_path}")
 
-    lib = ctypes.PyDLL(str(lib_path))
+    lib = ctypes.CDLL(str(lib_path))
 
     lib.grug_tests_runtime_error_handler.argtypes = [
         ctypes.c_char_p,  # reason
@@ -76,9 +109,9 @@ def grug_lib(grug_tests_path: Path) -> ctypes.PyDLL:
 
     lib.grug_tests_run.argtypes = [
         ctypes.c_char_p,  # tests_dir_path
-        ctypes.c_char_p,  # tests_dir_path
+        ctypes.c_char_p,  # mod_api_path
         GrugStateVTableStruct,
-        ctypes.c_char_p,  # whitelisted_test
+        GrugTestsOptionsStruct,
     ]
     lib.grug_tests_run.restype = None
 

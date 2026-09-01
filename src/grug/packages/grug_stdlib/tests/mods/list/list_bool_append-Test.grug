@@ -1,5 +1,5 @@
-on_run() {
-    l: List = list()
-    list_bool_append(l, true)
-    assert_number(list_len(l), 1)
+export run() {
+    l: List[bool] = list()
+    l.append(true)
+    assert_eq(l.len(), 1)
 }

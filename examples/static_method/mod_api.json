@@ -1,0 +1,123 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "static_methods": {
+                "magic": {
+                    "description": "The Answer to the Ultimate Question of Life, the Universe, and Everything.",
+                    "return_type": {
+                        "name": "number"
+                    }
+                }
+            },
+            "export_functions": [
+                {
+                    "name": "bark",
+                    "description": "Called when the dog barks.",
+                    "parameters": [
+                        {
+                            "name": "sound",
+                            "type": {
+                                "name": "string"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "classes": {
+        "Box": {
+            "description": "Holds one value of any type.",
+            "used_generics": [
+                "$T"
+            ],
+            "static_methods": {
+                "of": {
+                    "description": "Creates a Box holding the given value.",
+                    "parameters": [
+                        {
+                            "name": "value",
+                            "type": {
+                                "name": "$T"
+                            }
+                        }
+                    ],
+                    "return_type": {
+                        "name": "Box",
+                        "generics": [
+                            {
+                                "name": "$T"
+                            }
+                        ]
+                    }
+                }
+            },
+            "methods": {
+                "get": {
+                    "description": "Returns the held value.",
+                    "parameters": [],
+                    "return_type": {
+                        "name": "$T"
+                    }
+                }
+            }
+        },
+        "VecNumber": {
+            "description": "A growable list of numbers.",
+            "static_methods": {
+                "new": {
+                    "description": "Creates a new empty VecNumber.",
+                    "parameters": [],
+                    "return_type": {
+                        "name": "VecNumber"
+                    }
+                }
+            },
+            "methods": {
+                "push": {
+                    "description": "Pushes a number to the end of the list.",
+                    "parameters": [
+                        {
+                            "name": "value",
+                            "type": {
+                                "name": "number"
+                            }
+                        }
+                    ]
+                },
+                "pop": {
+                    "description": "Removes the last element from the list and returns it.",
+                    "parameters": [],
+                    "return_type": {
+                        "name": "number"
+                    }
+                }
+            }
+        }
+    },
+    "host_functions": {
+        "print_number": {
+            "description": "Prints a number.",
+            "parameters": [
+                {
+                    "name": "value",
+                    "type": {
+                        "name": "number"
+                    }
+                }
+            ]
+        },
+        "print_string": {
+            "description": "Prints a string.",
+            "parameters": [
+                {
+                    "name": "value",
+                    "type": {
+                        "name": "string"
+                    }
+                }
+            ]
+        }
+    }
+}

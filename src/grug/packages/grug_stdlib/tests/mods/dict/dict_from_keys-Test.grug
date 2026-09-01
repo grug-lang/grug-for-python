@@ -1,0 +1,26 @@
+export run() {
+    l: List[number] = list()
+    l.append(2)
+    l.append(22)
+    l.append(52)
+    d: Dict[number, number] = dict_from_keys(l, 0)
+    assert_eq(d.get(22), 0)
+    assert_eq(l, d.keys())
+
+    items: List[Pair[number, number]] = list()
+    items.append(make_pair(2, 0))
+    items.append(make_pair(22, 0))
+    items.append(make_pair(52, 0))
+    assert_eq(items, d.items())
+
+    d.set(52, 5)
+    item: Pair[number, number] = d.pop_item()
+    assert_eq(item, make_pair(52, 5))
+    assert_eq(item.first(), 52)
+    assert_eq(item.second(), 5)
+
+    values: List[number] = list()
+    values.append(0)
+    values.append(0)
+    assert_eq(d.values(), values)
+}

@@ -1,7 +1,8 @@
 i: number = 0
 
-on_tick() {
-    print_number(ceil(i / 3))
-    print_number(np_exp(i))
+export tick() {
+    printer().print_string("Printing a string")
+    print(ceil(i / 3))
+    print(np_exp(i))
     i = i + 1
 }
