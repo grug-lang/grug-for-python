@@ -15,13 +15,8 @@ jobs:
 
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            python-version: "3.7.17"
-          - os: ubuntu-latest
-            python-version: "3.11.9"
-          - os: windows-latest
-            python-version: "3.11.9"
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.7.17", "3.11.9"]
 
     steps:
       - uses: actions/checkout@v4
