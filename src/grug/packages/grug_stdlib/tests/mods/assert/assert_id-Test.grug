@@ -1,4 +1,4 @@
-on_run() {
-    l: List = list()
-    assert_id(l, l)
+export run() {
+    l: List[number] = list()
+    assert_eq(l, l)
 }

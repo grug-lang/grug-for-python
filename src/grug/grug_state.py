@@ -1,16 +1,43 @@
+from __future__ import annotations
+
+import inspect
 import json
 import sys
+import types
+import weakref
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TypeVar,
+    cast,
+    get_type_hints,
+)
 
-from grug.grug_value import GrugValue
-
-from .parser import HelperFn, OnFn, Parser, VariableStatement
+from .error import GrugError
+from .mod_api import ModApi, get_mod_api
+from .parser import HelperFn, OnFn, Parser, Type, VariableStatement
 from .serializer import Serializer
 from .tokenizer import Tokenizer
 from .type_propagator import TypePropagator
+from .types import GrugValue, HostFn, HostFnReg
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .entity import Entity
+
+    EntitiesSet = weakref.WeakSet["Entity"]
+else:
+    EntitiesSet = weakref.WeakSet
 
 
 class GrugRuntimeErrorType(Enum):
@@ -21,11 +48,45 @@ class GrugRuntimeErrorType(Enum):
 
 GrugRuntimeErrorHandler = Callable[[str, GrugRuntimeErrorType, str, str], None]
 
+TFn = TypeVar("TFn", bound=Callable[..., object])
+
+_STATIC_MARKER = "__grug_static_method__"
+
+
+def static_method(fn: TFn) -> TFn:
+    """Marks a function inside a ``@grug_class`` as a grug static method.
+
+    A non-generic static method is recognized without this, by taking the
+    ``GrugState`` as its first parameter where a method takes it second. A
+    generic one cannot be: ``(List[Type]) -> HostFn`` is the signature of a
+    generic method too, so which of the two is meant has to be said out loud.
+
+    Combines with ``@staticmethod`` in either order.
+    """
+    marked: Any = getattr(fn, "__func__", fn)
+    setattr(marked, _STATIC_MARKER, True)
+    return fn
+
 
 class GrugPackage:
-    def __init__(self, *, prefix: str, game_fns: Sequence["GameFn"]):
+    def __init__(
+        self,
+        *,
+        prefix: str,
+        host_fns: Sequence[HostFn],
+        generic_fns: Sequence[HostFnReg],
+        methods: Sequence[Tuple[str, HostFn]],
+        generic_methods: Sequence[Tuple[str, HostFnReg]],
+        static_methods: Sequence[Tuple[str, HostFn]] = (),
+        generic_static_methods: Sequence[Tuple[str, HostFnReg]] = (),
+    ):
         self.prefix = prefix
-        self.game_fns = game_fns
+        self.host_fns = host_fns
+        self.generic_fns = generic_fns
+        self.methods = methods
+        self.generic_methods = generic_methods
+        self.static_methods = static_methods
+        self.generic_static_methods = generic_static_methods
 
     def no_prefix(self):
         self.prefix = ""
@@ -44,15 +105,24 @@ class GrugFile:
     global_variables: List[VariableStatement]
     on_fns: Dict[str, OnFn]
     helper_fns: Dict[str, HelperFn]
-    game_fns: Dict[str, "GameFn"]
-    game_fn_return_types: Dict[str, Optional[str]]
+
+    mod_api: ModApi
 
     state: "GrugState"
+    mtime: float
+
+    entities: EntitiesSet = field(default_factory=EntitiesSet)
 
     def create_entity(self):
         from .entity import Entity
 
         return Entity(self)
+
+    def __getitem__(self, key: str):
+        """Files are not indexable; this exists to satisfy the type checker for chained lookups."""
+        raise TypeError(
+            f"GrugFile '{self.relative_path}' is not a directory and cannot be indexed"
+        )
 
 
 @dataclass
@@ -62,6 +132,20 @@ class GrugDir:
     name: str
     files: Dict[str, GrugFile] = field(default_factory=lambda: {})
     dirs: Dict[str, "GrugDir"] = field(default_factory=lambda: {})
+
+    def create_entity(self):
+        """
+        Satisfies the type checker for GrugDir | GrugFile unions.
+        Raises TypeError if you actually try to treat a directory as a single entity.
+        """
+        raise TypeError(f"'{self.name}' is a directory, not a file")
+
+    def __getitem__(self, key: str):
+        if key in self.dirs:
+            return self.dirs[key]
+        if key in self.files:
+            return self.files[key]
+        raise KeyError(f"{key} not found. Available: {list(self.files.keys())}")
 
 
 def default_runtime_error_handler(
@@ -76,6 +160,9 @@ def default_runtime_error_handler(
     )
 
 
+TClass = TypeVar("TClass", bound=type)
+
+
 class GrugState:
     def __init__(
         self,
@@ -88,32 +175,24 @@ class GrugState:
     ):
         self.runtime_error_handler = runtime_error_handler
 
-        with open(mod_api_path) as f:
-            raw = json.load(f)
-        if not isinstance(raw, dict):
-            raise RuntimeError("Error: mod API JSON root must be an object")
-        self.mod_api: Dict[str, Any] = cast(Dict[str, Any], raw)
+        self.mod_api = get_mod_api(Path(mod_api_path))
 
-        self._assert_mod_api()
-
-        self.mods_dir_path = mods_dir_path
+        self.mods_dir_path = Path(mods_dir_path)
 
         self.on_fn_time_limit_ms = on_fn_time_limit_ms
 
-        self.game_fns: Dict[str, "GameFn"] = {}
+        self.game_fns: Dict[str, HostFn] = {}
+        self.classes: Dict[str, Dict[str, HostFn]] = {}
         self._add_game_fns_from_packages(packages)
 
         self.next_id = 0
 
         self.fn_depth = 0
 
-    def _assert_mod_api(self):
-        entities = self.mod_api.get("entities")
-        if not isinstance(entities, dict):
-            raise RuntimeError("Error: 'entities' must be a JSON object")
+        self._mods: Optional[GrugDir] = None
 
-        entities_dict = cast(Dict[str, Any], entities)
-        self._assert_entities_sorted(entities_dict)
+        self.executed_file: Optional[GrugFile] = None
+        self.executed_entity: Optional[Entity] = None
 
         for entity_name, entity in entities_dict.items():
             if not isinstance(entity, dict):
@@ -182,43 +261,170 @@ class GrugState:
                         f"so {expected}() must come before {actual}()"
                     )
             assert False  # pragma: no cover
+    @property
+    def mods(self) -> GrugDir:
+        if self._mods is None:
+            self._update()
+        assert self._mods
+        return self._mods
 
     def _add_game_fns_from_packages(self, packages: Sequence[GrugPackage]):
         for pkg in packages:
-            for game_fn in pkg.game_fns:
-                if game_fn.__name__ in self.game_fns:
-                    raise RuntimeError(
-                        f"Error: Game function '{game_fn.__name__}' has already been registered, so you either registered it twice, or its grug package prefix clashes with another grug package"
-                    )
-
+            for host_fn in pkg.host_fns:
                 name = (
-                    f"{pkg.prefix}_{game_fn.__name__}"
+                    f"{pkg.prefix}_{host_fn.__name__}"
                     if pkg.prefix
-                    else game_fn.__name__
+                    else host_fn.__name__
                 )
-                self._register_game_fn(name, game_fn)
+                self.mod_api.register_fn(None, name, host_fn)
+            for generic_fn in pkg.generic_fns:
+                name = (
+                    f"{pkg.prefix}_{generic_fn.__name__}"
+                    if pkg.prefix
+                    else generic_fn.__name__
+                )
+                self.mod_api.register_generic_fn(None, name, generic_fn)
+            for class_name, method in pkg.methods:
+                name = method.__name__
+                self.mod_api.register_fn(class_name, name, method)
+            for class_name, generic_method in pkg.generic_methods:
+                name = generic_method.__name__
+                self.mod_api.register_generic_fn(class_name, name, generic_method)
+            for type_name, static_fn in pkg.static_methods:
+                name = static_fn.__name__
+                self.mod_api.register_fn(type_name, name, static_fn)
+            for type_name, generic_static_fn in pkg.generic_static_methods:
+                name = generic_static_fn.__name__
+                self.mod_api.register_generic_fn(type_name, name, generic_static_fn)
 
-    def game_fn(self, fn: "GameFn") -> "GameFn":
-        """Decorator for game functions."""
-        self._register_game_fn(fn.__name__, fn)
+    def host_fn(self, fn: HostFn) -> HostFn:
+        """Decorator for host functions."""
+        self.mod_api.register_fn(None, fn.__name__, fn)
         return fn
 
-    def _register_game_fn(self, name: str, fn: "GameFn"):
-        self.game_fns[name] = fn
+    def grug_class(self, cls: TClass) -> TClass:
+        """Decorator for grug classes."""
+        for name, fn in vars(cls).items():
+            # Python plumbing, never something mod_api.json declares. Skipping
+            # it is what lets a grug class be an ordinary Python class with an
+            # `__init__`, which static methods make worth writing.
+            if name.startswith("__") and name.endswith("__"):
+                continue
+
+            if isinstance(fn, staticmethod):
+                fn = fn.__func__
+            elif isinstance(fn, types.FunctionType):
+                pass
+            # python 3.7 doesn't have any members other than methods
+            else:  # pragma: no cover
+                continue
+
+            # The class is built before this decorator runs but is not bound to
+            # its name yet, so `-> "VecNumber"` on one of its own static methods
+            # resolves to nothing unless the class is handed over explicitly.
+            hints = get_type_hints(fn, localns={cls.__name__: cls})  # pyright: ignore
+            parameters = list(
+                inspect.signature(fn).parameters.values()
+            )  # pyright: ignore
+
+            is_generic_signature = (
+                len(parameters) == 1
+                and hints.get(parameters[0].name) == List[Type]
+                and hints.get("return") == HostFn
+            )
+
+            if getattr(fn, _STATIC_MARKER, False):
+                if is_generic_signature:
+                    self.mod_api.register_generic_fn(
+                        cls.__name__, name, cast(HostFnReg, fn)
+                    )
+                else:
+                    self.mod_api.register_fn(cls.__name__, name, cast(HostFn, fn))
+                continue
+
+            if is_generic_signature:
+                generic_method = cast(HostFnReg, fn)
+
+                @wraps(generic_method)
+                def register(
+                    generics: List[Type],
+                    generic_method: HostFnReg = generic_method,
+                ) -> Optional[HostFn]:
+                    method = generic_method(generics)
+                    return None if method is None else self._adapt_grug_method(method)
+
+                self.mod_api.register_generic_fn(cls.__name__, name, register)
+                continue
+
+            # The receiver is implicit from grug's perspective, so `state` is
+            # the first method argument even though it is the second parameter
+            # in the unbound Python function (`self, state, ...`).
+            if len(parameters) >= 2 and hints.get(parameters[1].name) is GrugState:
+                self.mod_api.register_fn(
+                    cls.__name__, name, self._adapt_grug_method(cast(HostFn, fn))
+                )
+                continue
+
+            if len(parameters) >= 1 and hints.get(parameters[0].name) is GrugState:
+                self.mod_api.register_fn(cls.__name__, name, cast(HostFn, fn))
+                continue
+
+            raise GrugError.new_init_error(
+                f"Method '{cls.__name__}.{name}' has an unsupported signature. "
+                "Expected a normal method whose first argument after the receiver "
+                "is annotated as GrugState, a static method whose first argument "
+                "is annotated as GrugState, or a generic method with signature "
+                "(List[Type]) -> HostFn"
+            )
+        return cls
+
+    @staticmethod
+    def _adapt_grug_method(method: HostFn) -> HostFn:
+        """Adapt grug's ``(state, receiver, ...)`` call to a Python method call."""
+
+        @wraps(method)
+        def adapted(state: GrugState, receiver: GrugValue, *args: GrugValue):
+            return method(receiver, state, *args)
+
+        return adapted
 
     def compile_grug_file(self, grug_file_relative_path: str):
         mod = Path(grug_file_relative_path).parts[0].replace("\\", "/")
+    def generic_fn(self, fn: HostFnReg) -> HostFnReg:
+        """Decorator for generic game functions."""
+        self.mod_api.register_generic_fn(None, fn.__name__, fn)
+        return fn
 
-        grug_file_absolute_path = Path(self.mods_dir_path) / grug_file_relative_path
+    def _compile_grug_file(self, grug_file_relative_path: str):
+        mod = Path(grug_file_relative_path).parts[0]
+
+        grug_file_absolute_path = self.mods_dir_path / grug_file_relative_path
+
         text = grug_file_absolute_path.read_text()
+        if len(text) == 0:
+            raise GrugError.new_file_name_error(
+                Path(grug_file_relative_path), "File is empty"
+            )
 
-        entity_type = self._get_file_entity_type(Path(grug_file_relative_path).name)
+        mtime = grug_file_absolute_path.stat().st_mtime
 
-        tokens = Tokenizer(text).tokenize()
+        grug_file_path = Path(grug_file_relative_path)
 
-        ast = Parser(tokens).parse()
+        entity_type = self._get_file_entity_type(grug_file_path)
 
-        TypePropagator(ast, mod, entity_type, self.mod_api).fill()
+        tokens = Tokenizer(text, grug_file_path).tokenize()
+
+        ast = Parser(tokens, grug_file_path, text).parse()
+
+        TypePropagator(
+            ast,
+            mod,
+            entity_type,
+            self.mod_api,
+            Path(self.mods_dir_path),
+            grug_file_path,
+            text,
+        ).fill()
 
         global_variables = [s for s in ast if isinstance(s, VariableStatement)]
 
@@ -226,23 +432,18 @@ class GrugState:
 
         helper_fns = {s.fn_name: s for s in ast if isinstance(s, HelperFn)}
 
-        game_fn_return_types = {
-            fn_name: fn.get("return_type")
-            for fn_name, fn in self.mod_api["game_functions"].items()
-        }
-
         return GrugFile(
             grug_file_relative_path,
             mod,
             global_variables,
             on_fns,
             helper_fns,
-            self.game_fns,
-            game_fn_return_types,
+            self.mod_api,
             self,
+            mtime,
         )
 
-    def _get_file_entity_type(self, grug_filename: str) -> str:
+    def _get_file_entity_type(self, grug_file_path: Path) -> str:
         """
         Extract and validate the entity type from a grug filename.
 
@@ -253,33 +454,43 @@ class GrugState:
             The entity type string (e.g., 'BlockEntity')
 
         Raises:
-            ValueError: If the filename format is invalid
+            GrugError: If the filename format is invalid
         """
+        grug_filename = grug_file_path.name
+
         # Find the dash
         dash_index = grug_filename.find("-")
 
         if dash_index == -1 or dash_index + 1 >= len(grug_filename):
-            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
+            raise GrugError.new_file_name_error(
+                grug_file_path,
+                f"'{grug_filename}' is missing an entity type in its name",
+            )
 
         # Find the period after the dash
         period_index = grug_filename.find(".", dash_index + 1)
 
         if period_index == -1:
-            raise ValueError(f"'{grug_filename}' is missing a period in its filename")
+            raise GrugError.new_file_name_error(
+                grug_file_path, f"'{grug_filename}' is missing a period in its name"
+            )
 
         # Extract entity type (between dash and period)
         entity_type = grug_filename[dash_index + 1 : period_index]
 
         # Check if entity type is empty
         if len(entity_type) == 0:
-            raise ValueError(f"'{grug_filename}' is missing an entity type in its name")
+            raise GrugError.new_file_name_error(
+                grug_file_path,
+                f"'{grug_filename}' is missing an entity type in its name",
+            )
 
         # Validate PascalCase
-        self._check_custom_id_is_pascal(entity_type)
+        self._check_custom_id_is_pascal(entity_type, grug_file_path)
 
         return entity_type
 
-    def _check_custom_id_is_pascal(self, type_name: str):
+    def _check_custom_id_is_pascal(self, type_name: str, grug_file_path: Path):
         """
         Validate that a custom ID type name is in PascalCase.
 
@@ -287,58 +498,102 @@ class GrugState:
             type_name: The type name to validate
 
         Raises:
-            ValueError: If the type name is not valid PascalCase
+            GrugError: If the type name is not valid PascalCase
         """
         # The first character must always be uppercase
         if not type_name[0].isupper():
-            raise ValueError(
-                f"'{type_name}' seems like a custom ID type, but it doesn't start in Uppercase"
+            raise GrugError.new_file_name_error(
+                grug_file_path,
+                f"'{type_name}' seems like a custom ID type, but it doesn't start in Uppercase",
             )
 
         # Custom IDs only consist of uppercase, lowercase characters, and digits
         for c in type_name:
             if not (c.isupper() or c.islower() or c.isdigit()):
-                raise ValueError(
+                raise GrugError.new_file_name_error(
+                    grug_file_path,
                     f"'{type_name}' seems like a custom ID type, but it contains '{c}', "
-                    f"which isn't uppercase/lowercase/a digit"
+                    f"which isn't uppercase, lowercase, or a digit",
                 )
 
-    def compile_all_mods(self) -> GrugDir:
-        """
-        Compiles all grug mods under self.mods_dir_path recursively.
+    # Q(nikhil): Why is this a separate function?
+    def update(self):
+        """This (re)compiles grug files using mark-and-sweep, and prints any error."""
+        try:
+            self._update()
+        except Exception as e:  # pragma: no cover
+            print(e)
 
-        Returns:
-            GrugDir: Root directory representing the entire mods/ folder.
-        """
-        mods_path = Path(self.mods_dir_path)
+    def _update(self):
+        """This (re)compiles grug files using mark-and-sweep."""
+        if self._mods is None:
+            self._mods = GrugDir(name="mods")
 
-        def compile_dir(current_path: Path, dir_name: str) -> GrugDir:
-            grug_dir = GrugDir(name=dir_name)
+        seen_files: Set[str] = set()
+        seen_dirs: Set[str] = set()
 
+        def update_dir(current_path: Path, grug_dir: GrugDir):
+            # Mark this directory as visited
+            seen_dirs.add(current_path.as_posix())
+
+            # Mark phase: scan disk
             for entry in current_path.iterdir():
                 if entry.is_dir():
-                    subdir = compile_dir(entry, entry.name)
-                    grug_dir.dirs[entry.name] = subdir
-                elif entry.is_file() and entry.suffix == ".grug":  # pragma: no branch
-                    relative_path = entry.relative_to(mods_path).as_posix()
-                    grug_file = self.compile_grug_file(relative_path)
-                    grug_dir.files[relative_path] = grug_file
+                    sub = grug_dir.dirs.get(entry.name)
+                    if sub is None:
+                        sub = GrugDir(name=entry.name)
+                        grug_dir.dirs[entry.name] = sub
+                    update_dir(entry, sub)
 
-            return grug_dir
+                elif entry.is_file() and entry.suffix == ".grug":
+                    rel = entry.relative_to(self.mods_dir_path).as_posix()
+                    seen_files.add(rel)
 
-        root_dir = GrugDir(name="mods")
-        for mod_dir in mods_path.iterdir():
-            if mod_dir.is_dir():  # pragma: no branch
-                root_dir.dirs[mod_dir.name] = compile_dir(mod_dir, mod_dir.name)
+                    current_mtime = entry.stat().st_mtime
+                    existing = grug_dir.files.get(entry.name)
 
-        return root_dir
+                    if existing is None or existing.mtime < current_mtime:
+                        new_file = self._compile_grug_file(rel)
 
-    def update(self):
-        # TODO: Implement hot reloading
-        pass
+                        # Transfer entities from the old file to the new file
+                        if existing is not None:
+                            for entity in existing.entities:
+                                entity.file = new_file
+                                entity._init_globals(new_file.global_variables)  # type: ignore
+                                new_file.entities.add(entity)
+
+                        grug_dir.files[entry.name] = new_file
+
+            # Sweep files
+            for name, file in list(grug_dir.files.items()):
+                if file.relative_path not in seen_files:
+                    del grug_dir.files[name]  # pragma: no cover
+
+            # Sweep subdirectories
+            for name in list(grug_dir.dirs.keys()):
+                sub_path_str = (current_path / name).as_posix()
+                if sub_path_str not in seen_dirs:
+                    del grug_dir.dirs[name]  # pragma: no cover
+
+        root = self._mods
+
+        # Process each top-level mod directory
+        for mod_dir in self.mods_dir_path.iterdir():
+            if mod_dir.is_dir():  # pragma: no cover
+                sub = root.dirs.get(mod_dir.name)
+                if sub is None:
+                    sub = GrugDir(name=mod_dir.name)
+                    root.dirs[mod_dir.name] = sub
+                update_dir(mod_dir, sub)
+
+        # Sweep removed top-level dirs
+        for name in list(root.dirs.keys()):
+            root_path_str = (self.mods_dir_path / name).as_posix()
+            if root_path_str not in seen_dirs:
+                del root.dirs[name]  # pragma: no cover
 
     def run_all_package_tests(self):
-        mods = self.compile_all_mods()
+        self._update()
 
         tests_ran = 0
 
@@ -348,39 +603,22 @@ class GrugState:
             for file in sorted(dir.files.values(), key=lambda f: f.relative_path):
                 print(f"Testing {file.relative_path}...")
                 test = file.create_entity()
-                test.on_run()
+                test.run()
                 nonlocal tests_ran
                 tests_ran += 1
 
-        run(mods)
+        run(self.mods)
 
         print(f"All {tests_ran} tests passed!")
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
-    def dump_file_to_json(self, input_grug_path: str, output_json_path: str):
-        grug_text = Path(input_grug_path).read_text()
-
-        tokens = Tokenizer(grug_text).tokenize()
-
-        ast = Parser(tokens).parse()
-
-        json_text = Serializer.ast_to_json_text(ast)
-
-        Path(output_json_path).write_text(json_text)
-
-        return False
+    def grug_to_json(self, input_grug_text: str):
+        # TODO: path to file should be a parameter
+        tokens = Tokenizer(input_grug_text, Path("<input>")).tokenize()
+        ast = Parser(tokens, Path("<input>"), input_grug_text).parse()
+        return Serializer.ast_to_json_text(ast)
 
     # TODO: Should this method be moved out of this GrugState, so it becomes a free function?
-    def generate_file_from_json(self, input_json_path: str, output_grug_path: str):
-        json_text = Path(input_json_path).read_text()
-
-        ast = json.loads(json_text)
-
-        grug_text = Serializer.ast_to_grug(ast)
-
-        Path(output_grug_path).write_text(grug_text)
-
-        return False
-
-
-GameFn = Callable[..., Optional[GrugValue]]
+    def json_to_grug(self, input_json_text: str):
+        ast = json.loads(input_json_text)
+        return Serializer.ast_to_grug(ast)

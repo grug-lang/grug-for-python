@@ -1,0 +1,28 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "export_functions": [
+                {
+                    "name": "tick",
+                    "description": "Called once per tick."
+                }
+            ]
+        }
+    },
+	"classes": {},
+    "host_functions": {
+        "open_file": {
+            "description": "Opens a file.",
+            "parameters": [
+                {
+                    "name": "filename",
+                    "type": {
+						"name": "resource",
+						"resource_extension": ""
+					}
+                }
+            ]
+        }
+    }
+}

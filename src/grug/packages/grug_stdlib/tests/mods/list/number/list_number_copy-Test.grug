@@ -1,5 +1,13 @@
+<<<<<<< HEAD
 on_run() {
     l: List = list()
     l2: List = list_copy(l)
     assert_id(l2, l2)
+=======
+export run() {
+    l: List[number] = list()
+
+    l2: List[number] = l.copy()
+    assert_eq(l2, l2)
+>>>>>>> origin/main
 }

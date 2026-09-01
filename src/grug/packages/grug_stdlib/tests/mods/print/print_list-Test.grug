@@ -1,5 +1,11 @@
-on_run() {
-    l: List = list()
-    list_number_append(l, 1)
-    print_list(l)
+export run() {
+    l: List[number] = list()
+    l.append(1)
+    print(l)
+    l2: List[List[number]] = list()
+    l3: List[number] = list()
+    l3.append(25)
+
+    l2.append(l3)
+    print(l2)
 }

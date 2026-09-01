@@ -3,7 +3,6 @@ from io import StringIO
 from typing import Any, Dict, List, Union
 
 from .parser import (
-    Argument,
     Ast,
     BinaryExpr,
     BreakStatement,
@@ -21,6 +20,7 @@ from .parser import (
     LogicalExpr,
     NumberExpr,
     OnFn,
+    Parameter,
     ParenthesizedExpr,
     ResourceExpr,
     ReturnStatement,
@@ -30,6 +30,14 @@ from .parser import (
     UnaryExpr,
     VariableStatement,
     WhileStatement,
+)
+from .types import (
+    EntityStrType,
+    ExistentialType,
+    IdType,
+    PrimitiveType,
+    ResourceStrType,
+    Type,
 )
 
 
@@ -85,6 +93,8 @@ class Serializer:
         elif isinstance(expr, CallExpr):
             result["type"] = "CALL_EXPR"
             result["name"] = expr.fn_name
+            if expr.receiver:
+                result["receiver"] = Serializer._serialize_expr(expr.receiver)
             if expr.arguments:
                 result["arguments"] = [
                     Serializer._serialize_expr(arg) for arg in expr.arguments
@@ -105,12 +115,14 @@ class Serializer:
             result["type"] = "VARIABLE_STATEMENT"
             result["name"] = stmt.name
             if stmt.type:
-                result["variable_type"] = stmt.type_name
+                result["variable_type"] = Serializer._serialize_type(stmt.type)
             result["assignment"] = Serializer._serialize_expr(stmt.expr)
         elif isinstance(stmt, CallStatement):
             result["type"] = "CALL_STATEMENT"
             call_expr = stmt.expr
             result["name"] = call_expr.fn_name
+            if call_expr.receiver:
+                result["receiver"] = Serializer._serialize_expr(call_expr.receiver)
             if call_expr.arguments:
                 result["arguments"] = [
                     Serializer._serialize_expr(arg) for arg in call_expr.arguments
@@ -150,9 +162,12 @@ class Serializer:
         return result
 
     @staticmethod
-    def _serialize_arguments(arguments: List[Argument]) -> List[Dict[str, str]]:
-        """Serialize function arguments to list of dicts."""
-        return [{"name": arg.name, "type": arg.type_name} for arg in arguments]
+    def _serialize_parameters(parameters: List[Parameter]) -> List[Dict[str, Any]]:
+        """Serialize function parameters to list of dicts."""
+        return [
+            {"name": param.name, "type": Serializer._serialize_type(param.type)}
+            for param in parameters
+        ]
 
     @staticmethod
     def _serialize_global_statement(
@@ -164,38 +179,61 @@ class Serializer:
         result: Dict[str, Any] = {}
 
         if isinstance(global_stmt, OnFn):
-            result["type"] = "GLOBAL_ON_FN"
+            result["type"] = "EXPORT_FN"
             result["name"] = global_stmt.fn_name
-            if global_stmt.arguments:
-                result["arguments"] = Serializer._serialize_arguments(
-                    global_stmt.arguments
+            if global_stmt.parameters:
+                result["parameters"] = Serializer._serialize_parameters(
+                    global_stmt.parameters
                 )
             result["statements"] = [
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements
             ]
         elif isinstance(global_stmt, HelperFn):
-            result["type"] = "GLOBAL_HELPER_FN"
+            result["type"] = "LOCAL_FN"
             result["name"] = global_stmt.fn_name
-            if global_stmt.arguments:
-                result["arguments"] = Serializer._serialize_arguments(
-                    global_stmt.arguments
+            if global_stmt.parameters:
+                result["parameters"] = Serializer._serialize_parameters(
+                    global_stmt.parameters
                 )
-            if global_stmt.return_type:
-                result["return_type"] = global_stmt.return_type_name
+            if global_stmt.return_type != PrimitiveType.VOID:
+                result["return_type"] = Serializer._serialize_type(
+                    global_stmt.return_type
+                )
             result["statements"] = [
                 Serializer._serialize_statement(s) for s in global_stmt.body_statements
             ]
         elif isinstance(global_stmt, VariableStatement):
-            result["type"] = "GLOBAL_VARIABLE"
+            result["type"] = "VARIABLE_STATEMENT"
             result["name"] = global_stmt.name
-            result["variable_type"] = global_stmt.type_name
+            assert global_stmt.type
+            result["variable_type"] = Serializer._serialize_type(global_stmt.type)
             result["assignment"] = Serializer._serialize_expr(global_stmt.expr)
         elif isinstance(global_stmt, CommentStatement):
-            result["type"] = "GLOBAL_COMMENT"
+            result["type"] = "COMMENT_STATEMENT"
             result["comment"] = global_stmt.string
         else:
             assert isinstance(global_stmt, EmptyLineStatement)
-            result["type"] = "GLOBAL_EMPTY_LINE"
+            result["type"] = "EMPTY_LINE_STATEMENT"
+
+        return result
+
+    @staticmethod
+    def _serialize_type(type: Type) -> Dict[str, Any]:
+        result = {}
+        if isinstance(type, PrimitiveType):
+            result = {"name": str(type)}
+        if isinstance(type, IdType):
+            result: Dict[str, Any] = {"name": type.name}
+            if len(type.generics) != 0:
+                result["generics"] = [
+                    Serializer._serialize_type(generic) for generic in type.generics
+                ]
+        if isinstance(type, ResourceStrType):  # pragma: no cover
+            raise RuntimeError("Should never have to serialize resource string type")
+        if isinstance(type, EntityStrType):  # pragma: no cover
+            raise RuntimeError("Should never have to serialize entity string type")
+        if isinstance(type, ExistentialType):  # pragma: no cover
+            raise RuntimeError("Cannot serialize existential type")
 
         return result
 
@@ -259,6 +297,9 @@ class Serializer:
                 write(f" {operator} ")
                 apply_expr(expr["right_expr"])
             elif expr_type == "CALL_EXPR":
+                if "receiver" in expr:
+                    apply_expr(expr["receiver"])
+                    write(".")
                 write(f'{expr["name"]}(')
                 if "arguments" in expr:
                     for i, arg in enumerate(expr["arguments"]):
@@ -327,6 +368,17 @@ class Serializer:
                 apply_indentation()
                 write("}\n")
 
+        def apply_type(typ: Dict[str, Any]) -> None:
+            """Generate code for a statement."""
+            write(typ["name"])
+            if "generics" in typ:
+                write("[")
+                for i, generic in enumerate(typ["generics"]):
+                    apply_type(generic)
+                    if i != len(typ["generics"]) - 1:
+                        write(", ")
+                write("]")
+
         def apply_statement(statement: Dict[str, Any]) -> None:
             """Generate code for a statement."""
             stmt_type = statement["type"]
@@ -335,7 +387,8 @@ class Serializer:
                 write(statement["name"])
 
                 if "variable_type" in statement:
-                    write(f': {statement["variable_type"]}')
+                    write(f": ")
+                    apply_type(statement["variable_type"])
 
                 write(" = ")
                 assert "assignment" in statement
@@ -343,6 +396,9 @@ class Serializer:
 
                 write("\n")
             elif stmt_type == "CALL_STATEMENT":
+                if "receiver" in statement:
+                    apply_expr(statement["receiver"])
+                    write(".")
                 write(f'{statement["name"]}(')
                 if "arguments" in statement:
                     for i, arg in enumerate(statement["arguments"]):
@@ -386,24 +442,27 @@ class Serializer:
 
             indentation[0] -= 1
 
-        def apply_arguments(arguments: List[Dict[str, Any]]) -> None:
-            """Generate code for function arguments."""
-            for i, arg in enumerate(arguments):
+        def apply_parameters(parameters: List[Dict[str, Any]]) -> None:
+            """Generate code for function parameters."""
+            for i, param in enumerate(parameters):
                 if i > 0:
                     write(", ")
-                write(f'{arg["name"]}: {arg["type"]}')
+                write(f'{param["name"]}: ')
 
-        def apply_helper_fn(statement: Dict[str, Any]) -> None:
+                apply_type(param["type"])
+
+        def apply_local_fn(statement: Dict[str, Any]) -> None:
             """Generate code for a helper function."""
-            write(f'{statement["name"]}(')
+            write(f'local {statement["name"]}(')
 
-            if "arguments" in statement:
-                apply_arguments(statement["arguments"])
+            if "parameters" in statement:
+                apply_parameters(statement["parameters"])
 
             write(")")
 
             if "return_type" in statement:
-                write(f' {statement["return_type"]}')
+                write(" ")
+                apply_type(statement["return_type"])
 
             write(" {\n")
 
@@ -412,12 +471,12 @@ class Serializer:
 
             write("}\n")
 
-        def apply_on_fn(statement: Dict[str, Any]) -> None:
+        def apply_export_fn(statement: Dict[str, Any]) -> None:
             """Generate code for an on function."""
-            write(f'{statement["name"]}(')
+            write(f'export {statement["name"]}(')
 
-            if "arguments" in statement:
-                apply_arguments(statement["arguments"])
+            if "parameters" in statement:
+                apply_parameters(statement["parameters"])
 
             write(") {\n")
 
@@ -428,7 +487,9 @@ class Serializer:
 
         def apply_global_variable(statement: Dict[str, Any]) -> None:
             """Generate code for a global variable."""
-            write(f'{statement["name"]}: {statement["variable_type"]} = ')
+            write(f'{statement["name"]}: ')
+            apply_type(statement["variable_type"])
+            write(f" = ")
             apply_expr(statement["assignment"])
             write("\n")
 
@@ -437,16 +498,16 @@ class Serializer:
             for statement in root:
                 stmt_type = statement["type"]
 
-                if stmt_type == "GLOBAL_VARIABLE":
+                if stmt_type == "VARIABLE_STATEMENT":
                     apply_global_variable(statement)
-                elif stmt_type == "GLOBAL_ON_FN":
-                    apply_on_fn(statement)
-                elif stmt_type == "GLOBAL_HELPER_FN":
-                    apply_helper_fn(statement)
-                elif stmt_type == "GLOBAL_EMPTY_LINE":
+                elif stmt_type == "EXPORT_FN":
+                    apply_export_fn(statement)
+                elif stmt_type == "LOCAL_FN":
+                    apply_local_fn(statement)
+                elif stmt_type == "EMPTY_LINE_STATEMENT":
                     write("\n")
                 else:
-                    assert stmt_type == "GLOBAL_COMMENT"
+                    assert stmt_type == "COMMENT_STATEMENT"
                     apply_comment(statement)
 
         # Main execution

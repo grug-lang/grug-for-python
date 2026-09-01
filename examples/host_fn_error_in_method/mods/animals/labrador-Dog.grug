@@ -1,0 +1,4 @@
+export bark(sound: string) {
+    p: Printer = printer()
+    p.print_string(sound)
+}

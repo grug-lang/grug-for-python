@@ -1,0 +1,28 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "export_functions": [
+                {
+                    "name": "tick",
+                    "description": "Called once per tick."
+                }
+            ]
+        }
+    },
+	"classes": {},
+    "host_functions": {
+        "spawn": {
+            "description": "Spawns an entity.",
+            "parameters": [
+                {
+                    "name": "name",
+                    "type": {
+						"name": "entity",
+						"entity_type": ""
+					}
+                }
+            ]
+        }
+    }
+}

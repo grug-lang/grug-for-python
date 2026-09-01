@@ -10,7 +10,17 @@
                 "--grug-tests-path=../grug-tests",
                 "-s", // Prevents pytest from hiding printed output of tests
                 "-v", // Increases verbosity
-                // "--whitelisted-test=f32_too_big" // Use to debug a specific test
+                "--whitelisted-test=generics_complex_error_message_2" // Use to debug a specific test
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Bench",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceRoot}/benchmarks.py",
+            "args": [
+                "--grug-bench-path=../grug-bench"
             ],
             "console": "integratedTerminal"
         }

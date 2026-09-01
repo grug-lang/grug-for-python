@@ -5,16 +5,17 @@ from grug.entity import GameFnError
 state = grug.init()
 
 
-@state.game_fn
+@state.host_fn
 def print_string(state: GrugState, string: str):
     if string == "":
         raise GameFnError("print_string() received an empty string")
     print(string)
 
 
-file = state.compile_grug_file("animals/labrador-Dog.grug")
+file = state.mods["animals"]["labrador-Dog.grug"]
+
 dog1 = file.create_entity()
 
 state.update()
-dog1.on_bark("woof")
-dog1.on_bark("")
+dog1.bark("woof")
+dog1.bark("")

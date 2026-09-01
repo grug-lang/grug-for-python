@@ -2,26 +2,32 @@
     "entities": {
         "Dog": {
             "description": "A dog.",
-            "on_functions": {
-                "on_bark": {
+            "export_functions": [
+                {
+                    "name": "bark",
                     "description": "Called when the dog barks.",
-                    "arguments": [
+                    "parameters": [
                         {
                             "name": "sound",
-                            "type": "string"
+                            "type": {
+                                "name": "string"
+                            }
                         }
                     ]
                 }
-            }
+            ]
         }
     },
-    "game_functions": {
+	"classes": {},
+    "host_functions": {
         "print_string": {
             "description": "Prints a string.",
-            "arguments": [
+            "parameters": [
                 {
                     "name": "str",
-                    "type": "string"
+                    "type": {
+                        "name": "string"
+                    }
                 }
             ]
         }

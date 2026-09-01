@@ -1,0 +1,76 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "static_methods": {
+                "magic": {
+                    "description": "Returns 42.",
+                    "parameters": [],
+                    "return_type": {
+                        "name": "number"
+                    }
+                }
+            },
+            "export_functions": [
+                {
+                    "name": "bark",
+                    "description": "barks"
+                }
+            ]
+        }
+    },
+    "classes": {
+        "VecNumber": {
+            "description": "A list of numbers.",
+            "static_methods": {
+                "new": {
+                    "description": "Creates a VecNumber.",
+                    "parameters": [],
+                    "return_type": {
+                        "name": "VecNumber"
+                    }
+                }
+            }
+        },
+        "Box": {
+            "description": "A generic box.",
+            "used_generics": [
+                "$T"
+            ],
+            "static_methods": {
+                "of": {
+                    "description": "Creates a box.",
+                    "parameters": [
+                        {
+                            "name": "value",
+                            "type": {
+                                "name": "$T"
+                            }
+                        }
+                    ],
+                    "return_type": {
+                        "name": "Box",
+                        "generics": [
+                            {
+                                "name": "$T"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "host_functions": {
+        "print_number": {
+            "description": "Prints a number.",
+            "parameters": [
+                {
+                    "name": "value",
+                    "type": {
+                        "name": "number"
+                    }
+                }
+            ]
+        }
+    }
+}

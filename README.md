@@ -2,32 +2,35 @@
 
 This repository provides Python bindings, a frontend, and a backend for [grug](https://github.com/grug-lang/grug). It passes all tests in [grug-lang/grug-tests](https://github.com/grug-lang/grug-tests).
 
-Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check that it doesn't print an error.
+Install this package using `pip install grug-lang`, and run `python -c "import grug"` to check that it works.
 
 A minimal example program is provided in the [`examples/minimal/` directory](https://github.com/grug-lang/grug-for-python/tree/main/examples/minimal) on GitHub:
 
 ```py
-import grug
 import time
+
+import grug
+from grug import GrugState
 
 state = grug.init()
 
 @state.game_fn
-def print_string(string: str):
+def print_string(state: GrugState, string: str):
     print(string)
 
-file = state.compile_grug_file("animals/labrador-Dog.grug")
+file = state.mods["animals"]["labrador-Dog.grug"]
+
 dog1 = file.create_entity()
 dog2 = file.create_entity()
 
 while True:
     state.update()
-    dog1.on_bark("woof")
-    dog2.on_bark("arf")
+    dog1.bark("woof")
+    dog2.bark("arf")
     time.sleep(1)
 ```
 ```py
-on_bark(sound: string) {
+export bark(sound: string) {
     print_string(sound)
 
     # Print "arf" a second time
@@ -98,9 +101,23 @@ coverage html
 
 Run `python -m http.server` in a different terminal to view the HTML output in your browser.
 
+If you compiled grug-tests with `ASAN=1` in your environment, you need to pass `export LD_PRELOAD=$(gcc -print-file-name=libasan.so) ASAN_OPTIONS="detect_leaks=0"` before you run pytest.
+
 Pass `--whitelisted-test=f32_too_big` to only run the test called `f32_too_big`.
 
+Pass `--continue-on-fail` to keep running the rest of the grug-tests suite after one fails, instead of stopping at the first failure.
+
+Pass `--results-json-path=path/to/results.json` to control where the JSON summary of the test results gets written. By default it's written to `results.json` in the current working directory.
+
 Alternatively, you can *walk* through the tests and set breakpoints by installing the [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) VS Code extension. Hit `F5` to run all tests. You can edit `.vscode/launch.json` to pass `--whitelisted-test=f32_too_big`.
+
+## Benchmarks
+
+After building the grug benchmark library, run the Python benchmark harness with:
+
+```sh
+python benchmarks.py --grug-bench-path=../grug-bench 
+```
 
 ## Type checking
 

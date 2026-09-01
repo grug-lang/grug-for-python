@@ -1,0 +1,73 @@
+{
+    "entities": {
+        "Dog": {
+            "description": "A dog.",
+            "export_functions": [
+                {
+                    "name": "bark",
+                    "description": "Called when the dog barks.",
+                    "parameters": [
+                        {
+                            "name": "sound",
+                            "type": {
+                                "name": "string"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+	"classes": {
+		"KnownClass": {
+			"description": "A class that is known to the mod_api",
+			"methods": {
+				"known_method": {
+					"description": "a known method"
+				},
+				"known_generic_method": {
+					"description": "a known method",
+					"used_generics": [
+						"$T"
+					]
+				},
+				"supposed_to_be_generic": {
+					"description": "a known method",
+					"used_generics": [
+						"$T"
+					]
+				},
+				"supposed_to_be_non_generic": {
+					"description": "a known method"
+				}
+			}
+		}
+	},
+    "host_functions": {
+        "print_string": {
+            "description": "Prints a string.",
+            "parameters": [
+                {
+                    "name": "str",
+                    "type": {
+                        "name": "string"
+                    }
+                }
+            ]
+        },
+        "print": {
+            "description": "Prints a string.",
+			"used_generics": [
+				"$T"
+			],
+            "parameters": [
+                {
+                    "name": "str",
+                    "type": {
+                        "name": "$T"
+                    }
+                }
+            ]
+        }
+    }
+}

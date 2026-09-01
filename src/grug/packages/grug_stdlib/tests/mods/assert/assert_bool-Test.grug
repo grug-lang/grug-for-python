@@ -1,3 +1,3 @@
-on_run() {
-    assert_bool(true, true)
+export run() {
+    assert_eq(true, true)
 }

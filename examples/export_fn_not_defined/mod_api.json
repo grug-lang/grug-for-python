@@ -1,8 +1,27 @@
 {
     "entities": {
         "Dog": {
-            "description": "A dog."
+            "description": "A dog.",
+            "export_functions": [
+                {
+                    "name": "run",
+                    "description": "Called once."
+                }
+            ]
         }
     },
-    "game_functions": {}
+	"classes": {},
+    "host_functions": {
+        "print_string": {
+            "description": "Prints a string.",
+            "parameters": [
+                {
+                    "name": "str",
+                    "type": {
+                        "name": "string"
+                    }
+                }
+            ]
+        }
+    }
 }

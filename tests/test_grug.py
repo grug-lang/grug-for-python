@@ -1,15 +1,24 @@
 import ctypes
 import sys
 import traceback
+from enum import IntEnum
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
-import pytest
+import pytest  # pyright: ignore[reportMissingImports]
 
 import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
-from grug.grug_value import GrugValue
+from grug.mod_api import get_mod_api
+from grug.types import (
+    ExistentialType,
+    GrugValue,
+    HostFn,
+    IdType,
+    PrimitiveType,
+    Type,
+)
 
 
 class GrugValueUnion(ctypes.Union):
@@ -40,15 +49,119 @@ class GrugValueWorkaround(ctypes.Structure):
     _fields_ = [("_blob", ctypes.c_uint64)]
 
 
+class CGrugType(ctypes.Structure):
+    pass
+
+
+class CGrugTypeIdData(ctypes.Structure):
+    _fields_ = [
+        ("name", ctypes.c_char_p),
+        ("generics", ctypes.POINTER(CGrugType)),
+        ("generics_len", ctypes.c_size_t),
+    ]
+
+
+class CGrugTypeData(ctypes.Union):
+    _fields_ = [
+        ("id", CGrugTypeIdData),
+        ("resource_extension", ctypes.c_char_p),
+        ("entity_type", ctypes.c_char_p),
+    ]
+
+
+CGrugType._fields_ = [
+    ("type", ctypes.c_uint32),
+    ("data", CGrugTypeData),
+]
+
+
+class GrugType(IntEnum):
+    VOID = 0
+    BOOL = 1
+    NUMBER = 2
+    STRING = 3
+    ID = 4
+    RESOURCE = 5
+    ENTITY = 6
+
+
+game_fn_c_t = ctypes.CFUNCTYPE(
+    GrugValueWorkaround, ctypes.c_void_p, ctypes.POINTER(GrugValueUnion)
+)
+generic_fn_reg_c_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.POINTER(CGrugType))
+
+
+def c_to_py_value(value: GrugValueUnion, typ: Type):
+    if typ == PrimitiveType.VOID:
+        return None
+    if typ == PrimitiveType.NUMBER:
+        return float(value._number)
+    if typ == PrimitiveType.BOOL:
+        return bool(value._bool)
+    if typ == PrimitiveType.STRING:
+        return ctypes.string_at(value._string).decode()
+    return int(value._id)
+
+
+def substitute_type(typ: Type, generics: List[Type]) -> Type:
+    if isinstance(typ, ExistentialType):
+        return generics[typ.idx]
+    if isinstance(typ, IdType):
+        return IdType(
+            typ.name, [substitute_type(generic, generics) for generic in typ.generics]
+        )
+    return typ
+
+
+def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
+    keepalive: List[object] = []
+    c_type = CGrugType()
+
+    # Can never pass void, resource, entity, or an existential to a host function
+    assert typ != PrimitiveType.VOID
+    if typ == PrimitiveType.BOOL:
+        c_type.type = GrugType.BOOL
+    elif typ == PrimitiveType.NUMBER:
+        c_type.type = GrugType.NUMBER
+    elif typ == PrimitiveType.STRING:
+        c_type.type = GrugType.STRING
+    # else type is IdType
+    else:
+        assert isinstance(typ, IdType)
+        c_type.type = GrugType.ID
+        name = typ.name.encode()
+        keepalive.append(name)
+        c_type.data.id.name = name
+
+        c_generics: List[CGrugType] = []
+        for generic in typ.generics:
+            c_generic, generic_keepalive = py_type_to_c_type(generic)
+            c_generics.append(c_generic)
+            keepalive.extend(generic_keepalive)
+
+        generic_array = (CGrugType * len(c_generics))(*c_generics)
+        keepalive.append(generic_array)
+        c_type.data.id.generics = generic_array
+        c_type.data.id.generics_len = len(c_generics)
+
+    return c_type, keepalive
+
+
 # Callback type definitions
+parse_mod_api_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
 create_grug_state_t = ctypes.CFUNCTYPE(
-    ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+    ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool
 )
 destroy_grug_state_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 compile_grug_file_t = ctypes.CFUNCTYPE(
     ctypes.c_void_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)
 )
-init_globals_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+destroy_grug_file_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+create_entity_t = ctypes.CFUNCTYPE(
+    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p)
+)
+destroy_entity_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+update_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p))
 call_export_fn_t = ctypes.CFUNCTYPE(
     None,
     ctypes.c_void_p,
@@ -57,11 +170,11 @@ call_export_fn_t = ctypes.CFUNCTYPE(
     ctypes.POINTER(GrugValueUnion),
     ctypes.c_size_t,
 )
-dump_file_to_json_t = ctypes.CFUNCTYPE(
-    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+grug_to_json_t = ctypes.CFUNCTYPE(
+    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
 )
-generate_file_from_json_t = ctypes.CFUNCTYPE(
-    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p
+json_to_grug_t = ctypes.CFUNCTYPE(
+    ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t
 )
 game_fn_error_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
 
@@ -72,22 +185,40 @@ class GrugStateVTableStruct(ctypes.Structure):
     """
 
     _fields_ = [
+        ("parse_mod_api", parse_mod_api_t),
         ("create_grug_state", create_grug_state_t),
         ("destroy_grug_state", destroy_grug_state_t),
         ("compile_grug_file", compile_grug_file_t),
-        ("init_globals", init_globals_t),
+        ("destroy_grug_file", destroy_grug_file_t),
+        ("create_entity", create_entity_t),
+        ("destroy_entity", destroy_entity_t),
+        ("update", update_t),
         ("call_export_fn", call_export_fn_t),
-        ("dump_file_to_json", dump_file_to_json_t),
-        ("generate_file_from_json", generate_file_from_json_t),
+        ("grug_to_json", grug_to_json_t),
+        ("json_to_grug", json_to_grug_t),
         ("game_fn_error", game_fn_error_t),
     ]
 
 
-_g_grug_lib: ctypes.PyDLL
+class GrugTestsOptionsStruct(ctypes.Structure):
+    """
+    Corresponds to struct grug_tests_options in tests.h
+    """
+
+    _fields_ = [
+        ("whitelisted_test", ctypes.c_char_p),
+        ("continue_on_fail", ctypes.c_bool),
+        ("results_json_path", ctypes.c_char_p),
+    ]
+
+
+_g_grug_lib: ctypes.CDLL
 
 _grug_runtime_err: Optional[
     Union[TimeLimitExceeded, StackOverflow, ReraisedGameFnError]
 ] = None
+
+_game_fn_error_reason: Optional[str] = None
 
 
 def custom_runtime_error_handler(
@@ -104,92 +235,140 @@ def custom_runtime_error_handler(
     )
 
 
-def c_to_py_value(value: GrugValueUnion, typ: str):
-    if typ == "number":
-        return float(value._number)
-    if typ == "bool":
-        return bool(value._bool)
-    if typ == "string":
-        return ctypes.string_at(value._string).decode()
-    return int(value._id)
-
-
 def test_grug(
-    grug_tests_path: Path, whitelisted_test: Optional[str], grug_lib: ctypes.PyDLL
+    grug_tests_path: Path,
+    whitelisted_test: Optional[str],
+    continue_on_fail: bool,
+    results_json_path: Optional[str],
+    grug_lib: ctypes.CDLL,
 ) -> None:
     global _g_grug_lib
     _g_grug_lib = grug_lib
 
-    state: Optional[GrugState] = None
+    states: dict[int, GrugState] = {}
+    files: dict[int, GrugFile] = {}
+    entities: dict[int, Entity] = {}
 
-    id_map: dict[int, GrugFile] = {}
+    error_buffers: List[bytes] = []
 
-    current_entity: Optional[Entity] = None
+    @parse_mod_api_t
+    def parse_mod_api(
+        path: bytes,
+    ) -> Union[bytes, None]:
+        try:
+            path_str = path.decode()
+            get_mod_api(Path(path_str))
+            return None
+        except Exception as e:
+            buf = str(e).encode()
+            # This ensures the buffer returned from this function isn't
+            # cleaned up before the C code has a chance to use it.
+            error_buffers.append(buf)
+            return buf
 
-    @ctypes.CFUNCTYPE(
-        ctypes.c_void_p,
-        ctypes.c_void_p,
-        ctypes.c_char_p,
-        ctypes.POINTER(ctypes.c_char_p),
-    )
+    @compile_grug_file_t
     def compile_grug_file(
         state_ptr: int,
         path: bytes,
         out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
     ) -> int:
-        nonlocal id_map
         try:
-            assert state
-            path_str = path.decode()
-            grug_file = state.compile_grug_file(path_str)
+            state = states[state_ptr]
 
-            file_id = len(id_map) + 1
-            id_map[file_id] = grug_file
+            path_str = path.decode()
+
+            if path_str == "code_reloading/input-D.grug":
+                state._update()  # pyright: ignore[reportPrivateUsage]
+                file = state.mods["code_reloading"]["input-D.grug"]
+                assert isinstance(file, GrugFile)
+            else:
+                file = state._compile_grug_file(path_str)  # type: ignore
+
+            file_id = len(files) + 1
+            files[file_id] = file
+            out_err[0] = None
             return file_id
         except Exception as e:
-            out_err[0] = str(e).encode()
+            buf = str(e).encode()
+            # This ensures the buffer returned from this function isn't
+            # cleaned up before the C code has a chance to use it.
+            error_buffers.append(buf)
+            out_err[0] = buf
             return -1
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
-    def init_globals(state_ptr: int, file_id: int) -> None:
-        nonlocal id_map
-        nonlocal current_entity
+    @destroy_grug_file_t
+    def destroy_grug_file(state_ptr: int, file_id: int):
+        # Clear any lingering runtime errors that hold tracebacks to local entities
+        global _grug_runtime_err
+        _grug_runtime_err = None
+
+        del files[file_id]
+
+    @create_entity_t
+    def create_entity(
+        state_ptr: int,
+        file_id: int,
+        out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
+    ) -> int:
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
 
-            assert state
+            state = states[state_ptr]
             state.next_id = 42
 
-            grug_file = id_map[file_id]
-            assert grug_file
+            file = files[file_id]
 
-            current_entity = grug_file.create_entity()
+            entity = file.create_entity()
+
+            entity_id = len(entities) + 1
+            entities[entity_id] = entity
+            out_err[0] = None
+            return entity_id
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
-            # Necessary, as propagating exceptions from
-            # this CFUNCTYPE function doesn't work.
-            _grug_runtime_err = e
-        except Exception:  # pragma: no cover
-            traceback.print_exc(file=sys.stderr)
+            out_err[0] = str(e).encode()
 
-    @ctypes.CFUNCTYPE(
-        None,
-        ctypes.c_void_p,
-        ctypes.c_void_p,
-        ctypes.c_char_p,
-        ctypes.POINTER(GrugValueUnion),
-        ctypes.c_size_t,
-    )
+            # Necessary, as C doesn't propagate exceptions.
+            _grug_runtime_err = e
+
+            return -1
+        except Exception as e:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return -1
+
+    @destroy_entity_t
+    def destroy_entity(state_ptr: int, entity_id: int):
+        del entities[entity_id]
+
+    @update_t
+    def update(
+        state_ptr: int,
+        out_err: ctypes.POINTER(ctypes.c_char_p),  # type: ignore
+    ) -> None:
+        try:
+            state = states[state_ptr]
+            state._update()  # pyright: ignore[reportPrivateUsage]
+
+            file = state.mods["code_reloading"]["input-D.grug"]
+            assert isinstance(file, GrugFile)
+
+            # We have to manually overwrite the old file in the files list,
+            # purely because test_grug.py tries to emulate the grug implementation.
+            last_file_id = list(files.keys())[-1]
+            files[last_file_id] = file
+
+            out_err[0] = None
+        except Exception as e:  # pragma: no cover
+            out_err[0] = str(e).encode()
+
+    @call_export_fn_t
     def call_export_fn(
         state_ptr: int,
-        file_id: int,
+        entity_id: int,
         c_on_fn_name: bytes,
         c_args: List[GrugValueUnion],
         args_len: int,
     ) -> None:
-        nonlocal id_map
-        nonlocal state
-        nonlocal current_entity
         try:
             global _grug_runtime_err
             _grug_runtime_err = None
@@ -205,32 +384,72 @@ def test_grug(
                 raise RuntimeError(  # pragma: no cover
                     f"The function '{on_fn_name}' is not defined by the file {grug_file.relative_path}"
                 )
+            entity = entities[entity_id]
 
-            assert len(on_fn_decl.arguments) == args_len
+            file = entity.file
+
+            on_fn_decl = file.on_fns[on_fn_name]
+
+            assert len(on_fn_decl.parameters) == args_len
             args = [
-                c_to_py_value(arg, argument.type_name)
-                for arg, argument in zip(c_args or [], on_fn_decl.arguments)
+                c_to_py_value(arg, param.type)
+                for arg, param in zip(c_args or [], on_fn_decl.parameters)
             ]
 
             current_entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
+            entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
-            # Necessary, as propagating exceptions from CFUNCTYPE doesn't work.
+            # Necessary, as C doesn't propagate exceptions.
             _grug_runtime_err = e
         except Exception:  # pragma: no cover
             traceback.print_exc(file=sys.stderr)
 
-    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
-    def dump_file_to_json(
-        state_ptr: int, input_grug_path: bytes, output_json_path: bytes
+    @grug_to_json_t
+    def grug_to_json(
+        state_ptr: int,
+        input_grug_buffer: bytes,
+        output_json_buffer: int,
+        output_buffer_len: int,
     ) -> bool:
         assert state
         return state.dump_file_to_json(
             input_grug_path.decode(), output_json_path.decode()
         )
+        try:
+            input_text = input_grug_buffer.decode()
 
-    @ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
-    def generate_file_from_json(
-        state_ptr: int, input_json_path: bytes, output_grug_path: bytes
+            state = states[state_ptr]
+            output_text = state.grug_to_json(input_text)
+
+            output_bytes = output_text.encode()
+            required_len = len(output_bytes) + 1  # null terminator
+
+            if required_len > output_buffer_len:  # pragma: no cover
+                print(
+                    f"grug_to_json: output buffer too small "
+                    f"(need {required_len} bytes, have {output_buffer_len})",
+                    file=sys.stderr,
+                )
+                return True
+
+            # Treat buffer as writable char array
+            buf = (ctypes.c_char * output_buffer_len).from_address(output_json_buffer)
+
+            buf[: len(output_bytes)] = output_bytes
+            buf[len(output_bytes)] = b"\0"
+
+            return False
+
+        except Exception:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return True
+
+    @json_to_grug_t
+    def json_to_grug(
+        state_ptr: int,
+        input_json_buffer: bytes,
+        output_grug_buffer: int,
+        output_buffer_len: int,
     ) -> bool:
         assert state
         return state.generate_file_from_json(
@@ -238,37 +457,36 @@ def test_grug(
         )
 
     _original_run_game_fn = Entity._run_game_fn  # pyright: ignore[reportPrivateUsage]
+        try:
+            input_text = input_json_buffer.decode()
 
-    _game_fn_error_reason: Optional[str] = None
+            state = states[state_ptr]
+            output_text = state.json_to_grug(input_text)
 
-    def _test_run_game_fn(
-        self: Entity, name: str, *args: GrugValue
-    ) -> Optional[GrugValue]:
-        nonlocal _game_fn_error_reason
+            output_bytes = output_text.encode()
+            required_len = len(output_bytes) + 1  # null terminator
 
-        # Call the original method
-        result = _original_run_game_fn(self, name, *args)
+            if required_len > output_buffer_len:  # pragma: no cover
+                print(
+                    f"json_to_grug: output buffer too small "
+                    f"(need {required_len} bytes, have {output_buffer_len})",
+                    file=sys.stderr,
+                )
+                return True
 
-        # Raise _game_fn_error_reason if it's not None
-        if _game_fn_error_reason is not None:
-            reason = _game_fn_error_reason
-            assert state
-            self.state.runtime_error_handler(
-                reason,
-                GrugRuntimeErrorType.GAME_FN_ERROR,
-                self.fn_name,
-                self.file.relative_path,
-            )
+            # Treat buffer as writable char array
+            buf = (ctypes.c_char * output_buffer_len).from_address(output_grug_buffer)
 
-            _game_fn_error_reason = None
-            raise ReraisedGameFnError(reason)
+            buf[: len(output_bytes)] = output_bytes
+            buf[len(output_bytes)] = b"\0"
 
-        return result
+            return False
 
-    # Patch the method for testing
-    Entity._run_game_fn = _test_run_game_fn  # pyright: ignore[reportPrivateUsage]
+        except Exception:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return True
 
-    @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_char_p)
+    @game_fn_error_t
     def game_fn_error(state_ptr: int, reason: bytes) -> None:
         nonlocal _game_fn_error_reason
         # Handle None case for reason
@@ -289,38 +507,82 @@ def test_grug(
         state.next_id = 42
         GameFnRegistrator(state, grug_lib).register_game_fns()
         return 0
+        global _game_fn_error_reason
+        _game_fn_error_reason = ctypes.string_at(reason).decode()
+
+    @create_grug_state_t
+    def create_grug_state(
+        tests_path: bytes, mod_api_path: bytes, unsafe_mode: bool
+    ) -> int:
+        try:
+            state = grug.init(
+                runtime_error_handler=custom_runtime_error_handler,
+                mod_api_path=ctypes.string_at(tests_path).decode(),
+                mods_dir_path=ctypes.string_at(mod_api_path).decode(),
+                on_fn_time_limit_ms=100,
+            )
+        except RuntimeError:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return 0
+        except Exception:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return 0
+
+        GameFnRegistrator(state, grug_lib).register_game_fns()
+
+        state_id = len(states) + 1
+        states[state_id] = state
+        return state_id
 
     @ctypes.CFUNCTYPE(None, ctypes.c_void_p)
     def destroy_grug_state(state_ptr: int):
-        nonlocal state
-        assert state
-        state = None
+        del states[state_ptr]
 
     print("\n")
 
     grug_state_vtable: GrugStateVTableStruct = GrugStateVTableStruct(
+        parse_mod_api,
         create_grug_state,
         destroy_grug_state,
         compile_grug_file,
-        init_globals,
+        destroy_grug_file,
+        create_entity,
+        destroy_entity,
+        update,
         call_export_fn,
-        dump_file_to_json,
-        generate_file_from_json,
+        grug_to_json,
+        json_to_grug,
         game_fn_error,
+    )
+
+    # Keep references alive so ctypes doesn't pass dangling pointers
+    whitelisted_test_bytes = whitelisted_test.encode() if whitelisted_test else None
+    results_json_path_bytes = results_json_path.encode() if results_json_path else None
+
+    grug_tests_options: GrugTestsOptionsStruct = GrugTestsOptionsStruct(
+        whitelisted_test_bytes,
+        continue_on_fail,
+        results_json_path_bytes,
     )
 
     grug_lib.grug_tests_run(
         str(grug_tests_path / "tests").encode(),
         str(grug_tests_path / "mod_api.json").encode(),
         grug_state_vtable,
-        whitelisted_test.encode() if whitelisted_test else None,
+        grug_tests_options,
     )
+
+    assert len(states) == 0
+    assert len(files) == 0
+    assert len(entities) == 0
 
 
 class GameFnRegistrator:
-    def __init__(self, state: GrugState, grug_lib: ctypes.PyDLL):
+    def __init__(self, state: GrugState, grug_lib: ctypes.CDLL):
         self.state = state
         self.grug_lib = grug_lib
+
+        self._keepalive: List[bytes] = []
 
     def register_game_fns(self):
         for name in (
@@ -334,11 +596,13 @@ class GameFnRegistrator:
             "sin",
             "cos",
             "mega",
+            "eval_order_1",
+            "eval_order_2",
             "get_false",
             "set_is_happy",
-            "mega_f32",
-            "mega_i32",
             "draw",
+            "utils",
+            "assert_state_is_not_null",
             "blocked_alrm",
             "spawn",
             "spawn_d",
@@ -360,11 +624,64 @@ class GameFnRegistrator:
             "set_position",
             "cause_game_fn_error",
             "call_on_b_fn",
-            "store",
-            "retrieve",
+            "call_on_b_fn_number",
             "box_number",
+            "vec_number_new",
         ):
             self._register_fn(name)
+
+        for name, native_name in (
+            ("vec", "vec_new"),
+            ("box", "box"),
+            ("default", "default"),
+            ("dict", "dict"),
+            ("dict_from_vec", "dict_from_vec"),
+            ("make_pair", "make_pair"),
+            ("cause_game_fn_error_generic", "cause_game_fn_error_generic"),
+        ):
+            self._register_generic_fn(name, native_name)
+
+        for method_name, native_name in (
+            ("push", "vec_number_push"),
+            ("pop", "vec_number_pop"),
+            ("insert", "vec_number_insert"),
+        ):
+            self._register_method("VecNumber", method_name, native_name)
+
+        for method_name, native_name in (
+            ("new", "vec_number_new"),
+            ("with_capacity", "vec_number_with_capacity"),
+        ):
+            self._register_static_method("VecNumber", method_name, native_name)
+
+        self._register_static_method("D", "magic", "magic")
+        self._register_static_method("Utils", "fail", "cause_game_fn_error")
+
+        for method_name, native_name in (
+            ("assert_state_is_not_null", "Utils_assert_state_is_not_null"),
+            ("cause_game_fn_error", "Utils_cause_game_fn_error"),
+            ("call_on_b_fn", "Utils_call_on_b_fn"),
+        ):
+            self._register_method("Utils", method_name, native_name)
+        self._register_generic_method(
+            "Utils", "cause_game_fn_error_generic", "Utils_cause_game_fn_error_generic"
+        )
+
+        for method_name, native_name in (
+            ("push", "vec_push"),
+            ("pop", "vec_pop"),
+            ("insert", "vec_insert"),
+        ):
+            self._register_generic_method("Vec", method_name, native_name)
+        self._register_generic_method("Vec", "new", "vec_new", static=True)
+
+        for method_name, native_name in (("get", "box_get"),):
+            self._register_generic_method("Box", method_name, native_name)
+
+        self._register_generic_method("Dict", "put", "dict_put")
+
+        self._register_generic_method("Pair", "first", "pair_first")
+        self._register_generic_method("Pair", "second", "pair_second")
 
     def _get_c_args(self, *args: GrugValue):
         c_args = (GrugValueUnion * len(args))()
@@ -386,7 +703,7 @@ class GameFnRegistrator:
         return c_args, keepalive
 
     def _unpack_workaround(
-        self, c_workaround: GrugValueWorkaround, return_type: str
+        self, c_workaround: GrugValueWorkaround, return_type: Type
     ) -> GrugValue:
         """
         Creates a GrugValueUnion, and copies the bits from GrugValueWorkaround into it.
@@ -398,6 +715,49 @@ class GameFnRegistrator:
         )
         return c_to_py_value(value, return_type)
 
+    def _raise_game_fn_error_if_needed(self, state: GrugState):
+        global _game_fn_error_reason
+
+        if _game_fn_error_reason is None:
+            return
+
+        reason = _game_fn_error_reason
+        _game_fn_error_reason = None
+
+        assert state.executed_file
+        assert state.executed_entity
+
+        state.runtime_error_handler(
+            reason,
+            GrugRuntimeErrorType.GAME_FN_ERROR,
+            state.executed_entity.fn_name,
+            state.executed_file.relative_path,
+        )
+
+        raise ReraisedGameFnError(reason)
+
+    # type of c_fn cannot be expressed properly
+    def wrap_fn(self, return_type: Type, c_fn: Any) -> HostFn:
+        def fn(state: GrugState, *args: GrugValue):
+            c_args, _keepalive = self._get_c_args(*args)
+            self._keepalive += _keepalive
+
+            # We pass 42 since `state` is a Python object
+            # grug-tests just doesn't want us to *accidentally* pass NULL
+
+            # type of c_fn cannot be expressed properly, so it's return type
+            # is also unknown
+            result: GrugValueWorkaround = c_fn(42, c_args)
+
+            self._raise_game_fn_error_if_needed(state)
+
+            if _grug_runtime_err is not None:
+                raise _grug_runtime_err
+
+            return self._unpack_workaround(result, return_type)
+
+        return fn
+
     def _register_fn(self, name: str):
         c_fn = self.grug_lib["game_fn_" + name]
 
@@ -407,18 +767,110 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api["game_functions"][name].get("return_type")
+        return_type = self.state.mod_api.host_fns[name].return_type
 
-        def fn(state: GrugState, *args: GrugValue):
-            c_args, _keepalive = self._get_c_args(*args)
-            result: GrugValueWorkaround = c_fn(0, c_args)
-            if _grug_runtime_err is not None:
-                raise _grug_runtime_err
-            return self._unpack_workaround(result, return_type)
+        self.state.mod_api.register_fn(None, name, self.wrap_fn(return_type, c_fn))
 
-        self.state._register_game_fn(name, fn)  # pyright: ignore[reportPrivateUsage]
+    def _register_generic_fn(self, name: str, native_name: str):
+        c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
+        c_reg_fn.argtypes = (ctypes.POINTER(CGrugType),)
+        c_reg_fn.restype = ctypes.c_void_p
+
+        host_fn_data = self.state.mod_api.host_fns[name]
+
+        def register(generics: List[Type]):
+            c_generics: List[CGrugType] = []
+            keepalive: List[object] = []
+            for generic in generics:
+                c_generic, generic_keepalive = py_type_to_c_type(generic)
+                c_generics.append(c_generic)
+                keepalive.extend(generic_keepalive)
+
+            generic_array = (CGrugType * len(c_generics))(*c_generics)
+            keepalive.append(generic_array)
+
+            c_fn_ptr = c_reg_fn(generic_array)
+            if c_fn_ptr is None:
+                return None
+
+            c_fn = game_fn_c_t(c_fn_ptr)
+            return_type = substitute_type(host_fn_data.return_type, generics)
+
+            return self.wrap_fn(return_type, c_fn)
+
+        self.state.mod_api.register_generic_fn(None, name, register)
+
+    def _register_method(self, class_name: str, name: str, native_name: str):
+        c_fn = self.grug_lib["game_fn_" + native_name]
+
+        c_fn.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(GrugValueUnion),
+        )
+        c_fn.restype = GrugValueWorkaround
+
+        return_type = self.state.mod_api.classes[class_name].methods[name].return_type
+
+        self.state.mod_api.register_fn(
+            class_name, name, self.wrap_fn(return_type, c_fn)
+        )
+
+    def _static_method_data(self, type_name: str, name: str):
+        static_methods = self.state.mod_api.static_methods_of(type_name)
+        assert static_methods is not None, type_name
+        return static_methods[name]
+
+    def _register_static_method(self, type_name: str, name: str, native_name: str):
+        c_fn = self.grug_lib["game_fn_" + native_name]
+
+        c_fn.argtypes = (
+            ctypes.c_void_p,
+            ctypes.POINTER(GrugValueUnion),
+        )
+        c_fn.restype = GrugValueWorkaround
+
+        return_type = self._static_method_data(type_name, name).return_type
+
+        self.state.mod_api.register_fn(type_name, name, self.wrap_fn(return_type, c_fn))
+
+    def _register_generic_method(
+        self, class_name: str, name: str, native_name: str, static: bool = False
+    ):
+        c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
+        c_reg_fn.argtypes = (ctypes.POINTER(CGrugType),)
+        c_reg_fn.restype = ctypes.c_void_p
+
+        host_fn_data = (
+            self._static_method_data(class_name, name)
+            if static
+            else self.state.mod_api.classes[class_name].methods[name]
+        )
+
+        def register(generics: List[Type]):
+            c_generics: List[CGrugType] = []
+            keepalive: List[object] = []
+            for generic in generics:
+                c_generic, generic_keepalive = py_type_to_c_type(generic)
+                c_generics.append(c_generic)
+                keepalive.extend(generic_keepalive)
+
+            generic_array = (CGrugType * len(c_generics))(*c_generics)
+            keepalive.append(generic_array)
+
+            c_fn_ptr = c_reg_fn(generic_array)
+            if c_fn_ptr is None:
+                return None
+
+            c_fn = game_fn_c_t(c_fn_ptr)
+            return_type = substitute_type(host_fn_data.return_type, generics)
+
+            return self.wrap_fn(return_type, c_fn)
+
+        self.state.mod_api.register_generic_fn(class_name, name, register)
 
 
 # Enables stepping through code with VS Code its Python debugger.
 if __name__ == "__main__":  # pragma: no cover
     pytest.main(sys.argv)
+    pytest.main(sys.argv)
+    pytest.main(sys.argv)  # pyright: ignore[reportUnknownMemberType]
