@@ -194,6 +194,10 @@ class GrugState:
         self.executed_file: Optional[GrugFile] = None
         self.executed_entity: Optional[Entity] = None
 
+        self.resource_mtimes: Dict[str, float] = {}
+        self.updated_resources: List[str] = []
+        self.first_update_done: bool = False
+
     @property
     def mods(self) -> GrugDir:
         if self._mods is None:
@@ -457,6 +461,8 @@ class GrugState:
 
     def _update(self):
         """This (re)compiles grug files using mark-and-sweep."""
+        self.updated_resources.clear()
+
         if self._mods is None:
             self._mods = GrugDir(name="mods")
 
@@ -476,24 +482,34 @@ class GrugState:
                         grug_dir.dirs[entry.name] = sub
                     update_dir(entry, sub)
 
-                elif entry.is_file() and entry.suffix == ".grug":
+                else:
                     rel = entry.relative_to(self.mods_dir_path).as_posix()
-                    seen_files.add(rel)
 
-                    current_mtime = entry.stat().st_mtime
-                    existing = grug_dir.files.get(entry.name)
+                    if entry.suffix == ".grug":
+                        seen_files.add(rel)
 
-                    if existing is None or existing.mtime < current_mtime:
-                        new_file = self._compile_grug_file(rel)
+                        current_mtime = entry.stat().st_mtime
+                        existing = grug_dir.files.get(entry.name)
 
-                        # Transfer entities from the old file to the new file
-                        if existing is not None:
-                            for entity in existing.entities:
-                                entity.file = new_file
-                                entity._init_globals(new_file.global_variables)  # type: ignore
-                                new_file.entities.add(entity)
+                        if existing is None or existing.mtime < current_mtime:
+                            new_file = self._compile_grug_file(rel)
 
-                        grug_dir.files[entry.name] = new_file
+                            # Transfer entities from the old file to the new file
+                            if existing is not None:
+                                for entity in existing.entities:
+                                    entity.file = new_file
+                                    entity._init_globals(new_file.global_variables)  # type: ignore
+                                    new_file.entities.add(entity)
+
+                            grug_dir.files[entry.name] = new_file
+                    else:
+                        current_mtime = entry.stat().st_mtime
+                        old_mtime = self.resource_mtimes.get(rel)
+
+                        if old_mtime is None or old_mtime < current_mtime:
+                            self.resource_mtimes[rel] = current_mtime
+                            if self.first_update_done:
+                                self.updated_resources.append(rel)
 
             # Sweep files
             for name, file in list(grug_dir.files.items()):
@@ -522,6 +538,8 @@ class GrugState:
             root_path_str = (self.mods_dir_path / name).as_posix()
             if root_path_str not in seen_dirs:
                 del root.dirs[name]  # pragma: no cover
+
+        self.first_update_done = True
 
     def run_all_package_tests(self):
         self._update()
