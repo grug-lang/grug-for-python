@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from .error import GrugError, SourceSpan
-from .mod_api import ModApi, ModApiHostFn
+from .mod_api import ModApi, ModApiGeneric, ModApiHostFn
 from .parser import (
     Ast,
     BinaryExpr,
@@ -131,6 +131,53 @@ class TyCtx:
         self.existentials.append(ExistentialData(function_name, function_name_span))
         self.substitutions.append(existential)
         return existential
+
+    def verify_constraints(
+        self,
+        ty: Type,
+        constraints: List[str],
+        err_span: SourceSpan,
+        function_name: str,
+    ) -> None:
+        mod_api = self.type_propagator.mod_api
+
+        def type_matches_implementor(
+            actual: Type, implementor: Type, generics: List[ModApiGeneric]
+        ) -> bool:
+            if isinstance(actual, IdType) and isinstance(implementor, IdType):
+                if actual.name != implementor.name or len(actual.generics) != len(
+                    implementor.generics
+                ):
+                    return False
+                return all(
+                    type_matches_implementor(actual_generic, implementor_generic, generics)
+                    for actual_generic, implementor_generic in zip(
+                        actual.generics, implementor.generics
+                    )
+                )
+            if isinstance(implementor, ExistentialType):
+                return all(
+                    implements_constraint(actual, constraint_name)
+                    for constraint_name in generics[implementor.idx].constraints
+                )
+            return (
+                isinstance(actual, PrimitiveType)
+                and isinstance(implementor, PrimitiveType)
+                and actual == implementor
+            )
+
+        def implements_constraint(actual: Type, constraint_name: str) -> bool:
+            return any(
+                type_matches_implementor(actual, implementor.type, implementor.generics)
+                for implementor in mod_api.constraints[constraint_name].implementors
+            )
+
+        for constraint_name in constraints:
+            if not implements_constraint(ty, constraint_name):
+                raise self.type_propagator.new_error(
+                    err_span,
+                    f"host function '{function_name}' expects type '{ty}' to implement constraint '{constraint_name}' but it doesn't",
+                )
 
     # Returns the first currently known replacement type for an existential
     def get_current_type(self, ty: Type) -> Optional[Type]:
@@ -485,16 +532,12 @@ class TypePropagator:
         function_name: str,
         method_receiver_name: Optional[str] = None,
     ) -> Optional[HostFn]:
-        if len(generics) == 0:
-            # not handled in tests yet
-            if host_fn.fn_ptr is None:  # pragma: no cover
-                if method_receiver_name is None:
-                    raise RuntimeError(
-                        f"host function {function_name} was not registered"
-                    )
-                raise RuntimeError(
-                    f"method {method_receiver_name}.{function_name} was not registered"
-                )
+        if host_fn.generic_reg_fn is not None:
+            fn_ptr = host_fn.generic_reg_fn(generics)
+            if fn_ptr is not None:
+                return fn_ptr
+
+        if host_fn.fn_ptr is not None:
             return host_fn.fn_ptr
 
         # not handled in tests yet
@@ -507,19 +550,16 @@ class TypePropagator:
                 f"generic method {method_receiver_name}.{function_name} was not registered"
             )
 
-        fn_ptr = host_fn.generic_reg_fn(generics)
-        if fn_ptr is None:
-            type_list = self.format_type_list(generics)
-            if method_receiver_name is None:
-                raise self.new_error(
-                    name_span,
-                    f"generic function '{function_name}' failed instantiation for types {type_list}",
-                )
+        type_list = self.format_type_list(generics)
+        if method_receiver_name is None:
             raise self.new_error(
                 name_span,
-                f"generic method '{method_receiver_name}.{function_name}' failed instantiation for types {type_list}",
+                f"generic function '{function_name}' failed instantiation for types {type_list}",
             )
-        return fn_ptr
+        raise self.new_error(
+            name_span,
+            f"generic method '{method_receiver_name}.{function_name}' failed instantiation for types {type_list}",
+        )
 
     # Fills the expression once to get all relevant constraints to get the concrete types
     # Runs through the expression again to fill in the actual types
@@ -596,22 +636,26 @@ class TypePropagator:
                     ) from mismatch
 
     # Creates existentials for the generics of a host function.
-    # substitues the existentials if available
+    # Substitutes inferred types and checks their constraints on the final pass.
     def _call_generics(
         self,
         ty_ctx: TyCtx,
         substitutions: Optional[List[Type]],
         function_name: str,
         function_name_span: SourceSpan,
-        generic_names: List[str],
+        generics: List[ModApiGeneric],
     ) -> List[Type]:
         result: List[Type] = []
-        for _ in generic_names:
+        for generic in generics:
             existential = ty_ctx.create_existential(function_name, function_name_span)
             if substitutions is None:
                 result.append(existential)
             else:
-                result.append(substitutions[existential.idx])
+                actual_type = substitutions[existential.idx]
+                ty_ctx.verify_constraints(
+                    actual_type, generic.constraints, function_name_span, function_name
+                )
+                result.append(actual_type)
         return result
 
     def fill_expr(
@@ -786,6 +830,7 @@ class TypePropagator:
                     expr.arguments,
                 )
                 if substitutions is not None:
+                    expr.generics = generics
                     expr.fn_ptr = self.fill_host_fn_ptr(
                         host_fn, generics, expr.name_span, fn_name
                     )
@@ -878,6 +923,7 @@ class TypePropagator:
         )
 
         if substitutions is not None:
+            expr.generics = generics
             expr.fn_ptr = self.fill_host_fn_ptr(
                 host_fn, generics, expr.name_span, expr.fn_name, type_name
             )
@@ -955,6 +1001,7 @@ class TypePropagator:
             expr.arguments,
         )
         if substitutions is not None:
+            expr.generics = generics
             expr.fn_ptr = self.fill_host_fn_ptr(
                 host_fn, generics, expr.name_span, expr.fn_name, receiver_name
             )
