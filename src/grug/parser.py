@@ -108,6 +108,7 @@ class CallExpr:
     arguments: List[Expr] = field(default_factory=lambda: [])
     fn_ptr: Optional[HostFn] = None
     result: Type = field(default_factory=lambda: PrimitiveType.VOID)
+    generics: List[Type] = field(default_factory=lambda: [])
 
 
 @dataclass

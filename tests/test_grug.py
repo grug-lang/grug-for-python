@@ -498,7 +498,7 @@ def test_grug(
 
     @create_grug_state_t
     def create_grug_state(
-        tests_path: bytes, mod_api_path: bytes, unsafe_mode: bool
+        tests_path: bytes, mod_api_path: bytes, safe_mode: bool
     ) -> int:
         try:
             state = grug.init(
@@ -514,7 +514,11 @@ def test_grug(
             traceback.print_exc(file=sys.stderr)
             return 0
 
-        GameFnRegistrator(state, grug_lib).register_game_fns()
+        try: 
+            GameFnRegistrator(state, grug_lib).register_game_fns()
+        except Exception:  # pragma: no cover
+            traceback.print_exc(file=sys.stderr)
+            return 0
 
         state_id = len(states) + 1
         states[state_id] = state
