@@ -3,7 +3,8 @@ import sys
 import traceback
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from threading import RLock
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import pytest  # pyright: ignore[reportMissingImports]
 
@@ -86,7 +87,10 @@ class GrugType(IntEnum):
 
 
 game_fn_c_t = ctypes.CFUNCTYPE(
-    GrugValueWorkaround, ctypes.c_void_p, ctypes.POINTER(GrugValueUnion)
+    GrugValueWorkaround,
+    ctypes.c_void_p,
+    ctypes.POINTER(GrugValueUnion),
+    ctypes.POINTER(CGrugType),
 )
 generic_fn_reg_c_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.POINTER(CGrugType))
 
@@ -113,38 +117,67 @@ def substitute_type(typ: Type, generics: List[Type]) -> Type:
     return typ
 
 
-def py_type_to_c_type(typ: Type) -> Tuple[CGrugType, List[object]]:
-    keepalive: List[object] = []
-    c_type = CGrugType()
+# makes it so memory usage doesn't have to grow unbounded as more c functions are called
+class CTypeStorage:
+    """Intern C types, names, and lists without invalidating published pointers."""
 
-    # Can never pass void, resource, entity, or an existential to a host function
-    assert typ != PrimitiveType.VOID
-    if typ == PrimitiveType.BOOL:
-        c_type.type = GrugType.BOOL
-    elif typ == PrimitiveType.NUMBER:
-        c_type.type = GrugType.NUMBER
-    elif typ == PrimitiveType.STRING:
-        c_type.type = GrugType.STRING
-    # else type is IdType
-    else:
-        assert isinstance(typ, IdType)
-        c_type.type = GrugType.ID
-        name = typ.name.encode()
-        keepalive.append(name)
-        c_type.data.id.name = name
+    def __init__(self):
+        self._names: Dict[str, bytes] = {}
+        self._types: Dict[Tuple[object, ...], CGrugType] = {}
+        self._lists: Dict[Tuple[int, ...], "ctypes.Array[CGrugType]"] = {}
+        # I don't really know if this is needed tbh
+        self._lock = RLock()
 
-        c_generics: List[CGrugType] = []
-        for generic in typ.generics:
-            c_generic, generic_keepalive = py_type_to_c_type(generic)
-            c_generics.append(c_generic)
-            keepalive.extend(generic_keepalive)
+    def insert_type_list(self, generics: List[Type]) -> "ctypes.Array[CGrugType]":
+        with self._lock:
+            c_types = [self._insert_type(generic) for generic in generics]
+            # Canonical children make shallow pointer keys sufficient, including
+            # for independently constructed but structurally equal Python types.
+            key = tuple(ctypes.addressof(c_type) for c_type in c_types)
+            existing = self._lists.get(key)
+            if existing is not None:
+                return existing
+            array = (CGrugType * len(c_types))(*c_types)
+            self._lists[key] = array
+            return array
 
-        generic_array = (CGrugType * len(c_generics))(*c_generics)
-        keepalive.append(generic_array)
-        c_type.data.id.generics = generic_array
-        c_type.data.id.generics_len = len(c_generics)
+    def _insert_type(self, typ: Type) -> CGrugType:
+        if isinstance(typ, IdType):
+            generics = self.insert_type_list(typ.generics)
+            key = (GrugType.ID, typ.name, ctypes.addressof(generics))
+            existing = self._types.get(key)
+            if existing is not None:
+                return existing
+            name = self._names.get(typ.name)
+            if name is None:
+                name = typ.name.encode()
+                self._names[typ.name] = name
+            c_type = CGrugType()
+            c_type.type = GrugType.ID
+            c_type.data.id.name = name
+            c_type.data.id.generics = generics
+            c_type.data.id.generics_len = len(typ.generics)
+        else:
+            # Void, resource, entity, and unresolved types are not host generics.
+            assert typ in (PrimitiveType.BOOL, PrimitiveType.NUMBER, PrimitiveType.STRING)
+            tag = {
+                PrimitiveType.BOOL: GrugType.BOOL,
+                PrimitiveType.NUMBER: GrugType.NUMBER,
+                PrimitiveType.STRING: GrugType.STRING,
+            }[typ]
+            key = (tag,)
+            existing = self._types.get(key)
+            if existing is not None:
+                return existing
+            c_type = CGrugType()
+            c_type.type = tag
+        self._types[key] = c_type
+        return c_type
 
-    return c_type, keepalive
+
+# C may retain pointers after a call, wrapper, or state is destroyed. Never clear
+# this storage: retained memory grows with distinct types/lists, not call count.
+_c_type_storage = CTypeStorage()
 
 
 # Callback type definitions
@@ -622,15 +655,15 @@ class GameFnRegistrator:
             self._register_fn(name)
 
         for name, native_name in (
-            ("vec", "vec_new"),
+            ("vec", "vec_number_new"),
             ("box", "box"),
             ("default", "default"),
             ("dict", "dict"),
             ("dict_from_vec", "dict_from_vec"),
             ("make_pair", "make_pair"),
-            ("cause_game_fn_error_generic", "cause_game_fn_error_generic"),
+            ("cause_game_fn_error_generic", "cause_game_fn_error"),
         ):
-            self._register_generic_fn(name, native_name)
+            self._register_fn(name, native_name)
 
         for method_name, native_name in (
             ("push", "vec_number_push"),
@@ -645,8 +678,8 @@ class GameFnRegistrator:
         ):
             self._register_static_method("VecNumber", method_name, native_name)
 
-        self._register_static_method("D", "magic", "magic")
-        self._register_static_method("Utils", "fail", "cause_game_fn_error")
+        self._register_static_method("D", "magic", "d_magic")
+        self._register_static_method("Utils", "fail", "Utils_fail")
 
         for method_name, native_name in (
             ("assert_state_is_not_null", "Utils_assert_state_is_not_null"),
@@ -654,25 +687,25 @@ class GameFnRegistrator:
             ("call_on_b_fn", "Utils_call_on_b_fn"),
         ):
             self._register_method("Utils", method_name, native_name)
-        self._register_generic_method(
-            "Utils", "cause_game_fn_error_generic", "Utils_cause_game_fn_error_generic"
+        self._register_method(
+            "Utils", "cause_game_fn_error_generic", "Utils_cause_game_fn_error"
         )
 
         for method_name, native_name in (
-            ("push", "vec_push"),
-            ("pop", "vec_pop"),
-            ("insert", "vec_insert"),
+            ("push", "vec_number_push"),
+            ("pop", "vec_number_pop"),
+            ("insert", "vec_number_insert"),
         ):
-            self._register_generic_method("Vec", method_name, native_name)
-        self._register_generic_method("Vec", "new", "vec_new", static=True)
+            self._register_method("Vec", method_name, native_name)
+        self._register_static_method("Vec", "new", "vec_number_new")
 
         for method_name, native_name in (("get", "box_get"),):
-            self._register_generic_method("Box", method_name, native_name)
+            self._register_method("Box", method_name, native_name)
 
-        self._register_generic_method("Dict", "put", "dict_put")
+        self._register_method("Dict", "put", "dict_put")
 
-        self._register_generic_method("Pair", "first", "pair_first")
-        self._register_generic_method("Pair", "second", "pair_second")
+        self._register_method("Pair", "first", "pair_first")
+        self._register_method("Pair", "second", "pair_second")
 
     def _get_c_args(self, *args: GrugValue):
         c_args = (GrugValueUnion * len(args))()
@@ -730,7 +763,9 @@ class GameFnRegistrator:
     # type of c_fn cannot be expressed properly
     def wrap_fn(self, return_type: Type, c_fn: Any) -> HostFn:
         def fn(state: GrugState, *args: GrugValue):
-            c_args, _keepalive = self._get_c_args(*args)
+            generics = cast(List[Type], args[-1])
+            c_generics = _c_type_storage.insert_type_list(generics)
+            c_args, _keepalive = self._get_c_args(*args[:-1])
             self._keepalive += _keepalive
 
             # We pass 42 since `state` is a Python object
@@ -738,23 +773,24 @@ class GameFnRegistrator:
 
             # type of c_fn cannot be expressed properly, so it's return type
             # is also unknown
-            result: GrugValueWorkaround = c_fn(42, c_args)
+            result: GrugValueWorkaround = c_fn(42, c_args, c_generics)
 
             self._raise_game_fn_error_if_needed(state)
 
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
 
-            return self._unpack_workaround(result, return_type)
+            return self._unpack_workaround(result, substitute_type(return_type, generics))
 
         return fn
 
-    def _register_fn(self, name: str):
-        c_fn = self.grug_lib["game_fn_" + name]
+    def _register_fn(self, name: str, native_name: Optional[str] = None):
+        c_fn = self.grug_lib["game_fn_" + (native_name if native_name is not None else name)]
 
         c_fn.argtypes = (
             ctypes.c_void_p,
             ctypes.POINTER(GrugValueUnion),
+            ctypes.POINTER(CGrugType),
         )
         c_fn.restype = GrugValueWorkaround
 
@@ -770,15 +806,7 @@ class GameFnRegistrator:
         host_fn_data = self.state.mod_api.host_fns[name]
 
         def register(generics: List[Type]):
-            c_generics: List[CGrugType] = []
-            keepalive: List[object] = []
-            for generic in generics:
-                c_generic, generic_keepalive = py_type_to_c_type(generic)
-                c_generics.append(c_generic)
-                keepalive.extend(generic_keepalive)
-
-            generic_array = (CGrugType * len(c_generics))(*c_generics)
-            keepalive.append(generic_array)
+            generic_array = _c_type_storage.insert_type_list(generics)
 
             c_fn_ptr = c_reg_fn(generic_array)
             if c_fn_ptr is None:
@@ -797,6 +825,7 @@ class GameFnRegistrator:
         c_fn.argtypes = (
             ctypes.c_void_p,
             ctypes.POINTER(GrugValueUnion),
+            ctypes.POINTER(CGrugType),
         )
         c_fn.restype = GrugValueWorkaround
 
@@ -817,6 +846,7 @@ class GameFnRegistrator:
         c_fn.argtypes = (
             ctypes.c_void_p,
             ctypes.POINTER(GrugValueUnion),
+            ctypes.POINTER(CGrugType),
         )
         c_fn.restype = GrugValueWorkaround
 
@@ -838,15 +868,7 @@ class GameFnRegistrator:
         )
 
         def register(generics: List[Type]):
-            c_generics: List[CGrugType] = []
-            keepalive: List[object] = []
-            for generic in generics:
-                c_generic, generic_keepalive = py_type_to_c_type(generic)
-                c_generics.append(c_generic)
-                keepalive.extend(generic_keepalive)
-
-            generic_array = (CGrugType * len(c_generics))(*c_generics)
-            keepalive.append(generic_array)
+            generic_array = _c_type_storage.insert_type_list(generics)
 
             c_fn_ptr = c_reg_fn(generic_array)
             if c_fn_ptr is None:
