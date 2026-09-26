@@ -260,6 +260,18 @@ class Tokenizer:
                 add_token(TokenType.INDENTATION_TOKEN, " " * spaces, old_i)
             # Strings
             elif c == '"':
+                string, i = self.tokenize_string(i)
+                tokens.append(Token(TokenType.STRING_TOKEN, string))
+                i += 1
+            elif c == "e" and i + 1 < len(src) and src[i + 1] == '"':
+                i += 1
+                string, i = self.tokenize_string(i)
+                tokens.append(Token(TokenType.ENTITY_TOKEN, string))
+                i += 1
+            elif c == "r" and i + 1 < len(src) and src[i + 1] == '"':
+                i += 1
+                string, i = self.tokenize_string(i)
+                tokens.append(Token(TokenType.RESOURCE_TOKEN, string))
                 token_span = current_span(i)
                 string, i, current_line = self.tokenize_string(i, current_line)
                 tokens.append(Token(TokenType.STRING_TOKEN, string, token_span))
@@ -360,6 +372,26 @@ class Tokenizer:
             self.src[idx].isalnum() or self.src[idx] == "_"
         )
 
+    def tokenize_string(self, i: int) -> Tuple[str, int]:
+        src = self.src
+        open_quote_index = i
+        i += 1
+        start = i
+        while i < len(src) and src[i] != '"':
+            if src[i] == "\0":
+                raise TokenizerError(
+                    f"Unexpected null byte on line {self.get_character_line_number(i)}"
+                )
+            elif src[i] == "\\" and i + 1 < len(src) and src[i + 1] == "\n":
+                raise TokenizerError(
+                    f"Unexpected line break in string on line {self.get_character_line_number(i)}"
+                )
+            i += 1
+        if i >= len(src):
+            raise TokenizerError(
+                f'Unclosed " on line {self.get_character_line_number(open_quote_index)}'
+            )
+        return src[start:i], i
     def tokenize_string(self, i: int, current_line: int) -> Tuple[str, int, int]:
         src = self.src
         open_quote_index = i

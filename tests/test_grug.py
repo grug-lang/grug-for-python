@@ -400,6 +400,15 @@ def test_grug(
 
             on_fn_name: str = c_on_fn_name.decode()
 
+            grug_file = id_map[file_id]
+            assert grug_file
+            assert current_entity
+            
+            on_fn_decl = grug_file.on_fns.get(on_fn_name)  # pyright: ignore[reportPrivateUsage]
+            if not on_fn_decl:
+                raise RuntimeError(  # pragma: no cover
+                    f"The function '{on_fn_name}' is not defined by the file {grug_file.relative_path}"
+                )
             entity = entities[entity_id]
 
             file = entity.file
@@ -412,6 +421,7 @@ def test_grug(
                 for arg, param in zip(c_args or [], on_fn_decl.parameters)
             ]
 
+            current_entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
             entity._run_on_fn(on_fn_name, *args)  # pyright: ignore[reportPrivateUsage]
         except (TimeLimitExceeded, StackOverflow, ReraisedGameFnError) as e:
             # Necessary, as C doesn't propagate exceptions.
@@ -426,6 +436,10 @@ def test_grug(
         output_json_buffer: int,
         output_buffer_len: int,
     ) -> bool:
+        assert state
+        return state.dump_file_to_json(
+            input_grug_path.decode(), output_json_path.decode()
+        )
         try:
             input_text = input_grug_buffer.decode()
 
@@ -462,6 +476,12 @@ def test_grug(
         output_grug_buffer: int,
         output_buffer_len: int,
     ) -> bool:
+        assert state
+        return state.generate_file_from_json(
+            input_json_path.decode(), output_grug_path.decode()
+        )
+
+    _original_run_game_fn = Entity._run_game_fn  # pyright: ignore[reportPrivateUsage]
         try:
             input_text = input_json_buffer.decode()
 
@@ -493,6 +513,25 @@ def test_grug(
 
     @game_fn_error_t
     def game_fn_error(state_ptr: int, reason: bytes) -> None:
+        nonlocal _game_fn_error_reason
+        # Handle None case for reason
+        if reason:
+            _game_fn_error_reason = ctypes.string_at(reason).decode()
+        else:  # pragma: no cover
+            _game_fn_error_reason = ""
+
+    @ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p)
+    def create_grug_state(tests_path: bytes, mod_api_path: bytes) -> int:
+        nonlocal state
+        state = grug.init(
+            runtime_error_handler=custom_runtime_error_handler,
+            mod_api_path=ctypes.string_at(tests_path).decode(),
+            mods_dir_path=ctypes.string_at(mod_api_path).decode(),
+        )
+        assert state is not None, "grug.init() returned None"
+        state.next_id = 42
+        GameFnRegistrator(state, grug_lib).register_game_fns()
+        return 0
         global _game_fn_error_reason
         _game_fn_error_reason = ctypes.string_at(reason).decode()
 
@@ -858,4 +897,6 @@ class GameFnRegistrator:
 
 # Enables stepping through code with VS Code its Python debugger.
 if __name__ == "__main__":  # pragma: no cover
+    pytest.main(sys.argv)
+    pytest.main(sys.argv)
     pytest.main(sys.argv)  # pyright: ignore[reportUnknownMemberType]

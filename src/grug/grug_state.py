@@ -325,6 +325,8 @@ class GrugState:
 
         return adapted
 
+    def compile_grug_file(self, grug_file_relative_path: str):
+        mod = Path(grug_file_relative_path).parts[0].replace("\\", "/")
     def generic_fn(self, fn: HostFnReg) -> HostFnReg:
         """Decorator for generic game functions."""
         self.mod_api.register_generic_fn(None, fn.__name__, fn)

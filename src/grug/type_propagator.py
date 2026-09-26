@@ -49,6 +49,11 @@ class Variable:
 
 
 @dataclass
+class GameFn:
+    fn_name: str
+    arguments: List[Argument] = field(default_factory=lambda: [])  # pragma: no cover
+    return_type: Optional[Type] = None
+    return_type_name: Optional[str] = None
 class TypeMismatch(Exception):
     span: SourceSpan
     expected: Type
@@ -310,6 +315,8 @@ class TypePropagator:
         self.validate_variable_name(name, span)
 
         if name in self.global_variables:
+            raise TypePropagationError(
+                f"The global variable '{name}' shadows an earlier global variable"
             raise self.new_error(
                 span, f"The global variable '{name}' shadows an earlier global variable"
             )
@@ -477,6 +484,24 @@ class TypePropagator:
     def format_type_list(types: List[Type]) -> str:
         return "[" + ", ".join(str(ty) for ty in types) + "]"
 
+        for arg, param in zip(args, params):
+            if isinstance(arg, StringExpr) and param.type == Type.ENTITY:
+                raise TypePropagationError(
+                    f"The host function '{fn_name}' expects an entity string, so put an 'e' in front of string \"{arg.string}\""
+                )
+            elif isinstance(arg, StringExpr) and param.type == Type.RESOURCE:
+                raise TypePropagationError(
+                    f"The host function '{fn_name}' expects a resource string, so put an 'r' in front of string \"{arg.string}\""
+                )
+
+            if isinstance(arg, EntityExpr):
+                self.validate_entity_string(arg.string)
+            elif isinstance(arg, ResourceExpr):
+                self.validate_resource_string(arg.string, param.resource_extension)
+
+            if not arg.result.type:
+                raise TypePropagationError(
+                    f"Function call '{fn_name}' expected the type {param.type_name} for argument '{param.name}', but got a function call that doesn't return anything"
     def fill_host_fn_ptr(
         self,
         host_fn: ModApiHostFn,

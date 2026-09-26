@@ -19,7 +19,169 @@ MAX_F64 = struct.unpack("!d", struct.pack("!Q", 0x7FEFFFFFFFFFFFFF))[0]
 @dataclass
 class ParserError(Exception):
     span: SourceSpan
-    message: str
+    message: strgit status
+On branch main
+Your branch and 'myfork/main' have diverged,
+and have 23 and 19 different commits each, respectively.
+  (use "git pull" if you want to integrate the remote branch with yours)
+
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Changes to be committed:
+	modified:   .gitignore
+	modified:   .vscode/launch.json
+	deleted:    .vscode/settings.json
+	modified:   README.md
+	new file:   benchmarks.py
+	new file:   examples/class/example.py
+	new file:   examples/class/mod_api.json
+	new file:   examples/class/mods/animals/labrador-Dog.grug
+	modified:   examples/custom_package_prefixes/example.py
+	modified:   examples/custom_package_prefixes/mod_api.json
+	modified:   examples/custom_package_prefixes/mods/animals/labrador-Dog.grug
+	modified:   examples/dict/example.py
+	modified:   examples/dict/mod_api.json
+	modified:   examples/dict/mods/animals/labrador-Dog.grug
+	new file:   examples/dir_entry_not_found/example.py
+	new file:   examples/dir_entry_not_found/mod_api.json
+	new file:   examples/dir_entry_not_found/mods/animals/labrador-Dog.grug
+	new file:   examples/dirs_cant_create_entity/example.py
+	new file:   examples/dirs_cant_create_entity/mod_api.json
+	new file:   examples/dirs_cant_create_entity/mods/animals/labrador-Dog.grug
+	new file:   examples/entity/example.py
+	new file:   examples/entity/mod_api.json
+	new file:   examples/entity/mods/animals/labrador-Dog.grug
+	modified:   examples/export_fn_not_defined/example.py
+	modified:   examples/export_fn_not_defined/mod_api.json
+	modified:   examples/export_fn_not_defined/mods/animals/labrador-Dog.grug
+	modified:   examples/fib_memoized/example.py
+	modified:   examples/fib_memoized/mod_api.json
+	modified:   examples/fib_memoized/mods/animals/labrador-Dog.grug
+	modified:   examples/fib_naive/example.py
+	modified:   examples/fib_naive/mod_api.json
+	modified:   examples/fib_naive/mods/animals/labrador-Dog.grug
+	new file:   examples/files_are_not_indexable/example.py
+	new file:   examples/files_are_not_indexable/mod_api.json
+	new file:   examples/files_are_not_indexable/mods/animals/labrador-Dog.grug
+	modified:   examples/global_list/example.py
+	modified:   examples/global_list/mod_api.json
+	modified:   examples/global_list/mods/animals/labrador-Dog.grug
+	modified:   examples/host_fn_error/example.py
+	modified:   examples/host_fn_error/mod_api.json
+	modified:   examples/host_fn_error/mods/animals/labrador-Dog.grug
+	new file:   examples/host_fn_error_in_method/example.py
+	new file:   examples/host_fn_error_in_method/mod_api.json
+	new file:   examples/host_fn_error_in_method/mods/animals/labrador-Dog.grug
+	modified:   examples/host_fn_error_registered_twice/mod_api.json
+	modified:   examples/host_fn_error_registered_twice/mods/animals/labrador-Dog.grug
+	new file:   examples/host_fn_registration_error/example.py
+	new file:   examples/host_fn_registration_error/mod_api.json
+	new file:   examples/host_fn_registration_error/mods/animals/labrador-Dog.grug
+	modified:   examples/list/example.py
+	modified:   examples/list/mod_api.json
+	modified:   examples/list/mods/animals/labrador-Dog.grug
+	modified:   examples/minimal/example.py
+	modified:   examples/minimal/mod_api.json
+	modified:   examples/minimal/mods/animals/labrador-Dog.grug
+	new file:   examples/mod_subdirectory/example.py
+	new file:   examples/mod_subdirectory/mod_api.json
+	new file:   examples/mod_subdirectory/mods/animals/dogs/labrador-Dog.grug
+	new file:   examples/resource/example.py
+	new file:   examples/resource/mod_api.json
+	new file:   examples/resource/mods/animals/foo.txt
+	new file:   examples/resource/mods/animals/labrador-Dog.grug
+	new file:   examples/static_method/example.py
+	new file:   examples/static_method/mod_api.json
+	new file:   examples/static_method/mods/animals/labrador-Dog.grug
+	new file:   examples/static_method_from_package/example.py
+	new file:   examples/static_method_from_package/mod_api.json
+	new file:   examples/static_method_from_package/mods/animals/labrador-Dog.grug
+	modified:   examples/using_grug_packages/example.py
+	modified:   examples/using_grug_packages/mod_api.json
+	modified:   examples/using_grug_packages/mods/animals/labrador-Dog.grug
+	deleted:    fuzz.py
+	modified:   pyproject.toml
+	modified:   src/grug/__init__.py
+	modified:   src/grug/entity.py
+	new file:   src/grug/error.py
+	deleted:    src/grug/grug_value.py
+	new file:   src/grug/mod_api.py
+	modified:   src/grug/packages/grug_numpy/grug_numpy.py
+	modified:   src/grug/packages/grug_numpy/tests/mod_api.json
+	modified:   src/grug/packages/grug_numpy/tests/mods/misc/exp-Test.grug
+	modified:   src/grug/packages/grug_stdlib/grug_stdlib.py
+	modified:   src/grug/packages/grug_stdlib/tests/mod_api.json
+	new file:   src/grug/packages/grug_stdlib/tests/mods/assert/assert-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/assert/assert_bool-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/assert/assert_id-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/assert/assert_number-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/assert/assert_string-Test.grug
+	deleted:    src/grug/packages/grug_stdlib/tests/mods/casting/id_to_dict-Test.grug
+	deleted:    src/grug/packages/grug_stdlib/tests/mods/casting/id_to_list-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/dict/dict-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/dict/dict_bool_bool_set-Test.grug
+	new file:   src/grug/packages/grug_stdlib/tests/mods/dict/dict_from_keys-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/dict/dict_number_id_set-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/dict/dict_number_number_get-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/dict/dict_number_number_get_error_key_not_in_dict-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/dict/dict_number_number_set-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/dict/dict_string_string_set-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/list-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/list_bool_append-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/list_id_append-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/list_string_append-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_append-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_clear-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_copy-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_count-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_extend-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_has-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_index-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_insert-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_len-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_pop-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_pop_index-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_remove-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_reverse-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/list/number/list_number_sort-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/math/ceil-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/math/sqrt-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/print/print_bool-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/print/print_dict-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/print/print_id-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/print/print_list-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/print/print_number-Test.grug
+	modified:   src/grug/packages/grug_stdlib/tests/mods/print/print_string-Test.grug
+	modified:   src/grug/serializer.py
+	new file:   src/grug/types.py
+	modified:   tests.py
+	new file:   tests/__init__.py
+	modified:   tests/conftest.py
+
+Unmerged paths:
+  (use "git add <file>..." to mark resolution)
+	both modified:   .github/workflows/build.yml
+	both modified:   src/grug/grug_state.py
+	both modified:   src/grug/parser.py
+	both modified:   src/grug/tokenizer.py
+	both modified:   src/grug/type_propagator.py
+	both modified:   tests/test_grug.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	bin/
+	error.md
+	error1.md
+	error2.md
+	error3.md
+	graphify-out/
+	lib/
+	lib64
+	pyvenv.cfg
+	tmux-client-34853.log
+
 
 
 @dataclass
@@ -289,6 +451,16 @@ class Parser:
         newline_allowed = False
         newline_required = False
 
+        i = [0]  # Use a list to allow modification by called functions
+        while i[0] < len(self.tokens):
+            token = self.tokens[i[0]]
+
+            if (
+                token.type == TokenType.WORD_TOKEN
+                and i[0] + 1 < len(self.tokens)
+                and self.tokens[i[0] + 1].type == TokenType.COLON_TOKEN
+            ):
+                if seen_on_fn:
         try:
             i = [0]  # Use a list to allow modification by called functions
             while i[0] < len(self.tokens):
@@ -391,6 +563,94 @@ class Parser:
                         f"Unexpected token '{token.value}' on line {self.get_token_line_number(i[0])}",
                     )
 
+                self.ast.append(self.parse_global_variable(i))
+
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
+
+                newline_allowed = True
+                newline_required = True
+
+                continue
+
+            elif (
+                token.type == TokenType.WORD_TOKEN
+                and token.value.startswith("on_")
+                and i[0] + 1 < len(self.tokens)
+                and self.tokens[i[0] + 1].type == TokenType.OPEN_PARENTHESIS_TOKEN
+            ):
+                if self.helper_fns:
+                    raise ParserError(
+                        f"{token.value}() must be defined before all helper_ functions"
+                    )
+                if newline_required:
+                    raise ParserError(
+                        f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
+                    )
+
+                fn = self.parse_on_fn(i)
+                if fn.fn_name in self.on_fns:
+                    raise ParserError(
+                        f"The function '{fn.fn_name}' was defined several times in the same file"
+                    )
+                self.on_fns[fn.fn_name] = fn
+
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
+
+                seen_on_fn = True
+
+                newline_allowed = True
+                newline_required = True
+
+                continue
+
+            elif (
+                token.type == TokenType.WORD_TOKEN
+                and token.value.startswith("helper_")
+                and i[0] + 1 < len(self.tokens)
+                and self.tokens[i[0] + 1].type == TokenType.OPEN_PARENTHESIS_TOKEN
+            ):
+                if newline_required:
+                    raise ParserError(
+                        f"Expected an empty line, on line {self.get_token_line_number(i[0])}"
+                    )
+
+                fn = self.parse_helper_fn(i)
+                if fn.fn_name in self.helper_fns:
+                    raise ParserError(
+                        f"The function '{fn.fn_name}' was defined several times in the same file"
+                    )
+                self.helper_fns[fn.fn_name] = fn
+
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
+
+                newline_allowed = True
+                newline_required = True
+
+                continue
+
+            elif token.type == TokenType.NEWLINE_TOKEN:
+                if not newline_allowed:
+                    raise ParserError(
+                        f"Unexpected empty line, on line {self.get_token_line_number(i[0])}"
+                    )
+
+                seen_newline = True
+
+                newline_allowed = False
+                newline_required = False
+
+                self.ast.append(EmptyLineStatement())
+                i[0] += 1
+                continue
+
+            elif token.type == TokenType.COMMENT_TOKEN:
+                newline_allowed = True
+                self.ast.append(CommentStatement(token.value))
+                i[0] += 1
+                self.consume_token_type(i, TokenType.NEWLINE_TOKEN)
+                continue
+
+            else:
             if seen_newline and not newline_allowed:
                 raise ParserError(
                     self.token_span(len(self.tokens) - 1), f"Unexpected empty line"
@@ -997,6 +1257,23 @@ class Parser:
             self.consume_token_type(i, TokenType.CLOSE_PARENTHESIS_TOKEN)
         elif token.type == TokenType.TRUE_TOKEN:
             i[0] += 1
+            expr = TrueExpr()
+        elif token.type == TokenType.FALSE_TOKEN:
+            i[0] += 1
+            expr = FalseExpr()
+        elif token.type == TokenType.STRING_TOKEN:
+            i[0] += 1
+            expr = StringExpr(token.value)
+        elif token.type == TokenType.ENTITY_TOKEN:
+            i[0] += 1
+            expr = EntityExpr(token.value)
+        elif token.type == TokenType.RESOURCE_TOKEN:
+            i[0] += 1
+            expr = ResourceExpr(token.value)
+        elif token.type == TokenType.WORD_TOKEN:
+            i[0] += 1
+            expr = IdentifierExpr(token.value)
+        elif token.type == TokenType.NUMBER_TOKEN:
             expr = TrueExpr(expr_span=token.span)
         elif token.type == TokenType.FALSE_TOKEN:
             i[0] += 1
@@ -1022,6 +1299,7 @@ class Parser:
             )
         else:
             raise ParserError(
+                f"Expected a primary expression token, but got token type {token.type.name} on line {self.get_token_line_number(i[0])}"
                 token.span, f"Expected a primary expression token but got {token.type}"
             )
 
