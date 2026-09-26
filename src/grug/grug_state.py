@@ -194,73 +194,10 @@ class GrugState:
         self.executed_file: Optional[GrugFile] = None
         self.executed_entity: Optional[Entity] = None
 
-        for entity_name, entity in entities_dict.items():
-            if not isinstance(entity, dict):
-                raise RuntimeError(
-                    f"Error: entity '{entity_name}' must be a JSON object"
-                )
+        self.resource_mtimes: Dict[str, float] = {}
+        self.updated_resources: List[str] = []
+        self.first_update_done: bool = False
 
-            entity_dict = cast(Dict[str, Any], entity)
-            on_functions = entity_dict.get("on_functions")
-            if on_functions is None:
-                continue
-
-            if not isinstance(on_functions, dict):
-                raise RuntimeError(
-                    f"Error: 'on_functions' for entity '{entity_name}' must be a JSON object"
-                )
-
-            on_functions_dict = cast(Dict[str, Any], on_functions)
-            self._assert_on_functions_sorted(entity_name, on_functions_dict)
-
-        game_functions = self.mod_api.get("game_functions")
-        if not isinstance(game_functions, dict):
-            raise RuntimeError("Error: 'game_functions' must be a JSON object")
-
-        game_functions_dict = cast(Dict[str, Any], game_functions)
-        self._assert_game_functions_sorted(game_functions_dict)
-
-    def _assert_entities_sorted(self, entities: Dict[str, Any]):
-        keys = list(entities.keys())
-        sorted_keys = sorted(keys)
-
-        if keys != sorted_keys:
-            for actual, expected in zip(keys, sorted_keys):
-                if actual != expected:
-                    raise RuntimeError(
-                        f"Error: Entities must be sorted alphabetically in mod_api.json, "
-                        f"so '{expected}' must come before '{actual}'"
-                    )
-            assert False  # pragma: no cover
-
-    def _assert_on_functions_sorted(
-        self, entity_name: str, on_functions: Dict[str, Any]
-    ):
-        keys = list(on_functions.keys())
-        sorted_keys = sorted(keys)
-
-        if keys != sorted_keys:
-            for actual, expected in zip(keys, sorted_keys):
-                if actual != expected:
-                    raise RuntimeError(
-                        "Error: on_functions for entity "
-                        f"'{entity_name}' must be sorted alphabetically in mod_api.json, "
-                        f"so '{expected}' must come before '{actual}'"
-                    )
-            assert False  # pragma: no cover
-
-    def _assert_game_functions_sorted(self, game_functions: Dict[str, Any]):
-        keys = list(game_functions.keys())
-        sorted_keys = sorted(keys)
-
-        if keys != sorted_keys:
-            for actual, expected in zip(keys, sorted_keys):
-                if actual != expected:
-                    raise RuntimeError(
-                        f"Error: Game functions must be sorted alphabetically in mod_api.json, "
-                        f"so {expected}() must come before {actual}()"
-                    )
-            assert False  # pragma: no cover
     @property
     def mods(self) -> GrugDir:
         if self._mods is None:
@@ -526,6 +463,8 @@ class GrugState:
 
     def _update(self):
         """This (re)compiles grug files using mark-and-sweep."""
+        self.updated_resources.clear()
+
         if self._mods is None:
             self._mods = GrugDir(name="mods")
 
@@ -545,24 +484,34 @@ class GrugState:
                         grug_dir.dirs[entry.name] = sub
                     update_dir(entry, sub)
 
-                elif entry.is_file() and entry.suffix == ".grug":
+                else:
                     rel = entry.relative_to(self.mods_dir_path).as_posix()
-                    seen_files.add(rel)
 
-                    current_mtime = entry.stat().st_mtime
-                    existing = grug_dir.files.get(entry.name)
+                    if entry.suffix == ".grug":
+                        seen_files.add(rel)
 
-                    if existing is None or existing.mtime < current_mtime:
-                        new_file = self._compile_grug_file(rel)
+                        current_mtime = entry.stat().st_mtime
+                        existing = grug_dir.files.get(entry.name)
 
-                        # Transfer entities from the old file to the new file
-                        if existing is not None:
-                            for entity in existing.entities:
-                                entity.file = new_file
-                                entity._init_globals(new_file.global_variables)  # type: ignore
-                                new_file.entities.add(entity)
+                        if existing is None or existing.mtime < current_mtime:
+                            new_file = self._compile_grug_file(rel)
 
-                        grug_dir.files[entry.name] = new_file
+                            # Transfer entities from the old file to the new file
+                            if existing is not None:
+                                for entity in existing.entities:
+                                    entity.file = new_file
+                                    entity._init_globals(new_file.global_variables)  # type: ignore
+                                    new_file.entities.add(entity)
+
+                            grug_dir.files[entry.name] = new_file
+                    else:
+                        current_mtime = entry.stat().st_mtime
+                        old_mtime = self.resource_mtimes.get(rel)
+
+                        if old_mtime is None or old_mtime < current_mtime:
+                            self.resource_mtimes[rel] = current_mtime
+                            if self.first_update_done:
+                                self.updated_resources.append(rel)
 
             # Sweep files
             for name, file in list(grug_dir.files.items()):
@@ -591,6 +540,8 @@ class GrugState:
             root_path_str = (self.mods_dir_path / name).as_posix()
             if root_path_str not in seen_dirs:
                 del root.dirs[name]  # pragma: no cover
+
+        self.first_update_done = True
 
     def run_all_package_tests(self):
         self._update()

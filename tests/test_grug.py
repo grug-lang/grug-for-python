@@ -162,6 +162,9 @@ create_entity_t = ctypes.CFUNCTYPE(
 )
 destroy_entity_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 update_t = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p))
+get_updated_resources_t = ctypes.CFUNCTYPE(
+    ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t)
+)
 call_export_fn_t = ctypes.CFUNCTYPE(
     None,
     ctypes.c_void_p,
@@ -193,6 +196,7 @@ class GrugStateVTableStruct(ctypes.Structure):
         ("create_entity", create_entity_t),
         ("destroy_entity", destroy_entity_t),
         ("update", update_t),
+        ("get_updated_resources", get_updated_resources_t),
         ("call_export_fn", call_export_fn_t),
         ("grug_to_json", grug_to_json_t),
         ("json_to_grug", json_to_grug_t),
@@ -349,17 +353,38 @@ def test_grug(
             state = states[state_ptr]
             state._update()  # pyright: ignore[reportPrivateUsage]
 
-            file = state.mods["code_reloading"]["input-D.grug"]
-            assert isinstance(file, GrugFile)
-
             # We have to manually overwrite the old file in the files list,
             # purely because test_grug.py tries to emulate the grug implementation.
-            last_file_id = list(files.keys())[-1]
-            files[last_file_id] = file
+            # We must conditionally check for 'code_reloading' to avoid breaking other tests.
+            if (
+                "code_reloading" in state.mods.dirs
+                and "input-D.grug" in state.mods.dirs["code_reloading"].files
+            ):
+                file = state.mods["code_reloading"]["input-D.grug"]
+                assert isinstance(file, GrugFile)
+
+                last_file_id = list(files.keys())[-1]
+                files[last_file_id] = file
 
             out_err[0] = None
         except Exception as e:  # pragma: no cover
             out_err[0] = str(e).encode()
+
+    _resource_keepalive = []
+
+    @get_updated_resources_t
+    def get_updated_resources(state_ptr: int, count_out: Any) -> Any:
+        global _resource_keepalive
+        resources = getattr(states[state_ptr], "updated_resources", [])
+        count_out[0] = len(resources)
+        if not resources:
+            return 0  # 0 acts as a NULL pointer for c_void_p
+
+        _resource_keepalive = [r.encode("utf-8") for r in resources]
+        arr = (ctypes.c_char_p * len(resources))(*_resource_keepalive)
+        _resource_keepalive.append(arr)  # Keep the array alive
+
+        return ctypes.addressof(arr)
 
     @call_export_fn_t
     def call_export_fn(
@@ -549,6 +574,7 @@ def test_grug(
         create_entity,
         destroy_entity,
         update,
+        get_updated_resources,
         call_export_fn,
         grug_to_json,
         json_to_grug,
