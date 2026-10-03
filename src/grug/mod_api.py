@@ -305,8 +305,15 @@ Error: {error_message}
             return EntityStrType(entity_type if entity_type else None)
         if ty == "resource":
             resource_extension = self.get_string(obj, "resource_extension")
+            optional = False
+            if "optional" in obj:
+                if not isinstance(obj["optional"], bool):
+                    self.push_path(".optional")
+                    raise self.new_error("is not a boolean")
+                optional = obj["optional"]
+                    
             self.pop_path()
-            return ResourceStrType(resource_extension)
+            return ResourceStrType(resource_extension, optional)
         if ty.startswith("$"):
             for index, generic in enumerate(used_generics):
                 if generic.name == ty:

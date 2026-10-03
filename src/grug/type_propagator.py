@@ -442,7 +442,7 @@ class TypePropagator:
                 )
 
     def validate_resource_string(
-        self, string: str, resource_extension: Optional[str], span: SourceSpan
+        self, string: str, optional: bool, resource_extension: Optional[str], span: SourceSpan
     ):
         if not string:
             raise self.new_error(span, "Resources can't be empty strings")
@@ -513,7 +513,7 @@ class TypePropagator:
             )
 
         full_path = self.mods_dir_path / Path(self.mod) / Path(string)
-        if not os.path.exists(full_path):
+        if not optional and not os.path.exists(full_path):
             raise self.new_error(span, f"resource '{string}' does not exist")
 
     @staticmethod
@@ -604,7 +604,7 @@ class TypePropagator:
             ):
                 if substitutions is not None:
                     self.validate_resource_string(
-                        arg.string, param.type.extension, arg.expr_span
+                        arg.string, param.type.optional, param.type.extension, arg.expr_span
                     )
             elif isinstance(param.type, EntityStrType) and isinstance(arg, EntityExpr):
                 if substitutions is not None:
@@ -668,7 +668,7 @@ class TypePropagator:
         elif isinstance(expr, StringExpr):
             result_ty = PrimitiveType.STRING
         elif isinstance(expr, ResourceExpr):
-            result_ty = ResourceStrType(extension="")
+            result_ty = ResourceStrType(extension="", optional=False)
         elif isinstance(expr, EntityExpr):
             result_ty = EntityStrType(entity_type=None)
         elif isinstance(expr, IdentifierExpr):

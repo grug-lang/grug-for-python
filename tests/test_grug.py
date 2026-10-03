@@ -631,6 +631,7 @@ class GameFnRegistrator:
             "spawn",
             "spawn_d",
             "has_resource",
+            "has_optional_resource",
             "has_entity",
             "has_string",
             "get_opponent",

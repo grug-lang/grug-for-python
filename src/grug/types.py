@@ -50,6 +50,7 @@ class IdType:
 @dataclass(frozen=True)
 class ResourceStrType:
     extension: str
+    optional: bool
 
     # We never print "resource" using this function
     def __str__(self):  # pragma: no cover
