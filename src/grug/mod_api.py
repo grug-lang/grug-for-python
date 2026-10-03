@@ -20,10 +20,28 @@ from .types import (
 
 
 @dataclass
+class ModApiGeneric:
+    name: str
+    constraints: List[str]
+
+
+@dataclass
+class ModApiConstraintImplementor:
+    generics: List[ModApiGeneric]
+    type: Type
+
+
+@dataclass
+class ModApiConstraint:
+    description: str
+    implementors: List[ModApiConstraintImplementor]
+
+
+@dataclass
 class ModApiHostFn:
     description: str
     parameters: List[Parameter]
-    generics: List[str]
+    generics: List[ModApiGeneric]
     return_type: Type
     fn_ptr: Optional[HostFn] = None
     generic_reg_fn: Optional[HostFnReg] = None
@@ -46,7 +64,7 @@ class ModApiEntity:
 class ModApiClass:
     description: str
     type: Type
-    generics: List[str]
+    generics: List[ModApiGeneric]
     methods: Dict[str, ModApiHostFn]
     static_methods: Dict[str, ModApiHostFn]
 
@@ -56,6 +74,7 @@ class ModApi:
     entities: Dict[str, ModApiEntity]
     classes: Dict[str, ModApiClass]
     host_fns: Dict[str, ModApiHostFn]
+    constraints: Dict[str, ModApiConstraint]
 
     def static_methods_of(self, type_name: str) -> Optional[Dict[str, ModApiHostFn]]:
         """The static functions declared on a class or entity, or None if the
@@ -91,11 +110,6 @@ Error: {message}
         if class_name is not None:
             kind, host_fn_data = self._lookup_on_type(class_name, fn_name)
 
-            if len(host_fn_data.generics) != 0:
-                raise self.new_registration_error(
-                    f"Host {kind} '{fn_name}' on class '{class_name}' is generic"
-                )
-
             if host_fn_data.fn_ptr is not None:
                 raise self.new_registration_error(
                     f"Host {kind} named '{fn_name}' on class '{class_name}' has already been registered"
@@ -109,9 +123,6 @@ Error: {message}
             raise self.new_registration_error(
                 f"Host function named '{fn_name}' is not found in mod_api.json"
             )
-
-        if len(host_fn_data.generics) != 0:
-            raise self.new_registration_error(f"Host function '{fn_name}' is generic")
 
         if host_fn_data.fn_ptr is not None:
             raise self.new_registration_error(
@@ -190,6 +201,7 @@ class ModApiParseContext:
     text: str
     file_path: Path
     path: List[str] = field(default_factory=lambda: [])
+    constraint_names: List[str] = field(default_factory=lambda: [])
 
     def push_path(self, path: str) -> None:
         self.path.append(path)
@@ -217,8 +229,7 @@ Error: {error_message}
         )
 
     def get_list(self, obj: Dict[str, Any], key: str) -> List[Any]:
-        self.push_path(f".{key}")
-        val = obj[key]
+        val = self.get_key(obj, key)
         if not isinstance(val, list):
             raise self.new_error("is not a list")
         return cast(List[Any], val)
@@ -238,7 +249,43 @@ Error: {error_message}
             raise self.new_error("does not exist")
         return obj[key]
 
-    def parse_type(self, obj: Any, used_generics: List[str]) -> Type:
+    def parse_used_generics(self, obj: Dict[str, Any]) -> List[ModApiGeneric]:
+        generics: List[ModApiGeneric] = []
+        if "used_generics" not in obj:
+            return generics
+
+        for index, generic in enumerate(self.get_list(obj, "used_generics")):
+            self.push_path(f"[{index}]")
+            if not isinstance(generic, dict):
+                raise self.new_error("is not an object")
+            generic = cast(Dict[str, Any], generic)
+            name = self.get_string(generic, "name")
+            if not name.startswith("$"):
+                raise self.new_error("does not begin with '$'")
+            self.pop_path()
+
+            constraints: List[str] = []
+            if "constraints" in generic:
+                for constraint_index, constraint in enumerate(
+                    self.get_list(generic, "constraints")
+                ):
+                    self.push_path(f"[{constraint_index}]")
+                    if not isinstance(constraint, str):
+                        raise self.new_error("is not a string")
+                    self.pop_path()
+                    self.push_path(f'["{constraint}"]')
+                    if constraint not in self.constraint_names:
+                        raise self.new_error("is an unknown constraint")
+                    constraints.append(constraint)
+                    self.pop_path()
+                self.pop_path()
+
+            generics.append(ModApiGeneric(name, constraints))
+            self.pop_path()
+        self.pop_path()
+        return generics
+
+    def parse_type(self, obj: Any, used_generics: List[ModApiGeneric]) -> Type:
         if not isinstance(obj, dict):
             raise self.new_error("is not an object")
         obj = cast(Dict[str, Any], obj)
@@ -258,11 +305,18 @@ Error: {error_message}
             return EntityStrType(entity_type if entity_type else None)
         if ty == "resource":
             resource_extension = self.get_string(obj, "resource_extension")
+            optional = False
+            if "optional" in obj:
+                if not isinstance(obj["optional"], bool):
+                    self.push_path(".optional")
+                    raise self.new_error("is not a boolean")
+                optional = obj["optional"]
+                    
             self.pop_path()
-            return ResourceStrType(resource_extension)
+            return ResourceStrType(resource_extension, optional)
         if ty.startswith("$"):
             for index, generic in enumerate(used_generics):
-                if generic == ty:
+                if generic.name == ty:
                     return ExistentialType(index)
 
             self.push_path(".name")
@@ -283,7 +337,7 @@ Error: {error_message}
         return IdType(ty, generics)
 
     def parse_parameters(
-        self, parameters: List[Any], generics: List[str]
+        self, parameters: List[Any], generics: List[ModApiGeneric]
     ) -> List[Parameter]:
         parsed_parameters: List[Parameter] = []
         for index, param_values in enumerate(parameters):
@@ -315,23 +369,16 @@ Error: {error_message}
         return parsed_parameters
 
     def parse_host_fn(
-        self, host_fn_values: Dict[str, Any], parent_generics: List[str]
+        self, host_fn_values: Dict[str, Any], parent_generics: List[ModApiGeneric]
     ) -> ModApiHostFn:
         description = self.get_string(host_fn_values, "description")
         self.pop_path()
 
-        generics = list(parent_generics)
-        if "used_generics" in host_fn_values:
-            used_generics = self.get_list(host_fn_values, "used_generics")
-            for index, generic in enumerate(used_generics):
-                self.push_path(f"[{index}]")
-                if not isinstance(generic, str):
-                    raise self.new_error("is not a string")
-                if not generic.startswith("$"):
-                    raise self.new_error("does not begin with '$'")
-                generics.append(generic)
-                self.pop_path()
-            self.pop_path()
+        generics = (
+            self.parse_used_generics(host_fn_values)
+            if "used_generics" in host_fn_values
+            else list(parent_generics)
+        )
 
         if "parameters" in host_fn_values:
             parameters = self.parse_parameters(
@@ -361,7 +408,7 @@ Error: {error_message}
         )
 
     def parse_static_methods(
-        self, owner_values: Dict[str, Any], parent_generics: List[str]
+        self, owner_values: Dict[str, Any], parent_generics: List[ModApiGeneric]
     ) -> Dict[str, ModApiHostFn]:
         static_methods: Dict[str, ModApiHostFn] = {}
         if "static_methods" not in owner_values:
@@ -480,6 +527,45 @@ Error: {error_message}
         raise context.new_error("is not an object")
     mod_api_root = cast(Dict[str, Any], mod_api_json)
 
+    constraints: Dict[str, ModApiConstraint] = {}
+    if "constraints" in mod_api_root:
+        constraints_obj = context.get_key(mod_api_root, "constraints")
+        if not isinstance(constraints_obj, dict):
+            raise context.new_error("is not an object")
+        constraints_obj = cast(Dict[str, Any], constraints_obj)
+        # Collect names first so implementors can refer to any constraint,
+        # including themselves and constraints declared later in the file.
+        context.constraint_names = list(constraints_obj)
+        for constraint_name, constraint_values in constraints_obj.items():
+            context.push_path(f".{constraint_name}")
+            if not isinstance(constraint_values, dict):
+                raise context.new_error("is not an object")
+            constraint_values = cast(Dict[str, Any], constraint_values)
+            description = context.get_string(constraint_values, "description")
+            context.pop_path()
+
+            implementors: List[ModApiConstraintImplementor] = []
+            for index, implementor in enumerate(
+                context.get_list(constraint_values, "implementors")
+            ):
+                context.push_path(f"[{index}]")
+                if not isinstance(implementor, dict):
+                    raise context.new_error("is not an object")
+                implementor = cast(Dict[str, Any], implementor)
+                implementor_generics = context.parse_used_generics(implementor)
+                implementor_type = context.parse_type(
+                    context.get_key(implementor, "type"), implementor_generics
+                )
+                context.pop_path()
+                implementors.append(
+                    ModApiConstraintImplementor(implementor_generics, implementor_type)
+                )
+                context.pop_path()
+            context.pop_path()
+            constraints[constraint_name] = ModApiConstraint(description, implementors)
+            context.pop_path()
+        context.pop_path()
+
     # entities
     entities: Dict[str, ModApiEntity] = {}
     if "entities" in mod_api_root:
@@ -552,20 +638,7 @@ Error: {error_message}
             description = context.get_string(class_values, "description")
             context.pop_path()
 
-            generics: List[str] = []
-            if "used_generics" in class_values:
-                used_generics = context.get_list(class_values, "used_generics")
-
-                for index, generic in enumerate(used_generics):
-                    context.push_path(f"[{index}]")
-                    if not isinstance(generic, str):
-                        raise context.new_error("is not a string")
-                    if not generic.startswith("$"):
-                        raise context.new_error("does not begin with '$'")
-                    generics.append(generic)
-                    context.pop_path()
-
-                context.pop_path()
+            generics = context.parse_used_generics(class_values)
 
             ty = IdType(class_name, [ExistentialType(i) for i in range(len(generics))])
 
@@ -682,4 +755,20 @@ Error: {error_message}
         context.pop_path()
     context.pop_path()
 
-    return ModApi(entities=entities, classes=classes, host_fns=host_fns)
+    context.push_path(".constraints")
+    for constraint_name, constraint in constraints.items():
+        context.push_path(f".{constraint_name}")
+        context.push_path(".implementors")
+        for index, implementor in enumerate(constraint.implementors):
+            context.push_path(f"[{index}]")
+            context.push_path(".type")
+            context.validate_type(implementor.type, known_types)
+            context.pop_path()
+            context.pop_path()
+        context.pop_path()
+        context.pop_path()
+    context.pop_path()
+
+    return ModApi(
+        entities=entities, classes=classes, host_fns=host_fns, constraints=constraints
+    )

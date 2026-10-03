@@ -45,7 +45,7 @@ class StringExpr:
 class ResourceExpr:
     string: str
     expr_span: SourceSpan
-    result: Type = field(default_factory=lambda: ResourceStrType(extension=""))
+    result: Type = field(default_factory=lambda: ResourceStrType(extension="", optional=False))
 
 
 @dataclass
@@ -108,6 +108,7 @@ class CallExpr:
     arguments: List[Expr] = field(default_factory=lambda: [])
     fn_ptr: Optional[HostFn] = None
     result: Type = field(default_factory=lambda: PrimitiveType.VOID)
+    generics: List[Type] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -518,7 +519,7 @@ class Parser:
         if type_name == "string":
             return PrimitiveType.STRING, type_token.span
         if type_name == "resource":
-            return ResourceStrType(extension=""), type_token.span
+            return ResourceStrType(extension="", optional=False), type_token.span
         if type_name == "entity":
             return EntityStrType(entity_type=None), type_token.span
 
