@@ -820,6 +820,8 @@ class GameFnRegistrator:
         return_type = host_fn_data.return_type
 
         if len(host_fn_data.generics) == 0:
+            # Only a generic game function can do with just a reg fn
+            assert c_fn is not None, f"missing game_fn_{native_name}"
             self.state.mod_api.register_fn(
                 class_name, name, self.wrap_fn(return_type, c_fn, [])
             )
