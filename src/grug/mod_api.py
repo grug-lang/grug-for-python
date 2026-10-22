@@ -110,6 +110,11 @@ Error: {message}
         if class_name is not None:
             kind, host_fn_data = self._lookup_on_type(class_name, fn_name)
 
+            if len(host_fn_data.generics) != 0:
+                raise self.new_registration_error(
+                    f"Host {kind} '{fn_name}' on class '{class_name}' is generic"
+                )
+
             if host_fn_data.fn_ptr is not None:
                 raise self.new_registration_error(
                     f"Host {kind} named '{fn_name}' on class '{class_name}' has already been registered"
@@ -123,6 +128,9 @@ Error: {message}
             raise self.new_registration_error(
                 f"Host function named '{fn_name}' is not found in mod_api.json"
             )
+
+        if len(host_fn_data.generics) != 0:
+            raise self.new_registration_error(f"Host function '{fn_name}' is generic")
 
         if host_fn_data.fn_ptr is not None:
             raise self.new_registration_error(

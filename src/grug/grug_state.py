@@ -286,9 +286,8 @@ class GrugState:
                 def register(
                     generics: List[Type],
                     generic_method: HostFnReg = generic_method,
-                ) -> Optional[HostFn]:
-                    method = generic_method(generics)
-                    return None if method is None else self._adapt_grug_method(method)
+                ) -> HostFn:
+                    return self._adapt_grug_method(generic_method(generics))
 
                 self.mod_api.register_generic_fn(cls.__name__, name, register)
                 continue
