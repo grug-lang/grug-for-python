@@ -564,6 +564,14 @@ Error: {error_message}
                 implementor_type = context.parse_type(
                     context.get_key(implementor, "type"), implementor_generics
                 )
+                if isinstance(implementor_type, ResourceStrType):
+                    raise context.new_error("cannot be a resource string")
+                if isinstance(implementor_type, EntityStrType):
+                    raise context.new_error("cannot be an entity string")
+                # A bare generic could implement the constraint it is part of,
+                # which would make checking that constraint recurse forever
+                if isinstance(implementor_type, ExistentialType):
+                    raise context.new_error("cannot be a bare generic")
                 context.pop_path()
                 implementors.append(
                     ModApiConstraintImplementor(implementor_generics, implementor_type)
