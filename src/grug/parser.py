@@ -108,7 +108,6 @@ class CallExpr:
     arguments: List[Expr] = field(default_factory=lambda: [])
     fn_ptr: Optional[HostFn] = None
     result: Type = field(default_factory=lambda: PrimitiveType.VOID)
-    generics: List[Type] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -512,6 +511,8 @@ class Parser:
         type_token = self.consume_token_type(i, TokenType.WORD_TOKEN)
         type_name = type_token.value
 
+        if type_name == "_":
+            raise self.new_error(type_token.span, "`_` is not a valid type name")
         if type_name == "bool":
             return PrimitiveType.BOOL, type_token.span
         if type_name == "number":

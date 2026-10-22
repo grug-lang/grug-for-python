@@ -36,7 +36,9 @@
 				"print": {
                     "description": "Prints a value",
 					"used_generics": [
-						"$T"
+						{
+							"name": "$T"
+						}
 					],
                     "parameters": [
                         {

@@ -520,24 +520,23 @@ class TypePropagator:
     def convert_mod_api_type(mod_api_type: Type, replacements: List[Type]) -> Type:
         return substitute_type(mod_api_type, replacements)
 
-    @staticmethod
-    def format_type_list(types: List[Type]) -> str:
-        return "[" + ", ".join(str(ty) for ty in types) + "]"
-
     def fill_host_fn_ptr(
         self,
         host_fn: ModApiHostFn,
         generics: List[Type],
-        name_span: SourceSpan,
         function_name: str,
         method_receiver_name: Optional[str] = None,
-    ) -> Optional[HostFn]:
-        if host_fn.generic_reg_fn is not None:
-            fn_ptr = host_fn.generic_reg_fn(generics)
-            if fn_ptr is not None:
-                return fn_ptr
-
-        if host_fn.fn_ptr is not None:
+    ) -> HostFn:
+        if len(generics) == 0:
+            # not handled in tests yet
+            if host_fn.fn_ptr is None:  # pragma: no cover
+                if method_receiver_name is None:
+                    raise RuntimeError(
+                        f"host function {function_name} was not registered"
+                    )
+                raise RuntimeError(
+                    f"method {method_receiver_name}.{function_name} was not registered"
+                )
             return host_fn.fn_ptr
 
         # not handled in tests yet
@@ -550,16 +549,7 @@ class TypePropagator:
                 f"generic method {method_receiver_name}.{function_name} was not registered"
             )
 
-        type_list = self.format_type_list(generics)
-        if method_receiver_name is None:
-            raise self.new_error(
-                name_span,
-                f"generic function '{function_name}' failed instantiation for types {type_list}",
-            )
-        raise self.new_error(
-            name_span,
-            f"generic method '{method_receiver_name}.{function_name}' failed instantiation for types {type_list}",
-        )
+        return host_fn.generic_reg_fn(generics)
 
     # Fills the expression once to get all relevant constraints to get the concrete types
     # Runs through the expression again to fill in the actual types
@@ -830,9 +820,8 @@ class TypePropagator:
                     expr.arguments,
                 )
                 if substitutions is not None:
-                    expr.generics = generics
                     expr.fn_ptr = self.fill_host_fn_ptr(
-                        host_fn, generics, expr.name_span, fn_name
+                        host_fn, generics, fn_name
                     )
                 return self.convert_mod_api_type(host_fn.return_type, generics)
 
@@ -923,9 +912,8 @@ class TypePropagator:
         )
 
         if substitutions is not None:
-            expr.generics = generics
             expr.fn_ptr = self.fill_host_fn_ptr(
-                host_fn, generics, expr.name_span, expr.fn_name, type_name
+                host_fn, generics, expr.fn_name, type_name
             )
             # The receiver named a type rather than a value, so there is nothing
             # to evaluate and pass: a resolved static call has the shape of a
@@ -1001,9 +989,8 @@ class TypePropagator:
             expr.arguments,
         )
         if substitutions is not None:
-            expr.generics = generics
             expr.fn_ptr = self.fill_host_fn_ptr(
-                host_fn, generics, expr.name_span, expr.fn_name, receiver_name
+                host_fn, generics, expr.fn_name, receiver_name
             )
         return self.convert_mod_api_type(host_fn.return_type, generics)
 

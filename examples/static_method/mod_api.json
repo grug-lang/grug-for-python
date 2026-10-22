@@ -30,7 +30,9 @@
         "Box": {
             "description": "Holds one value of any type.",
             "used_generics": [
-                "$T"
+                {
+                    "name": "$T"
+                }
             ],
             "static_methods": {
                 "of": {

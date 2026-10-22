@@ -35,7 +35,9 @@
         "Box": {
             "description": "A generic box.",
             "used_generics": [
-                "$T"
+                {
+                    "name": "$T"
+                }
             ],
             "static_methods": {
                 "of": {

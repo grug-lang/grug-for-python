@@ -14,7 +14,9 @@
 		"List": {
 			"description": "An list of values",
 			"used_generics": [
-				"$T"
+				{
+					"name": "$T"
+				}
 			],
 			"methods": {
 				"len": {
@@ -165,8 +167,12 @@
 		"Pair": {
 			"description": "A pair of two values of different types",
 			"used_generics": [
-				"$T1",
-				"$T2"
+				{
+					"name": "$T1"
+				},
+				{
+					"name": "$T2"
+				}
 			],
 			"methods": {
 				"first": {
@@ -186,8 +192,12 @@
 		"Dict": {
 			"description": "A Dictionary from a generic key type to a generic value type",
 			"used_generics": [
-				"$K",
-				"$V"
+				{
+					"name": "$K"
+				},
+				{
+					"name": "$V"
+				}
 			],
 			"methods": {
 				"has_key": {
@@ -415,8 +425,12 @@
 		"make_pair": {
 			"description": "Creates a pair of two items",
 			"used_generics": [
-				"$T1",
-				"$T2"
+				{
+					"name": "$T1"
+				},
+				{
+					"name": "$T2"
+				}
 			],
 			"return_type": {
 				"name": "Pair",
@@ -472,7 +486,9 @@
 		"assert_eq": {
 			"description": "asserts that two different values are equal",
 			"used_generics": [
-				"$T"
+				{
+					"name": "$T"
+				}
 			],
 			"parameters": [
 				{
@@ -492,7 +508,9 @@
 		"print": {
 			"description": "prints the given value",
 			"used_generics": [
-				"$T"
+				{
+					"name": "$T"
+				}
 			],
 			"parameters": [
 				{
@@ -506,8 +524,12 @@
 		"dict": {
 			"description": "Creates an empty dict",
 			"used_generics": [
-				"$K",
-				"$V"
+				{
+					"name": "$K"
+				},
+				{
+					"name": "$V"
+				}
 			],
 			"return_type": {
 				"name": "Dict",
@@ -524,8 +546,12 @@
 		"dict_from_keys": {
 			"description": "Creates a dict from a list of keys and a default value",
 			"used_generics": [
-				"$K",
-				"$V"
+				{
+					"name": "$K"
+				},
+				{
+					"name": "$V"
+				}
 			],
 			"return_type": {
 				"name": "Dict",
@@ -561,7 +587,9 @@
 		"list": {
 			"description": "Creates an empty list",
 			"used_generics": [
-				"$T"
+				{
+					"name": "$T"
+				}
 			],
 			"return_type": {
 				"name": "List",

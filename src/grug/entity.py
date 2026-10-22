@@ -333,7 +333,7 @@ class Entity:
         # fn_ptr should always be filled in during type propagation
         assert call_expr.fn_ptr, call_expr.fn_name
         return self._run_host_fn(
-            call_expr.fn_name, call_expr.fn_ptr, call_expr.result, call_expr.generics, *args
+            call_expr.fn_name, call_expr.fn_ptr, call_expr.result, *args
         )
 
     def _run_if_statement(self, statement: IfStatement):
@@ -419,15 +419,10 @@ class Entity:
             self.local_variables = parent_local_variables
 
     def _run_host_fn(
-        self,
-        fn_name: str,
-        fn: HostFn,
-        return_type: Type,
-        generics: List[Type],
-        *args: GrugValue,
+        self, fn_name: str, fn: HostFn, return_type: Type, *args: GrugValue
     ) -> Optional[GrugValue]:
         try:
-            result = fn(self.state, *args, generics)
+            result = fn(self.state, *args)
         except GameFnError as e:
             self.state.runtime_error_handler(
                 e.reason,

@@ -4,14 +4,14 @@ import traceback
 from enum import IntEnum
 from pathlib import Path
 from threading import RLock
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pytest  # pyright: ignore[reportMissingImports]
 
 import grug
 from grug.entity import Entity, ReraisedGameFnError, StackOverflow, TimeLimitExceeded
 from grug.grug_state import GrugFile, GrugRuntimeErrorType, GrugState
-from grug.mod_api import get_mod_api
+from grug.mod_api import ModApiHostFn, get_mod_api
 from grug.types import (
     ExistentialType,
     GrugValue,
@@ -84,15 +84,6 @@ class GrugType(IntEnum):
     ID = 4
     RESOURCE = 5
     ENTITY = 6
-
-
-game_fn_c_t = ctypes.CFUNCTYPE(
-    GrugValueWorkaround,
-    ctypes.c_void_p,
-    ctypes.POINTER(GrugValueUnion),
-    ctypes.POINTER(CGrugType),
-)
-generic_fn_reg_c_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.POINTER(CGrugType))
 
 
 def c_to_py_value(value: GrugValueUnion, typ: Type):
@@ -257,6 +248,20 @@ _grug_runtime_err: Optional[
 
 _game_fn_error_reason: Optional[str] = None
 
+# The grug-tests code reloading tests overwrite these files and then call update(),
+# so they have to be compiled and looked up through the state's mods directory.
+_CODE_RELOADING_PATHS = (
+    "code_reloading/input-D.grug",
+    "code_reloading_destroyed_entity/input-D.grug",
+)
+
+
+def _get_mods_file(state: GrugState, path_str: str) -> GrugFile:
+    dir_name, file_name = path_str.split("/")
+    file = state.mods[dir_name][file_name]
+    assert isinstance(file, GrugFile)
+    return file
+
 
 def custom_runtime_error_handler(
     reason: str,
@@ -284,6 +289,8 @@ def test_grug(
 
     states: dict[int, GrugState] = {}
     files: dict[int, GrugFile] = {}
+    # Maps the file IDs of the code reloading files to their paths
+    reloading_paths: dict[int, str] = {}
     entities: dict[int, Entity] = {}
 
     error_buffers: List[bytes] = []
@@ -314,14 +321,15 @@ def test_grug(
 
             path_str = path.decode()
 
-            if path_str == "code_reloading/input-D.grug":
+            file_id = len(files) + 1
+
+            if path_str in _CODE_RELOADING_PATHS:
                 state._update()  # pyright: ignore[reportPrivateUsage]
-                file = state.mods["code_reloading"]["input-D.grug"]
-                assert isinstance(file, GrugFile)
+                file = _get_mods_file(state, path_str)
+                reloading_paths[file_id] = path_str
             else:
                 file = state._compile_grug_file(path_str)  # type: ignore
 
-            file_id = len(files) + 1
             files[file_id] = file
             out_err[0] = None
             return file_id
@@ -340,6 +348,7 @@ def test_grug(
         _grug_runtime_err = None
 
         del files[file_id]
+        reloading_paths.pop(file_id, None)
 
     @create_entity_t
     def create_entity(
@@ -386,18 +395,11 @@ def test_grug(
             state = states[state_ptr]
             state._update()  # pyright: ignore[reportPrivateUsage]
 
-            # We have to manually overwrite the old file in the files list,
+            # We have to manually overwrite the old files in the files list,
             # purely because test_grug.py tries to emulate the grug implementation.
-            # We must conditionally check for 'code_reloading' to avoid breaking other tests.
-            if (
-                "code_reloading" in state.mods.dirs
-                and "input-D.grug" in state.mods.dirs["code_reloading"].files
-            ):
-                file = state.mods["code_reloading"]["input-D.grug"]
-                assert isinstance(file, GrugFile)
-
-                last_file_id = list(files.keys())[-1]
-                files[last_file_id] = file
+            # Only the code reloading files are replaced, to avoid breaking other tests.
+            for file_id, path_str in reloading_paths.items():
+                files[file_id] = _get_mods_file(state, path_str)
 
             out_err[0] = None
         except Exception as e:  # pragma: no cover
@@ -762,11 +764,12 @@ class GameFnRegistrator:
         raise ReraisedGameFnError(reason)
 
     # type of c_fn cannot be expressed properly
-    def wrap_fn(self, return_type: Type, c_fn: Any) -> HostFn:
+    def wrap_fn(self, return_type: Type, c_fn: Any, generics: List[Type]) -> HostFn:
+        c_generics = _c_type_storage.insert_type_list(generics)
+        return_type = substitute_type(return_type, generics)
+
         def fn(state: GrugState, *args: GrugValue):
-            generics = cast(List[Type], args[-1])
-            c_generics = _c_type_storage.insert_type_list(generics)
-            c_args, _keepalive = self._get_c_args(*args[:-1])
+            c_args, _keepalive = self._get_c_args(*args)
             self._keepalive += _keepalive
 
             # We pass 42 since `state` is a Python object
@@ -781,46 +784,17 @@ class GameFnRegistrator:
             if _grug_runtime_err is not None:
                 raise _grug_runtime_err
 
-            return self._unpack_workaround(result, substitute_type(return_type, generics))
+            return self._unpack_workaround(result, return_type)
 
         return fn
 
-    def _register_fn(self, name: str, native_name: Optional[str] = None):
-        c_fn = self.grug_lib["game_fn_" + (native_name if native_name is not None else name)]
-
-        c_fn.argtypes = (
-            ctypes.c_void_p,
-            ctypes.POINTER(GrugValueUnion),
-            ctypes.POINTER(CGrugType),
-        )
-        c_fn.restype = GrugValueWorkaround
-
-        return_type = self.state.mod_api.host_fns[name].return_type
-
-        self.state.mod_api.register_fn(None, name, self.wrap_fn(return_type, c_fn))
-
-    def _register_generic_fn(self, name: str, native_name: str):
-        c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
-        c_reg_fn.argtypes = (ctypes.POINTER(CGrugType),)
-        c_reg_fn.restype = ctypes.c_void_p
-
-        host_fn_data = self.state.mod_api.host_fns[name]
-
-        def register(generics: List[Type]):
-            generic_array = _c_type_storage.insert_type_list(generics)
-
-            c_fn_ptr = c_reg_fn(generic_array)
-            if c_fn_ptr is None:
-                return None
-
-            c_fn = game_fn_c_t(c_fn_ptr)
-            return_type = substitute_type(host_fn_data.return_type, generics)
-
-            return self.wrap_fn(return_type, c_fn)
-
-        self.state.mod_api.register_generic_fn(None, name, register)
-
-    def _register_method(self, class_name: str, name: str, native_name: str):
+    def _register_c_fn(
+        self,
+        class_name: Optional[str],
+        name: str,
+        native_name: str,
+        host_fn_data: ModApiHostFn,
+    ):
         c_fn = self.grug_lib["game_fn_" + native_name]
 
         c_fn.argtypes = (
@@ -830,10 +804,35 @@ class GameFnRegistrator:
         )
         c_fn.restype = GrugValueWorkaround
 
-        return_type = self.state.mod_api.classes[class_name].methods[name].return_type
+        return_type = host_fn_data.return_type
 
-        self.state.mod_api.register_fn(
-            class_name, name, self.wrap_fn(return_type, c_fn)
+        if len(host_fn_data.generics) == 0:
+            self.state.mod_api.register_fn(
+                class_name, name, self.wrap_fn(return_type, c_fn, [])
+            )
+            return
+
+        # The C game function receives its generics on every call,
+        # so each instantiation gets a wrapper that passes them along
+        def register(generics: List[Type]) -> HostFn:
+            return self.wrap_fn(return_type, c_fn, generics)
+
+        self.state.mod_api.register_generic_fn(class_name, name, register)
+
+    def _register_fn(self, name: str, native_name: Optional[str] = None):
+        self._register_c_fn(
+            None,
+            name,
+            native_name if native_name is not None else name,
+            self.state.mod_api.host_fns[name],
+        )
+
+    def _register_method(self, class_name: str, name: str, native_name: str):
+        self._register_c_fn(
+            class_name,
+            name,
+            native_name,
+            self.state.mod_api.classes[class_name].methods[name],
         )
 
     def _static_method_data(self, type_name: str, name: str):
@@ -842,45 +841,9 @@ class GameFnRegistrator:
         return static_methods[name]
 
     def _register_static_method(self, type_name: str, name: str, native_name: str):
-        c_fn = self.grug_lib["game_fn_" + native_name]
-
-        c_fn.argtypes = (
-            ctypes.c_void_p,
-            ctypes.POINTER(GrugValueUnion),
-            ctypes.POINTER(CGrugType),
+        self._register_c_fn(
+            type_name, name, native_name, self._static_method_data(type_name, name)
         )
-        c_fn.restype = GrugValueWorkaround
-
-        return_type = self._static_method_data(type_name, name).return_type
-
-        self.state.mod_api.register_fn(type_name, name, self.wrap_fn(return_type, c_fn))
-
-    def _register_generic_method(
-        self, class_name: str, name: str, native_name: str, static: bool = False
-    ):
-        c_reg_fn = self.grug_lib["reg_game_fn_" + native_name]
-        c_reg_fn.argtypes = (ctypes.POINTER(CGrugType),)
-        c_reg_fn.restype = ctypes.c_void_p
-
-        host_fn_data = (
-            self._static_method_data(class_name, name)
-            if static
-            else self.state.mod_api.classes[class_name].methods[name]
-        )
-
-        def register(generics: List[Type]):
-            generic_array = _c_type_storage.insert_type_list(generics)
-
-            c_fn_ptr = c_reg_fn(generic_array)
-            if c_fn_ptr is None:
-                return None
-
-            c_fn = game_fn_c_t(c_fn_ptr)
-            return_type = substitute_type(host_fn_data.return_type, generics)
-
-            return self.wrap_fn(return_type, c_fn)
-
-        self.state.mod_api.register_generic_fn(class_name, name, register)
 
 
 # Enables stepping through code with VS Code its Python debugger.
