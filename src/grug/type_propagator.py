@@ -139,8 +139,12 @@ class TyCtx:
     ) -> None:
         mod_api = self.type_propagator.mod_api
 
+        # `checking` holds the (type, constraint) pairs whose check is in progress
         def type_matches_implementor(
-            actual: Type, implementor: Type, generics: List[ModApiGeneric]
+            actual: Type,
+            implementor: Type,
+            generics: List[ModApiGeneric],
+            checking: Tuple[Tuple[Type, str], ...],
         ) -> bool:
             if isinstance(actual, IdType) and isinstance(implementor, IdType):
                 if actual.name != implementor.name or len(actual.generics) != len(
@@ -148,14 +152,16 @@ class TyCtx:
                 ):
                     return False
                 return all(
-                    type_matches_implementor(actual_generic, implementor_generic, generics)
+                    type_matches_implementor(
+                        actual_generic, implementor_generic, generics, checking
+                    )
                     for actual_generic, implementor_generic in zip(
                         actual.generics, implementor.generics
                     )
                 )
             if isinstance(implementor, ExistentialType):
                 return all(
-                    implements_constraint(actual, constraint_name)
+                    implements_constraint(actual, constraint_name, checking)
                     for constraint_name in generics[implementor.idx].constraints
                 )
             return (
@@ -164,9 +170,20 @@ class TyCtx:
                 and actual == implementor
             )
 
-        def implements_constraint(actual: Type, constraint_name: str) -> bool:
+        def implements_constraint(
+            actual: Type,
+            constraint_name: str,
+            checking: Tuple[Tuple[Type, str], ...] = (),
+        ) -> bool:
+            # A bare generic implementor can make a check depend on itself,
+            # and that path can't prove that the type implements the constraint
+            if (actual, constraint_name) in checking:
+                return False
+            checking += ((actual, constraint_name),)
             return any(
-                type_matches_implementor(actual, implementor.type, implementor.generics)
+                type_matches_implementor(
+                    actual, implementor.type, implementor.generics, checking
+                )
                 for implementor in mod_api.constraints[constraint_name].implementors
             )
 
@@ -523,6 +540,7 @@ class TypePropagator:
         host_fn: ModApiHostFn,
         generics: List[Type],
         function_name: str,
+        span: SourceSpan,
         method_receiver_name: Optional[str] = None,
     ) -> HostFn:
         if len(generics) == 0:
@@ -547,7 +565,14 @@ class TypePropagator:
                 f"generic method {method_receiver_name}.{function_name} was not registered"
             )
 
-        return host_fn.generic_reg_fn(generics)
+        fn_ptr = host_fn.generic_reg_fn(generics)
+        if fn_ptr is None:
+            generics_str = ", ".join(str(generic) for generic in generics)
+            raise self.new_error(
+                span,
+                f"The host function '{function_name}' has no version for the generics [{generics_str}]",
+            )
+        return fn_ptr
 
     # Fills the expression once to get all relevant constraints to get the concrete types
     # Runs through the expression again to fill in the actual types
@@ -857,7 +882,7 @@ class TypePropagator:
                 )
                 if substitutions is not None:
                     expr.fn_ptr = self.fill_host_fn_ptr(
-                        host_fn, generics, fn_name
+                        host_fn, generics, fn_name, expr.name_span
                     )
                 return self.convert_mod_api_type(host_fn.return_type, generics)
 
@@ -949,7 +974,7 @@ class TypePropagator:
 
         if substitutions is not None:
             expr.fn_ptr = self.fill_host_fn_ptr(
-                host_fn, generics, expr.fn_name, type_name
+                host_fn, generics, expr.fn_name, expr.name_span, type_name
             )
             # The receiver named a type rather than a value, so there is nothing
             # to evaluate and pass: a resolved static call has the shape of a
@@ -1029,7 +1054,7 @@ class TypePropagator:
         )
         if substitutions is not None:
             expr.fn_ptr = self.fill_host_fn_ptr(
-                host_fn, generics, expr.fn_name, receiver_name
+                host_fn, generics, expr.fn_name, expr.name_span, receiver_name
             )
         return self.convert_mod_api_type(host_fn.return_type, generics)
 

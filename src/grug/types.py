@@ -6,7 +6,8 @@ from typing import Callable, List, Optional, Union
 
 GrugValue = Union[float, bool, str, object]
 HostFn = Callable[..., Optional[GrugValue]]
-HostFnReg = Callable[[List["Type"]], HostFn]
+# Returns None when the host function has no version for these generics
+HostFnReg = Callable[[List["Type"]], Optional[HostFn]]
 
 
 class PrimitiveType(Enum):

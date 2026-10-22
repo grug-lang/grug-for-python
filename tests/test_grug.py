@@ -170,6 +170,14 @@ class CTypeStorage:
 # this storage: retained memory grows with distinct types/lists, not call count.
 _c_type_storage = CTypeStorage()
 
+# The signature of a game function returned by a C reg fn
+_CGameFn = ctypes.CFUNCTYPE(
+    GrugValueWorkaround,
+    ctypes.c_void_p,
+    ctypes.POINTER(GrugValueUnion),
+    ctypes.POINTER(CGrugType),
+)
+
 
 # Callback type definitions
 parse_mod_api_t = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_char_p)
@@ -619,6 +627,8 @@ class GameFnRegistrator:
             "identity",
             "max",
             "say",
+            "show",
+            "specialized",
             "sin",
             "cos",
             "count_matching",
@@ -797,14 +807,15 @@ class GameFnRegistrator:
         native_name: str,
         host_fn_data: ModApiHostFn,
     ):
-        c_fn = self.grug_lib["game_fn_" + native_name]
-
-        c_fn.argtypes = (
-            ctypes.c_void_p,
-            ctypes.POINTER(GrugValueUnion),
-            ctypes.POINTER(CGrugType),
-        )
-        c_fn.restype = GrugValueWorkaround
+        # A generic game function may only have a reg fn
+        c_fn = getattr(self.grug_lib, "game_fn_" + native_name, None)
+        if c_fn is not None:
+            c_fn.argtypes = (
+                ctypes.c_void_p,
+                ctypes.POINTER(GrugValueUnion),
+                ctypes.POINTER(CGrugType),
+            )
+            c_fn.restype = GrugValueWorkaround
 
         return_type = host_fn_data.return_type
 
@@ -814,9 +825,24 @@ class GameFnRegistrator:
             )
             return
 
+        # A C reg fn can specialize the game function for some generics,
+        # and returns NULL for the others
+        c_reg_fn = getattr(self.grug_lib, "reg_game_fn_" + native_name, None)
+        if c_reg_fn is not None:
+            c_reg_fn.argtypes = (ctypes.POINTER(CGrugType),)
+            c_reg_fn.restype = ctypes.c_void_p
+
         # The C game function receives its generics on every call,
         # so each instantiation gets a wrapper that passes them along
-        def register(generics: List[Type]) -> HostFn:
+        def register(generics: List[Type]) -> Optional[HostFn]:
+            if c_reg_fn is not None:
+                specialized = c_reg_fn(_c_type_storage.insert_type_list(generics))
+                if specialized is not None:
+                    return self.wrap_fn(
+                        return_type, _CGameFn(specialized), generics
+                    )
+            if c_fn is None:
+                return None
             return self.wrap_fn(return_type, c_fn, generics)
 
         self.state.mod_api.register_generic_fn(class_name, name, register)
