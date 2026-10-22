@@ -555,17 +555,29 @@ Error: {error_message}
             )
         self.pop_path()
 
-    # Whether `ty`, whose existentials refer to `generics`, implements the constraint
+    # Whether `ty`, whose existentials refer to `generics`, implements the constraint.
+    # `checking` holds the (type, constraint) pairs whose check is in progress.
     def implements_constraint(
-        self, ty: Type, generics: List[ModApiGeneric], constraint_name: str
+        self,
+        ty: Type,
+        generics: List[ModApiGeneric],
+        constraint_name: str,
+        checking: Tuple[Tuple[Type, str], ...] = (),
     ) -> bool:
         if (
             isinstance(ty, ExistentialType)
             and constraint_name in generics[ty.idx].constraints
         ):
             return True
+        # A bare generic implementor can make a check depend on itself,
+        # and that path can't prove that the type implements the constraint
+        if (ty, constraint_name) in checking:
+            return False
+        checking += ((ty, constraint_name),)
         return any(
-            self.type_matches_implementor(ty, generics, implementor.type, implementor.generics)
+            self.type_matches_implementor(
+                ty, generics, implementor.type, implementor.generics, checking
+            )
             for implementor in self.constraints[constraint_name].implementors
         )
 
@@ -575,11 +587,12 @@ Error: {error_message}
         generics: List[ModApiGeneric],
         implementor_type: Type,
         implementor_generics: List[ModApiGeneric],
+        checking: Tuple[Tuple[Type, str], ...],
     ) -> bool:
         if isinstance(ty, IdType) and isinstance(implementor_type, IdType):
             return ty.name == implementor_type.name and all(
                 self.type_matches_implementor(
-                    generic, generics, implementor_generic, implementor_generics
+                    generic, generics, implementor_generic, implementor_generics, checking
                 )
                 for generic, implementor_generic in zip(
                     ty.generics, implementor_type.generics
@@ -588,7 +601,7 @@ Error: {error_message}
         # The implementor accepts any type that implements its generic's constraints
         if isinstance(implementor_type, ExistentialType):
             return all(
-                self.implements_constraint(ty, generics, constraint_name)
+                self.implements_constraint(ty, generics, constraint_name, checking)
                 for constraint_name in implementor_generics[implementor_type.idx].constraints
             )
         # Resource and entity strings end up here, since no implementor can be one
@@ -676,10 +689,6 @@ Error: {error_message}
                     raise context.new_error("cannot be a resource string")
                 if isinstance(implementor_type, EntityStrType):
                     raise context.new_error("cannot be an entity string")
-                # A bare generic could implement the constraint it is part of,
-                # which would make checking that constraint recurse forever
-                if isinstance(implementor_type, ExistentialType):
-                    raise context.new_error("cannot be a bare generic")
                 context.pop_path()
                 implementors.append(
                     ModApiConstraintImplementor(implementor_generics, implementor_type)
