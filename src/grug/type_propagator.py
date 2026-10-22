@@ -611,6 +611,18 @@ class TypePropagator:
                     arg.expr_span,
                     f"The host function '{function_name}' expects an entity string, so put an 'e' in front of string \"{arg.string}\"",
                 )
+            elif isinstance(param.type, ExistentialType) and isinstance(
+                arg_result_ty, (ResourceStrType, EntityStrType)
+            ):
+                kind = (
+                    "a resource"
+                    if isinstance(arg_result_ty, ResourceStrType)
+                    else "an entity"
+                )
+                raise self.new_error(
+                    arg.expr_span,
+                    f"Function call '{function_name}' can't take {kind} string for its generic argument '{param.name}'",
+                )
             elif arg_result_ty == PrimitiveType.VOID:
                 raise self.new_error(
                     arg.expr_span,
