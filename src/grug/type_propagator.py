@@ -81,12 +81,10 @@ def type_diff(expected: Type, actual: Type) -> str:
             return str(ty)
         elif isinstance(ty, IdType):
             return ty.name
-        elif isinstance(ty, ResourceStrType):  # pragma: no cover
-            # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
-            raise RuntimeError("not supposed to require type name of resource string")
-        elif isinstance(ty, EntityStrType):  # pragma: no cover
-            # this function is only used to diff the name of types in generics, resource strings cannot appear in generics
-            raise RuntimeError("not supposed to require type name of entity string")
+        elif isinstance(ty, ResourceStrType):
+            return "resource"
+        elif isinstance(ty, EntityStrType):
+            return "entity"
         raise AssertionError("Unreachable")  # pragma: no cover
 
     if type_matches(expected, actual):
@@ -611,6 +609,16 @@ class TypePropagator:
                     arg.expr_span,
                     f"The host function '{function_name}' expects an entity string, so put an 'e' in front of string \"{arg.string}\"",
                 )
+            elif isinstance(param.type, (ResourceStrType, EntityStrType)):
+                kind = (
+                    "a resource"
+                    if isinstance(param.type, ResourceStrType)
+                    else "an entity"
+                )
+                raise self.new_error(
+                    arg.expr_span,
+                    f"The host function '{function_name}' expects {kind} string for argument '{param.name}'",
+                )
             elif isinstance(param.type, ExistentialType) and isinstance(
                 arg_result_ty, (ResourceStrType, EntityStrType)
             ):
@@ -695,6 +703,19 @@ class TypePropagator:
         expr.result = result_ty
         return result_ty
 
+    # Resource and entity strings can only be passed directly to host
+    # functions, so they can't be the operand of an operator
+    def _reject_resource_or_entity_operand(self, ty: Type, span: SourceSpan) -> None:
+        if isinstance(ty, ResourceStrType):
+            kind = "A resource"
+        elif isinstance(ty, EntityStrType):
+            kind = "An entity"
+        else:
+            return
+        raise self.new_error(
+            span, f"{kind} string can only be passed directly to a host function"
+        )
+
     def _fill_unary_expr(
         self, ty_ctx: TyCtx, substitutions: Optional[List[Type]], expr: UnaryExpr
     ) -> Type:
@@ -705,6 +726,7 @@ class TypePropagator:
             )
 
         result_ty = self.fill_expr(ty_ctx, substitutions, expr.expr)
+        self._reject_resource_or_entity_operand(result_ty, expr.expr.expr_span)
         expected = (
             PrimitiveType.BOOL
             if expr.operator == TokenType.NOT_TOKEN
@@ -738,6 +760,8 @@ class TypePropagator:
         right = expr.right_expr
         result_0 = self.fill_expr(ty_ctx, substitutions, left)
         result_1 = self.fill_expr(ty_ctx, substitutions, right)
+        self._reject_resource_or_entity_operand(result_0, left.expr_span)
+        self._reject_resource_or_entity_operand(result_1, right.expr_span)
         op = expr.operator
 
         try:
