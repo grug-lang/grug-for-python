@@ -422,6 +422,13 @@ class GrugState:
         # Validate PascalCase
         self._check_custom_id_is_pascal(entity_type, grug_file_path)
 
+        if entity_type not in self.mod_api.entities:
+            if entity_type in self.mod_api.classes:
+                message = f"'{entity_type}' is a class, not an entity"
+            else:
+                message = f"Entity '{entity_type}' is not registered in the mod_api.json"
+            raise GrugError.new_file_name_error(grug_file_path, message)
+
         return entity_type
 
     def _check_custom_id_is_pascal(self, type_name: str, grug_file_path: Path):

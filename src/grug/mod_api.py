@@ -57,6 +57,7 @@ class ModApiExportFn:
 class ModApiEntity:
     description: str
     export_fns: Dict[str, ModApiExportFn]
+    methods: Dict[str, ModApiHostFn]
     static_methods: Dict[str, ModApiHostFn]
 
 
@@ -75,6 +76,21 @@ class ModApi:
     classes: Dict[str, ModApiClass]
     host_fns: Dict[str, ModApiHostFn]
     constraints: Dict[str, ModApiConstraint]
+
+    def methods_of(
+        self, type_name: str
+    ) -> Optional[Tuple[Dict[str, ModApiHostFn], Type]]:
+        """The methods declared on a class or entity, along with the type a
+        receiver of them must have, or None if the name does not belong to either."""
+        mod_api_class = self.classes.get(type_name)
+        if mod_api_class is not None:
+            return mod_api_class.methods, mod_api_class.type
+
+        entity = self.entities.get(type_name)
+        if entity is not None:
+            return entity.methods, IdType(type_name)
+
+        return None
 
     def static_methods_of(self, type_name: str) -> Optional[Dict[str, ModApiHostFn]]:
         """The static functions declared on a class or entity, or None if the
@@ -183,9 +199,9 @@ Error: {message}
         A name identifies at most one of them, because a class or entity that
         declares both is rejected when mod_api.json is parsed. That is what lets
         registering one take a name and nothing else."""
-        mod_api_class = self.classes.get(type_name)
-        if mod_api_class is not None:
-            host_fn_data = mod_api_class.methods.get(fn_name)
+        methods = self.methods_of(type_name)
+        if methods is not None:
+            host_fn_data = methods[0].get(fn_name)
             if host_fn_data is not None:
                 return "method", host_fn_data
 
@@ -210,6 +226,7 @@ class ModApiParseContext:
     file_path: Path
     path: List[str] = field(default_factory=lambda: [])
     constraint_names: List[str] = field(default_factory=lambda: [])
+    constraints: Dict[str, ModApiConstraint] = field(default_factory=lambda: {})
 
     def push_path(self, path: str) -> None:
         self.path.append(path)
@@ -415,6 +432,31 @@ Error: {error_message}
             fn_ptr=None,
         )
 
+    def parse_methods(
+        self, owner_values: Dict[str, Any], parent_generics: List[ModApiGeneric]
+    ) -> Dict[str, ModApiHostFn]:
+        methods: Dict[str, ModApiHostFn] = {}
+        if "methods" not in owner_values:
+            return methods
+
+        self.push_path(".methods")
+        methods_obj = owner_values["methods"]
+        if not isinstance(methods_obj, dict):
+            raise self.new_error("is not an object")
+        methods_obj = cast(Dict[str, Any], methods_obj)
+
+        for method_name, method_values in methods_obj.items():
+            self.push_path(f".{method_name}")
+            if not isinstance(method_values, dict):
+                raise self.new_error("is not an object")
+            method_values = cast(Dict[str, Any], method_values)
+
+            methods[method_name] = self.parse_host_fn(method_values, parent_generics)
+            self.pop_path()
+
+        self.pop_path()
+        return methods
+
     def parse_static_methods(
         self, owner_values: Dict[str, Any], parent_generics: List[ModApiGeneric]
     ) -> Dict[str, ModApiHostFn]:
@@ -446,36 +488,59 @@ Error: {error_message}
         self,
         parameters: List[Parameter],
         return_type: Type,
-        known_types: Dict[str, int],
+        generics: List[ModApiGeneric],
+        known_types: Dict[str, List[ModApiGeneric]],
     ) -> None:
         self.push_path(".parameters")
         for parameter in parameters:
             self.push_path(f'["{parameter.name}"]')
-            self.validate_type(parameter.type, known_types)
+            self.validate_type(parameter.type, generics, known_types)
             self.pop_path()
         self.pop_path()
 
         self.push_path(".return_type")
-        self.validate_type(return_type, known_types)
+        self.validate_type(return_type, generics, known_types)
         self.pop_path()
 
-    def validate_type(self, ty: Type, known_types: Dict[str, int]) -> None:
+    # `generics` are the generics that the existentials within `ty` refer to
+    def validate_type(
+        self,
+        ty: Type,
+        generics: List[ModApiGeneric],
+        known_types: Dict[str, List[ModApiGeneric]],
+    ) -> None:
         if not isinstance(ty, IdType):
             return
 
         self.push_path(".generics")
-        num_generics = known_types.get(ty.name)
+        declared_generics = known_types.get(ty.name)
 
-        if num_generics is not None:
-            if num_generics != len(ty.generics):
+        if declared_generics is not None:
+            if len(declared_generics) != len(ty.generics):
                 raise self.new_error(
-                    f": {ty.name} was declared to have {num_generics} generics "
+                    f": {ty.name} was declared to have {len(declared_generics)} generics "
                     f"but here it has {len(ty.generics)}"
                 )
 
-            for index, generic in enumerate(ty.generics):
+            for index, (generic, declared) in enumerate(
+                zip(ty.generics, declared_generics)
+            ):
                 self.push_path(f"[{index}]")
-                self.validate_type(generic, known_types)
+                if isinstance(generic, ResourceStrType):
+                    raise self.new_error("resource strings cannot be used in generics")
+                if isinstance(generic, EntityStrType):
+                    raise self.new_error("entity strings cannot be used in generics")
+                for constraint_name in declared.constraints:
+                    if not self.implements_constraint(generic, generics, constraint_name):
+                        name = (
+                            generics[generic.idx].name
+                            if isinstance(generic, ExistentialType)
+                            else str(generic)
+                        )
+                        raise self.new_error(
+                            f"type '{name}' must implement constraint '{constraint_name}'"
+                        )
+                self.validate_type(generic, generics, known_types)
                 self.pop_path()
             self.pop_path()
             return
@@ -485,6 +550,45 @@ Error: {error_message}
                 f': {ty.name} was not declared in "classes", so it cannot have generics'
             )
         self.pop_path()
+
+    # Whether `ty`, whose existentials refer to `generics`, implements the constraint
+    def implements_constraint(
+        self, ty: Type, generics: List[ModApiGeneric], constraint_name: str
+    ) -> bool:
+        if (
+            isinstance(ty, ExistentialType)
+            and constraint_name in generics[ty.idx].constraints
+        ):
+            return True
+        return any(
+            self.type_matches_implementor(ty, generics, implementor.type, implementor.generics)
+            for implementor in self.constraints[constraint_name].implementors
+        )
+
+    def type_matches_implementor(
+        self,
+        ty: Type,
+        generics: List[ModApiGeneric],
+        implementor_type: Type,
+        implementor_generics: List[ModApiGeneric],
+    ) -> bool:
+        if isinstance(ty, IdType) and isinstance(implementor_type, IdType):
+            return ty.name == implementor_type.name and all(
+                self.type_matches_implementor(
+                    generic, generics, implementor_generic, implementor_generics
+                )
+                for generic, implementor_generic in zip(
+                    ty.generics, implementor_type.generics
+                )
+            )
+        # The implementor accepts any type that implements its generic's constraints
+        if isinstance(implementor_type, ExistentialType):
+            return all(
+                self.implements_constraint(ty, generics, constraint_name)
+                for constraint_name in implementor_generics[implementor_type.idx].constraints
+            )
+        # Resource and entity strings end up here, since no implementor can be one
+        return isinstance(ty, PrimitiveType) and ty == implementor_type
 
 
 def get_mod_api(mod_api_path: Path) -> ModApi:
@@ -631,11 +735,12 @@ Error: {error_message}
 
                 context.pop_path()
 
+            entity_methods = context.parse_methods(entity_values, [])
             entity_static_methods = context.parse_static_methods(entity_values, [])
 
             context.pop_path()
             entities[entity_name] = ModApiEntity(
-                description, export_fns, entity_static_methods
+                description, export_fns, entity_methods, entity_static_methods
             )
         context.pop_path()
 
@@ -658,24 +763,7 @@ Error: {error_message}
 
             ty = IdType(class_name, [ExistentialType(i) for i in range(len(generics))])
 
-            methods: Dict[str, ModApiHostFn] = {}
-            if "methods" in class_values:
-                context.push_path(".methods")
-                methods_obj = class_values["methods"]
-
-                for method_name, method_values in methods_obj.items():
-                    context.push_path(f".{method_name}")
-                    if not isinstance(method_values, dict):
-                        raise context.new_error("is not an object")
-                    method_values = cast(Dict[str, Any], method_values)
-
-                    methods[method_name] = context.parse_host_fn(
-                        method_values, generics
-                    )
-                    context.pop_path()
-
-                context.pop_path()
-
+            methods = context.parse_methods(class_values, generics)
             static_methods = context.parse_static_methods(class_values, generics)
 
             context.pop_path()
@@ -704,11 +792,12 @@ Error: {error_message}
         context.pop_path()
 
     # validate all types in mod_api
-    known_types: Dict[str, int] = {}
+    context.constraints = constraints
+    known_types: Dict[str, List[ModApiGeneric]] = {}
 
     context.push_path(".entities")
     for entity_name in entities:
-        known_types[entity_name] = 0
+        known_types[entity_name] = []
     context.pop_path()
 
     context.push_path(".classes")
@@ -716,7 +805,7 @@ Error: {error_message}
         context.push_path(f".{class_name}")
         if class_name in known_types:
             raise context.new_error("class name already exists")
-        known_types[class_name] = len(class_data.generics)
+        known_types[class_name] = class_data.generics
         context.pop_path()
 
     for class_name, class_data in classes.items():
@@ -725,7 +814,7 @@ Error: {error_message}
         for method_name, host_fn in class_data.methods.items():
             context.push_path(f".{method_name}")
             context.validate_function(
-                host_fn.parameters, host_fn.return_type, known_types
+                host_fn.parameters, host_fn.return_type, host_fn.generics, known_types
             )
             context.pop_path()
         context.pop_path()
@@ -736,7 +825,7 @@ Error: {error_message}
             if static_method_name in class_data.methods:
                 raise context.new_error("is already declared as a method")
             context.validate_function(
-                host_fn.parameters, host_fn.return_type, known_types
+                host_fn.parameters, host_fn.return_type, host_fn.generics, known_types
             )
             context.pop_path()
         context.pop_path()
@@ -746,7 +835,9 @@ Error: {error_message}
     context.push_path(".host_functions")
     for fn_name, host_fn in host_fns.items():
         context.push_path(f".{fn_name}")
-        context.validate_function(host_fn.parameters, host_fn.return_type, known_types)
+        context.validate_function(
+            host_fn.parameters, host_fn.return_type, host_fn.generics, known_types
+        )
         context.pop_path()
     context.pop_path()
 
@@ -756,15 +847,26 @@ Error: {error_message}
         for fn_name, export_fn in entity.export_fns.items():
             context.push_path(f".{fn_name}")
             context.validate_function(
-                export_fn.parameters, PrimitiveType.VOID, known_types
+                export_fn.parameters, PrimitiveType.VOID, [], known_types
             )
             context.pop_path()
+
+        context.push_path(".methods")
+        for method_name, host_fn in entity.methods.items():
+            context.push_path(f".{method_name}")
+            context.validate_function(
+                host_fn.parameters, host_fn.return_type, host_fn.generics, known_types
+            )
+            context.pop_path()
+        context.pop_path()
 
         context.push_path(".static_methods")
         for static_method_name, host_fn in entity.static_methods.items():
             context.push_path(f".{static_method_name}")
+            if static_method_name in entity.methods:
+                raise context.new_error("is already declared as a method")
             context.validate_function(
-                host_fn.parameters, host_fn.return_type, known_types
+                host_fn.parameters, host_fn.return_type, host_fn.generics, known_types
             )
             context.pop_path()
         context.pop_path()
@@ -778,7 +880,7 @@ Error: {error_message}
         for index, implementor in enumerate(constraint.implementors):
             context.push_path(f"[{index}]")
             context.push_path(".type")
-            context.validate_type(implementor.type, known_types)
+            context.validate_type(implementor.type, implementor.generics, known_types)
             context.pop_path()
             context.pop_path()
         context.pop_path()
