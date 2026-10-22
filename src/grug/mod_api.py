@@ -318,6 +318,10 @@ Error: {error_message}
         ty = self.get_string(obj, "name")
         self.pop_path()
 
+        if ty != "resource" and "optional" in obj:
+            self.push_path(".optional")
+            raise self.new_error("is only allowed on resource types")
+
         if ty == "bool":
             return PrimitiveType.BOOL
         if ty == "number":
