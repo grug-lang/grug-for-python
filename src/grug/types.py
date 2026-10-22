@@ -30,8 +30,8 @@ class PrimitiveType(Enum):
 class ExistentialType:
     idx: int
 
-    # we never print an existential type, but a user might
-    def __str__(self):  # pragma: no cover
+    # printed in mod_api.json errors about constraints
+    def __str__(self):
         return f"${self.idx}"
 
 
@@ -52,8 +52,8 @@ class ResourceStrType:
     extension: str
     optional: bool
 
-    # We never print "resource" using this function
-    def __str__(self):  # pragma: no cover
+    # printed in mod_api.json errors about constraints
+    def __str__(self):
         return "resource"
 
 

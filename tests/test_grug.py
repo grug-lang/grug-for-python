@@ -621,6 +621,7 @@ class GameFnRegistrator:
             "say",
             "sin",
             "cos",
+            "count_matching",
             "mega",
             "eval_order_1",
             "eval_order_2",
@@ -682,6 +683,7 @@ class GameFnRegistrator:
             self._register_static_method("VecNumber", method_name, native_name)
 
         self._register_static_method("D", "magic", "d_magic")
+        self._register_method("D", "double", "d_double")
         self._register_static_method("Utils", "fail", "Utils_fail")
 
         for method_name, native_name in (
@@ -832,8 +834,13 @@ class GameFnRegistrator:
             class_name,
             name,
             native_name,
-            self.state.mod_api.classes[class_name].methods[name],
+            self._method_data(class_name, name),
         )
+
+    def _method_data(self, type_name: str, name: str):
+        methods = self.state.mod_api.methods_of(type_name)
+        assert methods is not None, type_name
+        return methods[0][name]
 
     def _static_method_data(self, type_name: str, name: str):
         static_methods = self.state.mod_api.static_methods_of(type_name)

@@ -887,8 +887,8 @@ class TypePropagator:
 
         host_fn = static_methods.get(expr.fn_name)
         if host_fn is None:
-            mod_api_class = self.mod_api.classes.get(type_name)
-            if mod_api_class is not None and expr.fn_name in mod_api_class.methods:
+            methods = self.mod_api.methods_of(type_name)
+            if methods is not None and expr.fn_name in methods[0]:
                 raise self.new_error(
                     expr.name_span,
                     f"'{expr.fn_name}' is a method on '{type_name}', so it must be called on a value of that type, like 'x.{expr.fn_name}()'",
@@ -951,16 +951,19 @@ class TypePropagator:
             )
 
         receiver_name = receiver_type.name
-        mod_api_class = self.mod_api.classes.get(receiver_name)
-        if mod_api_class is None:
+        methods_and_type = self.mod_api.methods_of(receiver_name)
+        if methods_and_type is None:
             raise self.new_error(
                 expr.receiver.expr_span,
                 f"Type '{receiver_name}' does not have any methods",
             )
+        methods, owner_type = methods_and_type
 
-        host_fn = mod_api_class.methods.get(expr.fn_name)
+        host_fn = methods.get(expr.fn_name)
         if host_fn is None:
-            if expr.fn_name in mod_api_class.static_methods:
+            static_methods = self.mod_api.static_methods_of(receiver_name)
+            assert static_methods is not None
+            if expr.fn_name in static_methods:
                 raise self.new_error(
                     expr.name_span,
                     f"'{expr.fn_name}' is a static method on '{receiver_name}', so it must be called as '{receiver_name}.{expr.fn_name}()'",
@@ -982,7 +985,7 @@ class TypePropagator:
             )
             for param in host_fn.parameters
         ]
-        expected_receiver_type = self.convert_mod_api_type(mod_api_class.type, generics)
+        expected_receiver_type = self.convert_mod_api_type(owner_type, generics)
 
         # Note(nikhil): This call can only fail if we allow non-generic methods on
         # generic classes that are only defined for specific generic params
